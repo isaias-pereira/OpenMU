@@ -15,6 +15,7 @@ services:
       - "55980:55980"
     environment:
       DB_HOST: database
+      ConnectionStrings__DefaultConnection: Host=database;Port=5432;Database=openmu;Username=postgres;Password=postgres
     working_dir: /app/
     volumes:
       - ./.htpasswd:/etc/nginx/.htpasswd
@@ -32,7 +33,7 @@ services:
     image: postgres
     container_name: database
     environment:
-      POSTGRES_PASSWORD: admin
+      POSTGRES_PASSWORD: postgres
       POSTGRES_DB: openmu
       POSTGRES_USER: postgres
     networks:

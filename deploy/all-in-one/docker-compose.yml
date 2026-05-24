@@ -26,6 +26,7 @@ services:
       - "55980:55980"
     environment:
       DB_HOST: database
+      ConnectionStrings__DefaultConnection: Host=database;Port=5432;Database=openmu;Username=postgres;Password=postgres
       ASPNETCORE_URLS: http://+:8080
     working_dir: /app/
     volumes:
@@ -37,7 +38,7 @@ services:
     image: postgres
     container_name: database
     environment:
-      POSTGRES_PASSWORD: admin
+      POSTGRES_PASSWORD: postgres
       POSTGRES_DB: openmu
       POSTGRES_USER: postgres
     ports:

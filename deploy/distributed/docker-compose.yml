@@ -98,7 +98,7 @@ services:
     container_name: postgres
     restart: always
     environment:
-      POSTGRES_PASSWORD: admin
+      POSTGRES_PASSWORD: postgres
       POSTGRES_DB: openmu
       POSTGRES_USER: postgres
     ports:
