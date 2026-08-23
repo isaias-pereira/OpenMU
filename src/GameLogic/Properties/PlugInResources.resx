@@ -471,6 +471,36 @@
   <data name="AddCommandStatChatCommandPlugIn_Description" xml:space="preserve">
     <value>Adds the specified amount of command points to the character.</value>
   </data>
+  <data name="AddStrengthShortChatCommandPlugIn_Name" xml:space="preserve">
+    <value>Add strength short chat command</value>
+  </data>
+  <data name="AddStrengthShortChatCommandPlugIn_Description" xml:space="preserve">
+    <value>Adds the specified amount of strength points to the character. Short command for '/addstr'.</value>
+  </data>
+  <data name="AddAgilityShortChatCommandPlugIn_Name" xml:space="preserve">
+    <value>Add agility short chat command</value>
+  </data>
+  <data name="AddAgilityShortChatCommandPlugIn_Description" xml:space="preserve">
+    <value>Adds the specified amount of agility points to the character. Short command for '/addagi'.</value>
+  </data>
+  <data name="AddVitalityShortChatCommandPlugIn_Name" xml:space="preserve">
+    <value>Add vitality short chat command</value>
+  </data>
+  <data name="AddVitalityShortChatCommandPlugIn_Description" xml:space="preserve">
+    <value>Adds the specified amount of vitality points to the character. Short command for '/addvit'.</value>
+  </data>
+  <data name="AddEnergyShortChatCommandPlugIn_Name" xml:space="preserve">
+    <value>Add energy short chat command</value>
+  </data>
+  <data name="AddEnergyShortChatCommandPlugIn_Description" xml:space="preserve">
+    <value>Adds the specified amount of energy points to the character. Short command for '/addene'.</value>
+  </data>
+  <data name="AddCommandShortChatCommandPlugIn_Name" xml:space="preserve">
+    <value>Add command short chat command</value>
+  </data>
+  <data name="AddCommandShortChatCommandPlugIn_Description" xml:space="preserve">
+    <value>Adds the specified amount of command points to the character. Short command for '/addcmd'.</value>
+  </data>
   <data name="AddEnergyStatChatCommandPlugIn_Name" xml:space="preserve">
     <value>Add energy chat command</value>
   </data>

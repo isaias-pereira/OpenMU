@@ -151,6 +151,96 @@ namespace MUnique.OpenMU.GameLogic.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Adds the specified amount of strength points to the character. Short command for '/addstr'..
+        /// </summary>
+        public static string AddStrengthShortChatCommandPlugIn_Description {
+            get {
+                return ResourceManager.GetString("AddStrengthShortChatCommandPlugIn_Description", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Add strength short chat command.
+        /// </summary>
+        public static string AddStrengthShortChatCommandPlugIn_Name {
+            get {
+                return ResourceManager.GetString("AddStrengthShortChatCommandPlugIn_Name", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Adds the specified amount of agility points to the character. Short command for '/addagi'..
+        /// </summary>
+        public static string AddAgilityShortChatCommandPlugIn_Description {
+            get {
+                return ResourceManager.GetString("AddAgilityShortChatCommandPlugIn_Description", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Add agility short chat command.
+        /// </summary>
+        public static string AddAgilityShortChatCommandPlugIn_Name {
+            get {
+                return ResourceManager.GetString("AddAgilityShortChatCommandPlugIn_Name", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Adds the specified amount of vitality points to the character. Short command for '/addvit'..
+        /// </summary>
+        public static string AddVitalityShortChatCommandPlugIn_Description {
+            get {
+                return ResourceManager.GetString("AddVitalityShortChatCommandPlugIn_Description", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Add vitality short chat command.
+        /// </summary>
+        public static string AddVitalityShortChatCommandPlugIn_Name {
+            get {
+                return ResourceManager.GetString("AddVitalityShortChatCommandPlugIn_Name", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Adds the specified amount of energy points to the character. Short command for '/addene'..
+        /// </summary>
+        public static string AddEnergyShortChatCommandPlugIn_Description {
+            get {
+                return ResourceManager.GetString("AddEnergyShortChatCommandPlugIn_Description", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Add energy short chat command.
+        /// </summary>
+        public static string AddEnergyShortChatCommandPlugIn_Name {
+            get {
+                return ResourceManager.GetString("AddEnergyShortChatCommandPlugIn_Name", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Adds the specified amount of command points to the character. Short command for '/addcmd'..
+        /// </summary>
+        public static string AddCommandShortChatCommandPlugIn_Description {
+            get {
+                return ResourceManager.GetString("AddCommandShortChatCommandPlugIn_Description", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Add command short chat command.
+        /// </summary>
+        public static string AddCommandShortChatCommandPlugIn_Name {
+            get {
+                return ResourceManager.GetString("AddCommandShortChatCommandPlugIn_Name", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Adds the specified amount of vitality points to the character..
         /// </summary>
         public static string AddVitalityStatChatCommandPlugIn_Description {

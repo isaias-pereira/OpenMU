@@ -1,0 +1,5 @@
+FROM munique/openmu:latest
+
+USER root
+RUN apk add --no-cache krb5-libs
+USER 1000

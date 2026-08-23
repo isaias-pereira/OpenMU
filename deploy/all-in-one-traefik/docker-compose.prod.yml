@@ -1,6 +1,9 @@
 services:
   openmu-startup:
-    image: munique/openmu
+    build:
+      context: .
+      dockerfile: Dockerfile.openmu
+    image: munique/openmu:latest
     container_name: openmu-startup
     networks:
       - proxy
@@ -12,25 +15,29 @@ services:
       - "55905:55905"
       - "55906:55906"
       - "44405:44405"
+      - "44406:44406"
       - "55980:55980"
     environment:
       DB_HOST: database
       ConnectionStrings__DefaultConnection: Host=database;Port=5432;Database=openmu;Username=postgres;Password=postgres
+      RESOLVE_IP: 127.0.0.1
     working_dir: /app/
     volumes:
       - ./.htpasswd:/etc/nginx/.htpasswd
     depends_on:
-      - database
+      database:
+        condition: service_healthy
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=proxy"
       - "traefik.http.routers.openmu.entrypoints=websecure"
       - "traefik.http.routers.openmu.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.services.openmu.loadbalancer.server.port=8080"
       - "traefik.http.routers.openmu.middlewares=auth"
       - "traefik.http.middlewares.auth.basicauth.usersfile=.htpasswd"
 
   database:
-    image: postgres
+    image: postgres:15
     container_name: database
     environment:
       POSTGRES_PASSWORD: postgres
@@ -41,12 +48,27 @@ services:
     ports:
       - "5432"
     volumes:
-      - dbdata:/var/lib/postgresql #store data on volume
+      - dbdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   traefik:
     image: traefik
     container_name: traefik
     restart: always
+    command:
+      - "--log.level=INFO"
+      - "--api.dashboard=false"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
+      - "--certificatesresolvers.myresolver.acme.email=isaias.pereira0003@gmail.com"
+      - "--certificatesresolvers.myresolver.acme.storage=/acme.json"
     security_opt:
       - no-new-privileges:true
     ports:

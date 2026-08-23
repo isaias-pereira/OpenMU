@@ -1,6 +1,12 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project>
 
+    <PropertyGroup>
+        <!-- Disable running analyzers during build to reduce warning noise. -->
+        <RunAnalyzersDuringBuild>false</RunAnalyzersDuringBuild>
+        <RunAnalyzersDuringLiveAnalysis>false</RunAnalyzersDuringLiveAnalysis>
+    </PropertyGroup>
+
     <ItemGroup Label="commom configuration code style.">
         
         <PackageReference Include="Microsoft.VisualStudio.Threading.Analyzers">

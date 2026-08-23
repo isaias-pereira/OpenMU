@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <AssemblyName>MUnique.OpenMU.StatAliases</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="MUnique.OpenMU.GameLogic"><HintPath>/app/MUnique.OpenMU.GameLogic.dll</HintPath></Reference>
+    <Reference Include="MUnique.OpenMU.PlugIns"><HintPath>/app/MUnique.OpenMU.PlugIns.dll</HintPath></Reference>
+    <Reference Include="MUnique.OpenMU.DataModel"><HintPath>/app/MUnique.OpenMU.DataModel.dll</HintPath></Reference>
+  </ItemGroup>
+</Project>
