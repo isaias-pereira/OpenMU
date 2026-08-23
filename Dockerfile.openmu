@@ -1,60 +1,58 @@
-# Dockerfile que compila o código-fonte local do OpenMU (incluindo plugins customizados).
-# Build context: raiz do repositório (C:\Dev\MuOpenSource\OpenMU).
-# Uso: docker compose -f deploy/all-in-one-traefik/docker-compose.yml build openmu
+# ------------------------------
+# Bash:  docker compose -f docker-compose.yml build openmu
+# ------------------------------
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS base
-WORKDIR /app
-
-RUN apk add --no-cache icu-libs
-ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
-
-EXPOSE 8080
-EXPOSE 55901
-EXPOSE 55902
-EXPOSE 55903
-EXPOSE 55904
-EXPOSE 55905
-EXPOSE 55906
-EXPOSE 44405
-EXPOSE 55980
-
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS build
+# ---- Build stage (compila tudo) -------------------------------------------------
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
-# Copia os arquivos de configuração de pacotes e build
+# --- 1️⃣  Restaurar pacotes -----------------------------------------
+# Copie apenas os arquivos de configuração de pacotes e as.props
 COPY src/Directory.Packages.props .
 COPY src/Directory.Build.props .
 
-# Copia os csproj para restaurar dependências (cache de camadas)
-COPY src/Startup/*.csproj Startup/
+# Copie apenas os csproj para aproveitar o cache
+COPY src/Startup/*.csproj  Startup/
 COPY src/Persistence/**/*.csproj Persistence/
 
-RUN dotnet restore "Startup/MUnique.OpenMU.Startup.csproj"
+# Restaurar pacotes
+RUN dotnet restore Startup/*.csproj Persistence/**/*.csproj
 
-# Copia todo o código-fonte
+# --- 2️⃣  Copie o restante do código -----------------------------
 COPY src/ .
 
-WORKDIR /src/Startup
-
-RUN dotnet build "MUnique.OpenMU.Startup.csproj" \
+# --- 3️⃣  Compilar -----------------------------------------------------------
+# Ajuste os nomes dos projetos de acordo com sua solução
+# aqui assumimos que o projeto que abre o servidor está em
+# src/Startup/Server/Server.csproj
+RUN dotnet build Startup/Server/Server.csproj \
     -c Release \
     -o /app/build \
     -p:ci=true
 
+# ---- Publish stage (gera o artefacto final) ----------------------------
 FROM build AS publish
-RUN dotnet publish "MUnique.OpenMU.Startup.csproj" \
+RUN dotnet publish Startup/Server/Server.csproj \
     -c Release \
     -o /app/publish \
     -p:ci=true
 
-FROM base AS final
+# ---- Final stage (runtime) -----------------------------------------------
+FROM mcr.microsoft.com/dotnet/runtime:8.0 AS final
 WORKDIR /app
 
+# Copie apenas os artefatos produzidos, incluindo as DLLs de plugins
 COPY --from=publish /app/publish .
 
+# Permissões para logs
 RUN mkdir -p /app/logs && chmod 777 /app/logs
 
+# Usuário (opcional) – só necessário se você quiser separar UID/GID
 ARG APP_UID=1000
 USER ${APP_UID}
 
-ENTRYPOINT ["dotnet", "MUnique.OpenMU.Startup.dll", "-autostart"]
+# Expose as portas usadas pelo OpenMU
+EXPOSE 8080 55901 55902 55903 55904 55905 55906 44405 55980
+
+# Starto o servidor
+ENTRYPOINT ["dotnet", "Server.dll", "-autostart"]
