@@ -94,8 +94,10 @@ panel is not encrypted.
 
 #### Set your domain name as environment variable
 
-Make a copy of `.env.example` called `.env` and edit the `.env` file with your
-domain/subdomain to the AdminPanel URL.
+Make a copy of `.env.example` called `.env` and set `DOMAIN` to the
+AdminPanel hostname. Set `WEBSITE_DOMAIN` to the public website hostname; it
+must be different from `DOMAIN` because each hostname is routed to a different
+container.
 
 ``` bash
 cp .env.example .env

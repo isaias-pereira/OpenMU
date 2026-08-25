@@ -55,6 +55,31 @@ services:
       timeout: 5s
       retries: 10
 
+  website:
+    build:
+      context: ./website
+      dockerfile: Dockerfile
+    container_name: website
+    networks:
+      - proxy
+    environment:
+      DB_HOST: database
+      DB_PORT: 5432
+      DB_NAME: openmu
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      FLASK_DEBUG: "false"
+    depends_on:
+      database:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.website.entrypoints=websecure"
+      - "traefik.http.routers.website.rule=Host(`${WEBSITE_DOMAIN:-muonline.com.br}`)"
+      - "traefik.http.services.website.loadbalancer.server.port=5000"
+    restart: unless-stopped
+
   traefik:
     image: traefik
     container_name: traefik
