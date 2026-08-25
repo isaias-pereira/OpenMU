@@ -99,6 +99,10 @@ AdminPanel hostname. Set `WEBSITE_DOMAIN` to the public website hostname; it
 must be different from `DOMAIN` because each hostname is routed to a different
 container.
 
+If you keep `all-in-one-traefik` directly under the repository root instead
+of under `deploy/`, set `OPENMU_ROOT=..` in `.env` so Docker builds the
+OpenMU source from the correct directory.
+
 ``` bash
 cp .env.example .env
 ```
