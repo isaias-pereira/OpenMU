@@ -1668,3 +1668,9 @@ body {
         gap: 5px;
     }
 }
+
+
+/* Character Background Atmospheres */
+.mu-char-bg-knight { position: fixed; top: 0; right: 0; width: 48vw; max-width: 800px; height: 100vh; background-image: url(../images/mu-dark-knight.jpg); background-size: cover; background-position: right top; background-repeat: no-repeat; opacity: .45; mix-blend-mode: screen; pointer-events: none; z-index: 0; mask-image: radial-gradient(ellipse at 75% 35%, black 35%, rgba(0,0,0,.5) 65%, transparent 90%); -webkit-mask-image: radial-gradient(ellipse at 75% 35%, black 35%, rgba(0,0,0,.5) 65%, transparent 90%); filter: contrast(120%) saturate(115%) brightness(1.2); transition: opacity .5s ease; }
+.mu-char-bg-elf { position: fixed; bottom: 0; left: 0; width: 46vw; max-width: 750px; height: 95vh; background-image: url(../images/mu-fairy-elf.jpg); background-size: cover; background-position: left bottom; background-repeat: no-repeat; opacity: .4; mix-blend-mode: screen; pointer-events: none; z-index: 0; mask-image: radial-gradient(ellipse at 30% 65%, black 35%, rgba(0,0,0,.45) 60%, transparent 88%); -webkit-mask-image: radial-gradient(ellipse at 30% 65%, black 35%, rgba(0,0,0,.45) 60%, transparent 88%); filter: contrast(115%) saturate(110%) brightness(1.15); }
+.mu-char-bg-wizard { position: fixed; top: 20%; left: 26%; width: 48vw; max-width: 700px; height: 75vh; background-image: url(../images/mu-soul-master.jpg); background-size: cover; background-position: center center; background-repeat: no-repeat; opacity: .25; mix-blend-mode: screen; pointer-events: none; z-index: 0; mask-image: radial-gradient(circle at center, black 30%, rgba(0,0,0,.3) 60%, transparent 85%); -webkit-mask-image: radial-gradient(circle at center, black 30%, rgba(0,0,0,.3) 65%, transparent 85%); filter: contrast(115%) saturate(115%) brightness(1.2); }
