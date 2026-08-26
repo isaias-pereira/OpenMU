@@ -1,0 +1,3468 @@
+<!-- Atmospheric Background Animation with Discrete Character Background Art & Geometric Silhouettes -->
+<div class="bg-animation" id="bgAtmosphere">
+  <!-- Geometric character silhouettes -->
+  <div class="character-silhouette" style="top:8%;left:4%;width:380px;height:580px" aria-hidden="true">
+    <svg viewBox="0 0 200 300" fill="#d4af37">
+      <path d="M100 20 L130 50 L120 120 L150 180 L130 280 L70 280 L50 180 L80 120 L70 50 Z"/>
+      <path d="M60 60 Q20 80 10 150 Q10 220 50 200"/>
+      <path d="M140 60 Q180 80 190 150 Q190 220 150 200"/>
+    </svg>
+  </div>
+  <div class="character-silhouette" style="top:5%;right:-3%;width:480px;height:680px" aria-hidden="true">
+    <svg viewBox="0 0 200 300" fill="#8b0000">
+      <path d="M100 10 L140 40 L160 100 L140 250 L100 290 L60 250 L40 100 L60 40 Z"/>
+      <path d="M160 100 L190 120 L185 200 L150 180 Z"/>
+      <path d="M40 100 L10 120 L15 200 L50 180 Z"/>
+    </svg>
+  </div>
+
+  <!-- Subtle character overlays with reduced opacity & vignette blending -->
+  <div class="mu-char-bg-knight" aria-hidden="true"></div>
+  <div class="mu-char-bg-elf" aria-hidden="true"></div>
+  <div class="mu-char-bg-wizard" aria-hidden="true"></div>
+
+  <!-- Animated floating embers -->
+  <div class="particle"></div>
+  <div class="particle"></div>
+  <div class="particle"></div>
+  <div class="particle"></div>
+  <div class="particle"></div>
+  <div class="particle"></div>
+  <div class="particle"></div>
+  <div class="particle"></div>
+  <div class="particle"></div>
+  <div class="particle"></div>
+</div>
+
+<!-- Global Toast Notification -->
+@if (showSuccessToast()) {
+  <div class="fixed bottom-6 right-6 z-50 bg-[#0e1626] border border-amber-500/50 text-amber-200 px-5 py-3.5 rounded-lg shadow-2xl shadow-black flex items-center gap-3 animate-bounce">
+    <mat-icon class="text-amber-400">check_circle</mat-icon>
+    <span class="text-sm font-medium">{{ showSuccessToast() }}</span>
+  </div>
+}
+
+<!-- ========================================== -->
+<!-- PUBLIC WEBSITE (INDEX, REGISTER, CLASSES, RANKING, DOWNLOAD) -->
+<!-- ========================================== -->
+@if (currentTab() !== 'account') {
+  <!-- Header -->
+  <header class="header">
+    <div class="container">
+      <div
+        class="logo"
+        role="button"
+        tabindex="0"
+        (click)="navigateTo('home')"
+        (keydown.enter)="navigateTo('home')"
+        (keydown.space)="navigateTo('home')"
+      >
+        <div class="logo-diamond">
+          <span class="logo-diamond-text">M</span>
+        </div>
+        <div class="flex flex-col">
+          <h1>MU <span>FREE</span></h1>
+          <p class="subtitle">{{ serverInfo().season }} • {{ serverInfo().version }}</p>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <a
+          href="#home"
+          class="nav-link"
+          [class.active]="currentTab() === 'home'"
+          (click)="$event.preventDefault(); navigateTo('home')"
+        >Início</a>
+
+        <a
+          href="#register"
+          class="nav-link"
+          [class.active]="currentTab() === 'register'"
+          (click)="$event.preventDefault(); navigateTo('register')"
+        >Cadastro</a>
+
+        <a
+          href="#classes"
+          class="nav-link"
+          [class.active]="currentTab() === 'classes'"
+          (click)="$event.preventDefault(); navigateTo('classes')"
+        >Classes</a>
+
+        <a
+          href="#ranking"
+          class="nav-link"
+          [class.active]="currentTab() === 'ranking'"
+          (click)="$event.preventDefault(); navigateTo('ranking')"
+        >Ranking</a>
+
+        @if (isGM()) {
+          <a
+            href="#events"
+            id="nav-events-link"
+            class="nav-link text-amber-300 hover:text-amber-200"
+            [class.active]="currentTab() === 'events'"
+            (click)="$event.preventDefault(); navigateTo('events')"
+            title="Painel GM: Gestão e Horários de Eventos"
+          >
+            <span class="inline-flex items-center gap-1.5">
+              <span class="px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-gradient-to-r from-red-600 to-amber-500 text-white font-mono shadow-sm">GM</span>
+              <span>Eventos</span>
+            </span>
+          </a>
+        }
+
+        <a
+          href="#download"
+          class="nav-link"
+          [class.active]="currentTab() === 'download'"
+          (click)="$event.preventDefault(); navigateTo('download')"
+        >Download</a>
+      </nav>
+
+      <div class="flex items-center gap-3">
+        @if (currentUser()) {
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              class="btn btn-primary text-xs px-3.5 py-2 flex items-center gap-1.5 shadow-lg shadow-amber-500/10"
+              (click)="navigateTo('account')"
+              title="Acessar Painel da Conta"
+            >
+              <mat-icon class="text-sm">dashboard</mat-icon>
+              PAINEL ({{ currentUser()?.loginName }})
+            </button>
+            <button
+              type="button"
+              class="btn btn-secondary text-xs px-3 py-2 border-red-500/40 text-red-300 hover:text-red-100"
+              id="logoutBtn"
+              (click)="onLogout()"
+              title="Encerrar Sessão"
+            >
+              <mat-icon class="text-sm">logout</mat-icon>
+              SAIR
+            </button>
+          </div>
+        } @else {
+          <button
+            type="button"
+            class="btn btn-login"
+            id="loginOpenBtn"
+            (click)="openLogin()"
+          >
+            <mat-icon class="text-sm mr-1">lock</mat-icon>
+            ENTRAR
+          </button>
+        }
+
+        <div class="server-status hidden md:inline-flex">
+          <span class="status-dot online"></span>
+          <span>{{ serverInfo().onlinePlayers }} ONLINE</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Router / Tabs View for Public Site -->
+  <main>
+  <!-- HOME / HERO SECTION -->
+  @if (currentTab() === 'home') {
+    <section id="home" class="hero">
+      <div class="container">
+        <div class="hero-grid">
+          <!-- Left Column: Hero Content -->
+          <div class="hero-content">
+            <!-- Server Badge -->
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-semibold uppercase tracking-widest mb-4">
+              <span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+              Inauguração Oficial • Season 6 Episódio 3
+            </div>
+
+            <h2 class="hero-title">
+              BEM-VINDO AO <span>MU FREE</span>
+            </h2>
+            
+            <p class="hero-description">
+              A sua diversão está aqui! Reviva a era de ouro das lan houses com a melhor experiência de MU Free.
+              PVP equilibrado, Castle Siege épico, eventos clássicos automáticos e uma comunidade vibrante esperam por você no continente sagrado.
+            </p>
+
+            <div class="hero-buttons">
+              <a
+                href="#register"
+                class="btn btn-primary"
+                (click)="$event.preventDefault(); navigateTo('register')"
+              >
+                <mat-icon>how_to_reg</mat-icon>
+                CADASTRE-SE GRÁTIS
+              </a>
+              
+              <a
+                href="#download"
+                class="btn btn-secondary"
+                (click)="$event.preventDefault(); navigateTo('download')"
+              >
+                <mat-icon>download</mat-icon>
+                BAIXAR O JOGO
+              </a>
+            </div>
+
+            <div class="hero-stats">
+              <div class="stat">
+                <span class="stat-number">Season 6</span>
+                <span class="stat-label">Episódio 3</span>
+              </div>
+              <div class="stat">
+                <span class="stat-number">{{ serverInfo().expRate }}</span>
+                <span class="stat-label">Experiência</span>
+              </div>
+              <div class="stat">
+                <span class="stat-number">{{ serverInfo().dropRate }}</span>
+                <span class="stat-label">Drop Rate</span>
+              </div>
+              <div class="stat">
+                <span class="stat-number">100%</span>
+                <span class="stat-label">PVP Balanceado</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Column: Live Server Events & Countdown Panel -->
+          <div class="hero-ranking-box" id="hero-events-box">
+            <div class="ranking-panel-card">
+              <!-- Card Header -->
+              <div class="ranking-panel-header">
+                <div class="flex items-center gap-2.5">
+                  <div class="w-8 h-8 rounded bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
+                    <mat-icon class="text-base">schedule</mat-icon>
+                  </div>
+                  <div>
+                    <h3 class="text-sm font-bold text-amber-300 font-title uppercase tracking-wider">Eventos do Servidor</h3>
+                    <span class="text-[11px] text-slate-400">Horários e Tempo para Iniciar</span>
+                  </div>
+                </div>
+                <div class="flex items-center gap-1.5 px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-[10px] text-emerald-400 font-bold uppercase tracking-wider">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  Ao Vivo
+                </div>
+              </div>
+
+              <!-- Event Category Switcher Tabs -->
+              <div class="ranking-panel-tabs">
+                <button
+                  type="button"
+                  id="tab-events-all"
+                  class="ranking-tab-btn"
+                  [class.active]="heroEventCategory() === 'all'"
+                  (click)="heroEventCategory.set('all')"
+                >
+                  <mat-icon class="text-sm">view_list</mat-icon>
+                  Todos
+                </button>
+                <button
+                  type="button"
+                  id="tab-events-events"
+                  class="ranking-tab-btn"
+                  [class.active]="heroEventCategory() === 'events'"
+                  (click)="heroEventCategory.set('events')"
+                >
+                  <mat-icon class="text-sm">sports_esports</mat-icon>
+                  Eventos
+                </button>
+                <button
+                  type="button"
+                  id="tab-events-invasions"
+                  class="ranking-tab-btn"
+                  [class.active]="heroEventCategory() === 'invasions'"
+                  (click)="heroEventCategory.set('invasions')"
+                >
+                  <mat-icon class="text-sm">local_fire_department</mat-icon>
+                  Invasões
+                </button>
+              </div>
+
+              <!-- Events List Content -->
+              <div class="ranking-panel-body max-h-[380px] overflow-y-auto custom-scrollbar">
+                <div class="ranking-items">
+                  @for (event of liveEvents(); track event.id) {
+                    <div
+                      class="event-item-row"
+                      [class.event-open]="event.isOpen"
+                      [class.event-imminent]="event.isImminent"
+                      [id]="'event-card-' + event.id"
+                    >
+                      <!-- Event Icon Avatar -->
+                      <div class="event-avatar" [style.border-color]="event.colorTheme + '55'" [style.background]="event.colorTheme + '15'">
+                        <span class="text-lg leading-none select-none">{{ event.icon }}</span>
+                      </div>
+
+                      <!-- Event Details -->
+                      <div class="event-info">
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                          <span class="event-name">{{ event.name }}</span>
+                          @if (event.isOpen) {
+                            <span class="event-status-pill open-pill">
+                              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                              Aberto
+                            </span>
+                          } @else if (event.isImminent) {
+                            <span class="event-status-pill imminent-pill">
+                              <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+                              Iniciando
+                            </span>
+                          }
+                        </div>
+                        <span class="event-sub-detail">
+                          <mat-icon class="text-[11px] w-3 h-3 text-slate-500">place</mat-icon>
+                          {{ event.location }}
+                        </span>
+                      </div>
+
+                      <!-- Countdown Pill -->
+                      <div
+                        class="event-countdown-box"
+                        [class.box-open]="event.isOpen"
+                        [class.box-imminent]="event.isImminent"
+                      >
+                        <span class="countdown-time">{{ event.countdownFormatted }}</span>
+                        <span class="countdown-sub">{{ event.statusLabel }}</span>
+                      </div>
+                    </div>
+                  }
+                </div>
+              </div>
+
+              <!-- Footer Button -->
+              <div class="ranking-panel-footer flex items-center justify-between gap-2">
+                <a
+                  href="#ranking"
+                  id="btn-view-all-events-panel"
+                  class="view-all-ranking-btn flex-1"
+                  (click)="$event.preventDefault(); navigateTo('ranking')"
+                >
+                  <mat-icon class="text-sm">emoji_events</mat-icon>
+                  <span>Ver Rankings Completos & Premiações</span>
+                  <mat-icon class="text-sm">arrow_forward</mat-icon>
+                </a>
+                @if (isGM()) {
+                  <a
+                    href="#events"
+                    class="px-3 py-2 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-xs font-bold border border-amber-500/40 flex items-center gap-1 transition"
+                    (click)="$event.preventDefault(); navigateTo('events')"
+                    title="Acesso Rápido GM: Configurar Horários e Invasões"
+                  >
+                    <mat-icon class="text-xs text-red-400">tune</mat-icon>
+                    <span>Painel GM</span>
+                  </a>
+                }
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- LIVE EVENT HIGHLIGHTS / SERVER TIMETABLE -->
+    <section class="py-12 border-b border-amber-500/10 bg-black/40 backdrop-blur-md">
+      <div class="container">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div class="bg-[#0b0e17]/80 border border-amber-500/20 p-4 rounded-lg flex items-center gap-3 hover:border-amber-500/50 transition">
+            <div class="w-10 h-10 rounded bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 font-bold">
+              🏰
+            </div>
+            <div>
+              <span class="text-xs text-slate-400 uppercase tracking-wider block font-bold">Castle Siege</span>
+              <span class="text-sm text-slate-200 font-medium">{{ serverInfo().castleSiege }}</span>
+            </div>
+          </div>
+
+          <div class="bg-[#0b0e17]/80 border border-amber-500/20 p-4 rounded-lg flex items-center gap-3 hover:border-amber-500/50 transition">
+            <div class="w-10 h-10 rounded bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-400 font-bold">
+              ⚔️
+            </div>
+            <div>
+              <span class="text-xs text-slate-400 uppercase tracking-wider block font-bold">Blood Castle</span>
+              <span class="text-sm text-slate-200 font-medium">{{ serverInfo().bloodCastle }}</span>
+            </div>
+          </div>
+
+          <div class="bg-[#0b0e17]/80 border border-amber-500/20 p-4 rounded-lg flex items-center gap-3 hover:border-amber-500/50 transition">
+            <div class="w-10 h-10 rounded bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 font-bold">
+              🛡️
+            </div>
+            <div>
+              <span class="text-xs text-slate-400 uppercase tracking-wider block font-bold">Chaos Castle</span>
+              <span class="text-sm text-slate-200 font-medium">{{ serverInfo().chaosCastle }}</span>
+            </div>
+          </div>
+
+          <div class="bg-[#0b0e17]/80 border border-amber-500/20 p-4 rounded-lg flex items-center gap-3 hover:border-amber-500/50 transition">
+            <div class="w-10 h-10 rounded bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-bold">
+              💀
+            </div>
+            <div>
+              <span class="text-xs text-slate-400 uppercase tracking-wider block font-bold">Devil Square</span>
+              <span class="text-sm text-slate-200 font-medium">{{ serverInfo().devilSquare }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  }
+
+  <!-- REGISTRATION SECTION -->
+  @if (currentTab() === 'home' || currentTab() === 'register') {
+    <section id="register" class="register-section">
+      <div class="container">
+        <div class="section-header">
+          <h2 class="section-title">CRIE SUA <span>CONTA</span></h2>
+          <p class="section-subtitle">Junte-se a centenas de guerreiros e comece sua jornada lendária em Lorencia</p>
+        </div>
+
+        <div class="register-container">
+          <div class="register-card">
+            <div class="card-header">
+              <div class="card-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+              </div>
+              <div>
+                <h3>Nova Conta</h3>
+                <p class="text-xs text-slate-400 mt-0.5">Cadastre-se e receba 7 dias de VIP e bônus de boas-vindas</p>
+              </div>
+            </div>
+
+            @if (!registerSuccess()) {
+              <form id="registerForm" [formGroup]="registerForm" (ngSubmit)="onRegisterSubmit()" class="register-form">
+                <div class="form-group">
+                  <label for="loginName">Login</label>
+                  <div class="input-wrapper">
+                    <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                      <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                    <input
+                      type="text"
+                      id="loginName"
+                      name="loginName"
+                      formControlName="loginName"
+                      maxlength="10"
+                      placeholder="Escolha seu login (3 a 10 caracteres)"
+                      required
+                    />
+                  </div>
+                  <span class="form-hint">Máximo 10 caracteres, apenas letras e números</span>
+                </div>
+
+                <div class="form-group">
+                  <label for="password">Senha</label>
+                  <div class="input-wrapper">
+                    <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                    </svg>
+                    <input
+                      [type]="showPassword() ? 'text' : 'password'"
+                      id="password"
+                      name="password"
+                      formControlName="password"
+                      placeholder="Crie uma senha segura"
+                      required
+                    />
+                    <button type="button" class="toggle-password" (click)="togglePasswordVisibility()">
+                      <mat-icon class="text-sm text-slate-400">{{ showPassword() ? 'visibility_off' : 'visibility' }}</mat-icon>
+                    </button>
+                  </div>
+
+                  <!-- Password Strength Indicator -->
+                  <div class="password-strength" id="passwordStrength">
+                    <div class="strength-bar" [style.--strength-pct]="passwordStrength().pct + '%'" [style.--strength-color]="passwordStrength().color"></div>
+                    <span class="strength-text" [style.--strength-color]="passwordStrength().color">
+                      Força: {{ passwordStrength().text }}
+                    </span>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label for="confirmPassword">Confirmar Senha</label>
+                  <div class="input-wrapper">
+                    <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                    </svg>
+                    <input
+                      [type]="showPassword() ? 'text' : 'password'"
+                      id="confirmPassword"
+                      name="confirmPassword"
+                      formControlName="confirmPassword"
+                      placeholder="Repita sua senha"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label for="email">E-mail</label>
+                  <div class="input-wrapper">
+                    <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                      <polyline points="22,6 12,13 2,6"></polyline>
+                    </svg>
+                    <input
+                      type="email"
+                      id="email"
+                      name="email"
+                      formControlName="email"
+                      placeholder="seu@email.com"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label for="securityCode">Código de Segurança (Personal ID)</label>
+                  <div class="input-wrapper">
+                    <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                    </svg>
+                    <input
+                      type="text"
+                      id="securityCode"
+                      name="securityCode"
+                      formControlName="securityCode"
+                      maxlength="10"
+                      placeholder="Ex: 1234 (4 a 10 dígitos)"
+                      required
+                    />
+                  </div>
+                  <span class="form-hint">Necessário para deletar personagens e sair de guilds</span>
+                </div>
+
+                <div class="form-group checkbox-group">
+                  <label class="checkbox-label">
+                    <input type="checkbox" id="terms" name="terms" formControlName="terms" required />
+                    <span class="checkmark"></span>
+                    Li e aceito as <a href="#" (click)="$event.preventDefault()" class="terms-link">Regras e Termos do Servidor</a>
+                  </label>
+                </div>
+
+                @if (registerError()) {
+                  <div id="errorMessage" class="error-message">
+                    <div class="error-icon">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="15" y1="9" x2="9" y2="15"></line>
+                        <line x1="9" y1="9" x2="15" y2="15"></line>
+                      </svg>
+                    </div>
+                    <h3>Erro ao Criar Conta</h3>
+                    <p id="errorText">{{ registerError() }}</p>
+                    <button type="button" class="btn btn-secondary mt-3" (click)="hideRegisterError()">Tentar Novamente</button>
+                  </div>
+                }
+
+                <button
+                  type="submit"
+                  class="btn btn-submit"
+                  id="submitBtn"
+                  [disabled]="isRegistering() || registerForm.invalid"
+                >
+                  @if (isRegistering()) {
+                    <span class="btn-loading flex items-center justify-center gap-2">
+                      <svg class="animate-spin h-5 w-5 text-white" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                      </svg>
+                      Criando sua conta...
+                    </span>
+                  } @else {
+                    <span class="btn-text flex items-center justify-center gap-2">
+                      <mat-icon>shield</mat-icon>
+                      CRIAR CONTA AGORA
+                    </span>
+                  }
+                </button>
+              </form>
+            } @else {
+              <!-- Success Message -->
+              <div id="successMessage" class="success-message">
+                <div class="success-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                  </svg>
+                </div>
+                <h3 class="text-xl font-bold text-emerald-300">Conta Criada com Sucesso!</h3>
+                <p class="text-slate-300 mt-2">Sua conta foi registrada no servidor. Agora você pode baixar o cliente e entrar no jogo imediatamente.</p>
+                
+                <div class="success-details my-4 p-3 bg-black/40 border border-emerald-500/30 rounded text-left">
+                  <p class="text-sm"><strong>Login:</strong> <span id="successLogin" class="text-amber-400 font-bold ml-1">{{ registerSuccess() }}</span></p>
+                  <p class="text-xs text-slate-400 mt-1">Status: Conta Ativa • Bônus VIP 7 Dias Aplicado</p>
+                </div>
+
+                <div class="flex flex-col sm:flex-row gap-3 justify-center">
+                  <a
+                    href="#download"
+                    class="btn btn-primary"
+                    (click)="$event.preventDefault(); navigateTo('download')"
+                  >
+                    <mat-icon>download</mat-icon>
+                    BAIXAR O JOGO
+                  </a>
+                  <button
+                    type="button"
+                    class="btn btn-secondary"
+                    (click)="navigateTo('account')"
+                  >
+                    <mat-icon>dashboard</mat-icon>
+                    ACESSAR PAINEL
+                  </button>
+                </div>
+              </div>
+            }
+          </div>
+
+          <!-- Info Card -->
+          <div class="info-card">
+            <div class="info-header">
+              <h3>Por que jogar MU Free?</h3>
+            </div>
+            <ul class="info-list">
+              <li>
+                <div class="info-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                  </svg>
+                </div>
+                <div class="info-text">
+                  <strong>PVP Equilibrado e Dinâmico</strong>
+                  <p>Sistema balanceado com combos fluidos de BK, SM, Elf, MG e DL sem classes invencíveis.</p>
+                </div>
+              </li>
+              <li>
+                <div class="info-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="3" y1="9" x2="21" y2="9"></line>
+                    <line x1="9" y1="21" x2="9" y2="9"></line>
+                  </svg>
+                </div>
+                <div class="info-text">
+                  <strong>Eventos Exclusivos Diários</strong>
+                  <p>Castle Siege, Blood Castle, Chaos Castle e invasões com premiações valiosas em Joias.</p>
+                </div>
+              </li>
+              <li>
+                <div class="info-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="9" cy="7" r="4"></circle>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                  </svg>
+                </div>
+                <div class="info-text">
+                  <strong>Comunidade Ativa & Guilds</strong>
+                  <p>Junte-se a milhares de jogadores online no Discord e WhatsApp oficial.</p>
+                </div>
+              </li>
+              <li>
+                <div class="info-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 16 14"></polyline>
+                  </svg>
+                </div>
+                <div class="info-text">
+                  <strong>Anti-Hack Dedicado & Servidor Estável</strong>
+                  <p>Proteção de ponta, 99.9% de uptime e ping ultrabaixo para todo o Brasil.</p>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+  }
+
+  <!-- CLASSES SECTION -->
+  @if (currentTab() === 'home' || currentTab() === 'classes') {
+    <section id="classes" class="classes-section">
+      <div class="container">
+        <div class="section-header">
+          <h2 class="section-title">ESCOLHA SUA <span>CLASSE</span></h2>
+          <p class="section-subtitle">Cada guerreiro possui atributos únicos, equipamentos lendários e árvores de habilidades distintas</p>
+        </div>
+
+        <div class="classes-grid">
+          @for (cls of classesList; track cls.id) {
+            <div
+              class="class-card"
+              role="button"
+              tabindex="0"
+              [attr.data-class]="cls.id"
+              (click)="openClassModal(cls)"
+              (keydown.enter)="openClassModal(cls)"
+              (keydown.space)="openClassModal(cls)"
+            >
+              <div class="flex items-center justify-between">
+                <div class="class-icon">{{ cls.icon }}</div>
+                <span class="text-xs uppercase tracking-widest text-amber-400/80 font-bold bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20">
+                  {{ cls.role }}
+                </span>
+              </div>
+              <h3>{{ cls.name }}</h3>
+              <p>{{ cls.description }}</p>
+              
+              <div class="mt-4 pt-3 border-t border-slate-700/40 flex items-center justify-between text-xs text-slate-400">
+                <span>Armas: <strong class="text-slate-200">{{ cls.weapon.split(',')[0] }}</strong></span>
+                <span class="text-amber-400 font-bold flex items-center gap-0.5">
+                  Ver Detalhes
+                  <mat-icon class="text-xs">chevron_right</mat-icon>
+                </span>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+    </section>
+  }
+
+  <!-- RANKING SECTION -->
+  @if (currentTab() === 'home' || currentTab() === 'ranking') {
+    <section id="ranking" class="ranking-section">
+      <div class="container">
+        <div class="section-header">
+          <h2 class="section-title">RANKING <span>TOP GUERREIROS</span></h2>
+          <p class="section-subtitle">Os jogadores mais poderosos e destemidos do servidor MU Free</p>
+          <div class="ranking-refresh-info">
+            <span class="refresh-icon">🔄</span>
+            <span>Atualização automática a cada 10 minutos</span>
+            <span id="lastUpdate" class="last-update text-amber-400 font-semibold ml-2">{{ lastUpdate() }}</span>
+          </div>
+        </div>
+
+        <!-- Ranking Filter & Tab Selector -->
+        <div class="flex flex-col lg:flex-row items-center justify-between gap-4 mb-6">
+          <div class="ranking-tabs mb-0 w-full lg:w-auto">
+            <button
+              class="ranking-tab"
+              [class.active]="rankingTab() === 'guilds'"
+              data-tab="guilds"
+              (click)="setRankingTab('guilds')"
+            >
+              <span class="tab-icon">🏰</span>
+              <span>Top Guilds</span>
+            </button>
+
+            <button
+              class="ranking-tab"
+              [class.active]="rankingTab() === 'resets'"
+              data-tab="resets"
+              (click)="setRankingTab('resets')"
+            >
+              <span class="tab-icon">🔄</span>
+              <span>Top Resets</span>
+            </button>
+
+            <button
+              class="ranking-tab"
+              [class.active]="rankingTab() === 'bloodcastle'"
+              data-tab="bloodcastle"
+              (click)="setRankingTab('bloodcastle')"
+            >
+              <span class="tab-icon">🩸</span>
+              <span>Blood Castle</span>
+            </button>
+
+            <button
+              class="ranking-tab"
+              [class.active]="rankingTab() === 'devilsquare'"
+              data-tab="devilsquare"
+              (click)="setRankingTab('devilsquare')"
+            >
+              <span class="tab-icon">😈</span>
+              <span>Devil Square</span>
+            </button>
+
+            <button
+              class="ranking-tab"
+              [class.active]="rankingTab() === 'illusiontemple'"
+              data-tab="illusiontemple"
+              (click)="setRankingTab('illusiontemple')"
+            >
+              <span class="tab-icon">🔮</span>
+              <span>Illusion Temple</span>
+            </button>
+
+            <button
+              class="ranking-tab"
+              [class.active]="rankingTab() === 'battlesoccer'"
+              data-tab="battlesoccer"
+              (click)="setRankingTab('battlesoccer')"
+            >
+              <span class="tab-icon">⚽</span>
+              <span>Battle Soccer</span>
+            </button>
+
+            <button
+              class="ranking-tab"
+              [class.active]="rankingTab() === 'level'"
+              data-tab="level"
+              (click)="setRankingTab('level')"
+            >
+              <span class="tab-icon">⚔️</span>
+              <span>Top Level</span>
+            </button>
+
+            <button
+              class="ranking-tab"
+              [class.active]="rankingTab() === 'deaths'"
+              data-tab="deaths"
+              (click)="setRankingTab('deaths')"
+            >
+              <span class="tab-icon">💀</span>
+              <span>Top PK / Mortes</span>
+            </button>
+          </div>
+
+          <!-- Quick Search -->
+          <div class="relative w-full lg:w-72 shrink-0">
+            <input
+              type="text"
+              placeholder="Buscar personagem, classe ou guild..."
+              [value]="rankingSearch()"
+              (input)="rankingSearch.set($any($event.target).value)"
+              class="w-full bg-[#0a0d14] border border-amber-500/25 rounded-md px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 shadow-inner"
+            />
+            @if (rankingSearch()) {
+              <button
+                class="absolute right-3 top-2.5 text-slate-400 hover:text-white text-xs cursor-pointer"
+                (click)="rankingSearch.set('')"
+              >✕</button>
+            }
+          </div>
+        </div>
+
+        <!-- 1. TOP GUILDS RANKING -->
+        <div id="guildsRanking" class="ranking-content" [class.active]="rankingTab() === 'guilds'">
+          <div class="ranking-container">
+            <div class="ranking-table-wrapper">
+              <table class="ranking-table">
+                <thead>
+                  <tr>
+                    <th class="rank-col">#</th>
+                    <th>Guild</th>
+                    <th>Guild Master</th>
+                    <th class="text-center">Membros</th>
+                    <th class="text-center">Resets Totais</th>
+                    <th class="text-right">Pontuação & Castelo</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (guild of filteredGuildRanking(); track guild.position) {
+                    <tr>
+                      <td class="rank-col">
+                        @if (guild.position === 1) {
+                          <span class="rank-badge-1">1</span>
+                        } @else if (guild.position === 2) {
+                          <span class="rank-badge-2">2</span>
+                        } @else if (guild.position === 3) {
+                          <span class="rank-badge-3">3</span>
+                        } @else {
+                          <span class="rank-badge-default">{{ guild.position }}</span>
+                        }
+                      </td>
+                      <td>
+                        <div class="flex items-center gap-2.5">
+                          <span class="text-xl p-1 rounded bg-slate-900 border border-amber-500/30">{{ guild.emblemEmoji }}</span>
+                          <div>
+                            <div class="font-bold text-amber-300">{{ guild.guildName }}</div>
+                            <span class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
+                              {{ guild.castleStatus }}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="font-medium text-slate-200">{{ guild.masterName }}</div>
+                        <span class="text-[10px] text-slate-400">{{ guild.masterClass }}</span>
+                      </td>
+                      <td class="text-center font-semibold text-slate-300">
+                        {{ guild.membersCount }} <span class="text-[11px] text-slate-500 font-normal">/ 40</span>
+                      </td>
+                      <td class="text-center font-bold text-amber-400">
+                        {{ guild.totalResets }} R
+                      </td>
+                      <td class="text-right">
+                        <div class="font-extrabold text-amber-300">{{ guild.score.toLocaleString('pt-BR') }} pts</div>
+                        @if (guild.position === 1) {
+                          <span class="inline-block text-[10px] font-bold text-amber-400 bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.5 rounded mt-0.5">
+                            👑 Soberano de Loren
+                          </span>
+                        }
+                      </td>
+                    </tr>
+                  } @empty {
+                    <tr>
+                      <td colspan="6" class="text-center py-6 text-slate-400 text-sm">
+                        Nenhuma guild encontrada com o termo pesquisado.
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+
+            <div class="ranking-info">
+              <div class="info-card ranking-info-card">
+                <div class="info-header">
+                  <h3>🏰 Soberania & Castle Siege</h3>
+                </div>
+                <ul class="info-list">
+                  <li>
+                    <div class="info-icon">👑</div>
+                    <div class="info-text">
+                      <strong>Senhores de Valley of Loren</strong>
+                      <p>A guild vencedora do Castle Siege domina o castelo, recolhe impostos das lojas e ganha acesso exclusivo a Land of Trials.</p>
+                    </div>
+                  </li>
+                  <li>
+                    <div class="info-icon">⚔️</div>
+                    <div class="info-text">
+                      <strong>Guerra Semanal aos Domingos</strong>
+                      <p>A batalha pelo trono acontece todo domingo às 20:00. O Guild Master deve registrar a aliança com Signs of Lord.</p>
+                    </div>
+                  </li>
+                  <li>
+                    <div class="info-icon">💎</div>
+                    <div class="info-text">
+                      <strong>Estatísticas e Pontuação de Guild</strong>
+                      <p>O somatório de Resets e participações em eventos (Blood Castle, Devil Square e CS) compõem o Score global da Guild.</p>
+                    </div>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. TOP RESETS RANKING -->
+        <div id="resetsRanking" class="ranking-content" [class.active]="rankingTab() === 'resets'">
+          <div class="ranking-container">
+            <div class="ranking-table-wrapper">
+              <table class="ranking-table">
+                <thead>
+                  <tr>
+                    <th class="rank-col">#</th>
+                    <th class="name-col">Personagem</th>
+                    <th class="guild-col">Guild</th>
+                    <th class="text-center">Resets</th>
+                    <th class="text-right">Master Resets</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (player of filteredResetsRanking(); track player.position) {
+                    <tr>
+                      <td class="rank-col">
+                        @if (player.position === 1) {
+                          <span class="rank-badge-1">1</span>
+                        } @else if (player.position === 2) {
+                          <span class="rank-badge-2">2</span>
+                        } @else if (player.position === 3) {
+                          <span class="rank-badge-3">3</span>
+                        } @else {
+                          <span class="rank-badge-default">{{ player.position }}</span>
+                        }
+                      </td>
+                      <td class="name-col font-semibold">
+                        <div class="flex items-center gap-2">
+                          <span class="text-amber-300">{{ player.characterName }}</span>
+                          <span class="text-[10px] text-slate-400 px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700">
+                            {{ player.className }}
+                          </span>
+                        </div>
+                      </td>
+                      <td class="guild-col text-slate-300">
+                        <span class="inline-flex items-center gap-1">
+                          <span class="text-amber-500/70">🛡️</span>
+                          {{ player.guildName }}
+                        </span>
+                      </td>
+                      <td class="text-center font-extrabold text-amber-400 text-base">
+                        {{ player.resets }} <span class="text-xs text-slate-400 font-normal">Resets</span>
+                      </td>
+                      <td class="text-right font-bold text-sky-400">
+                        {{ player.masterResets || 0 }} MR
+                      </td>
+                    </tr>
+                  } @empty {
+                    <tr>
+                      <td colspan="5" class="text-center py-6 text-slate-400 text-sm">
+                        Nenhum guerreiro encontrado no ranking de resets.
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+
+            <div class="ranking-info">
+              <div class="info-card ranking-info-card">
+                <div class="info-header">
+                  <h3>🔄 Sistema de Resets Dinâmico</h3>
+                </div>
+                <ul class="info-list">
+                  <li>
+                    <div class="info-icon">⚡</div>
+                    <div class="info-text">
+                      <strong>Requisitos de Reset</strong>
+                      <p>Jogadores Free resetam no Level 350 (acumulativo) e jogadores VIP resetam no Level 330 com bônus de status.</p>
+                    </div>
+                  </li>
+                  <li>
+                    <div class="info-icon">🌟</div>
+                    <div class="info-text">
+                      <strong>Master Reset (MR)</strong>
+                      <p>Ao atingir 50+ resets você pode realizar o Master Reset, recebendo WCoins para a loja e títulos épicos.</p>
+                    </div>
+                  </li>
+                  <li>
+                    <div class="info-icon">🛡️</div>
+                    <div class="info-text">
+                      <strong>Painel de Usuário Integrado</strong>
+                      <p>Realize resets instantâneos pelo painel oficial "Minha Conta" sem precisar desequipar seus itens.</p>
+                    </div>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. BLOOD CASTLE RANKING -->
+        <div id="bloodCastleRanking" class="ranking-content" [class.active]="rankingTab() === 'bloodcastle'">
+          <div class="ranking-container">
+            <div class="ranking-table-wrapper">
+              <table class="ranking-table">
+                <thead>
+                  <tr>
+                    <th class="rank-col">#</th>
+                    <th>Guerreiro</th>
+                    <th>Guild</th>
+                    <th class="text-center">Desempenho & Recorde</th>
+                    <th class="text-right">Especialidade</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (player of filteredBloodCastleRanking(); track player.position) {
+                    <tr>
+                      <td class="rank-col">
+                        @if (player.position === 1) {
+                          <span class="rank-badge-1">1</span>
+                        } @else if (player.position === 2) {
+                          <span class="rank-badge-2">2</span>
+                        } @else if (player.position === 3) {
+                          <span class="rank-badge-3">3</span>
+                        } @else {
+                          <span class="rank-badge-default">{{ player.position }}</span>
+                        }
+                      </td>
+                      <td>
+                        <div class="flex items-center gap-2">
+                          <span class="text-rose-400 font-bold">{{ player.characterName }}</span>
+                          <span class="text-[10px] text-slate-400 px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700">
+                            {{ player.className }}
+                          </span>
+                        </div>
+                      </td>
+                      <td class="text-slate-300">
+                        {{ player.guildName }}
+                      </td>
+                      <td class="text-center font-bold text-amber-300">
+                        {{ player.extraStat }}
+                      </td>
+                      <td class="text-right">
+                        <span class="text-xs text-slate-300 font-medium">{{ player.subStat }}</span>
+                        @if (player.badge) {
+                          <div class="text-[10px] text-amber-400 font-bold">{{ player.badge }}</div>
+                        }
+                      </td>
+                    </tr>
+                  } @empty {
+                    <tr>
+                      <td colspan="5" class="text-center py-6 text-slate-400 text-sm">
+                        Nenhum registro encontrado para Blood Castle.
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+
+            <div class="ranking-info">
+              <div class="info-card ranking-info-card">
+                <div class="info-header">
+                  <h3>🩸 Desafio do Blood Castle</h3>
+                </div>
+                <ul class="info-list">
+                  <li>
+                    <div class="info-icon">🗡️</div>
+                    <div class="info-text">
+                      <strong>Resgate da Arma do Arcanjo</strong>
+                      <p>Atravesse a ponte de sangue, destrua o portal de defesa e a estátua de cristal para recuperar a Holy Archangel Weapon.</p>
+                    </div>
+                  </li>
+                  <li>
+                    <div class="info-icon">⏱️</div>
+                    <div class="info-text">
+                      <strong>Entregas Rápidas</strong>
+                      <p>Quanto menor o tempo de conclusão e entrega ao Arcanjo ferido, maior o multiplicador de XP e Joias Chaos / Creation.</p>
+                    </div>
+                  </li>
+                  <li>
+                    <div class="info-icon">📜</div>
+                    <div class="info-text">
+                      <strong>Horários de Entrada</strong>
+                      <p>O evento inicia a cada 2 horas no NPC Messenger of Archangel na Igreja de Devias.</p>
+                    </div>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. DEVIL SQUARE RANKING -->
+        <div id="devilSquareRanking" class="ranking-content" [class.active]="rankingTab() === 'devilsquare'">
+          <div class="ranking-container">
+            <div class="ranking-table-wrapper">
+              <table class="ranking-table">
+                <thead>
+                  <tr>
+                    <th class="rank-col">#</th>
+                    <th>Guerreiro</th>
+                    <th>Guild</th>
+                    <th class="text-center">Pontuação Máxima & Mobs</th>
+                    <th class="text-right">Especialidade AoE</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (player of filteredDevilSquareRanking(); track player.position) {
+                    <tr>
+                      <td class="rank-col">
+                        @if (player.position === 1) {
+                          <span class="rank-badge-1">1</span>
+                        } @else if (player.position === 2) {
+                          <span class="rank-badge-2">2</span>
+                        } @else if (player.position === 3) {
+                          <span class="rank-badge-3">3</span>
+                        } @else {
+                          <span class="rank-badge-default">{{ player.position }}</span>
+                        }
+                      </td>
+                      <td>
+                        <div class="flex items-center gap-2">
+                          <span class="text-purple-400 font-bold">{{ player.characterName }}</span>
+                          <span class="text-[10px] text-slate-400 px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700">
+                            {{ player.className }}
+                          </span>
+                        </div>
+                      </td>
+                      <td class="text-slate-300">
+                        {{ player.guildName }}
+                      </td>
+                      <td class="text-center font-bold text-amber-300">
+                        {{ player.extraStat }}
+                      </td>
+                      <td class="text-right">
+                        <span class="text-xs text-slate-300 font-medium">{{ player.subStat }}</span>
+                        @if (player.badge) {
+                          <div class="text-[10px] text-purple-400 font-bold">{{ player.badge }}</div>
+                        }
+                      </td>
+                    </tr>
+                  } @empty {
+                    <tr>
+                      <td colspan="5" class="text-center py-6 text-slate-400 text-sm">
+                        Nenhum registro encontrado para Devil Square.
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+
+            <div class="ranking-info">
+              <div class="info-card ranking-info-card">
+                <div class="info-header">
+                  <h3>😈 Sobrevivência Devil Square</h3>
+                </div>
+                <ul class="info-list">
+                  <li>
+                    <div class="info-icon">🔥</div>
+                    <div class="info-text">
+                      <strong>20 Minutos de Combate Insano</strong>
+                      <p>Hordas infinitas de demônios e chefes dourados testam o poder de dano em área (AoE) e a resistência do seu personagem.</p>
+                    </div>
+                  </li>
+                  <li>
+                    <div class="info-icon">💎</div>
+                    <div class="info-text">
+                      <strong>Multiplicador de Pontos & Drops</strong>
+                      <p>O rank leva em consideração a quantidade total de monstros derrotados e a pontuação máxima atingida em sobrevivência total.</p>
+                    </div>
+                  </li>
+                  <li>
+                    <div class="info-icon">🎟️</div>
+                    <div class="info-text">
+                      <strong>Convite Devil Square</strong>
+                      <p>Crie o Devil Square Invitation combinando Devil's Eye + Devil's Key + Chaos Jewel na Chaos Machine de Noria.</p>
+                    </div>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 5. ILLUSION TEMPLE RANKING -->
+        <div id="illusionTempleRanking" class="ranking-content" [class.active]="rankingTab() === 'illusiontemple'">
+          <div class="ranking-container">
+            <div class="ranking-table-wrapper">
+              <table class="ranking-table">
+                <thead>
+                  <tr>
+                    <th class="rank-col">#</th>
+                    <th>Guerreiro</th>
+                    <th>Guild</th>
+                    <th class="text-center">Relíquias & Vitórias</th>
+                    <th class="text-right">Função Tática</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (player of filteredIllusionTempleRanking(); track player.position) {
+                    <tr>
+                      <td class="rank-col">
+                        @if (player.position === 1) {
+                          <span class="rank-badge-1">1</span>
+                        } @else if (player.position === 2) {
+                          <span class="rank-badge-2">2</span>
+                        } @else if (player.position === 3) {
+                          <span class="rank-badge-3">3</span>
+                        } @else {
+                          <span class="rank-badge-default">{{ player.position }}</span>
+                        }
+                      </td>
+                      <td>
+                        <div class="flex items-center gap-2">
+                          <span class="text-cyan-400 font-bold">{{ player.characterName }}</span>
+                          <span class="text-[10px] text-slate-400 px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700">
+                            {{ player.className }}
+                          </span>
+                        </div>
+                      </td>
+                      <td class="text-slate-300">
+                        {{ player.guildName }}
+                      </td>
+                      <td class="text-center font-bold text-cyan-300">
+                        {{ player.extraStat }}
+                      </td>
+                      <td class="text-right">
+                        <span class="text-xs text-slate-300 font-medium">{{ player.subStat }}</span>
+                        @if (player.badge) {
+                          <div class="text-[10px] text-cyan-400 font-bold">{{ player.badge }}</div>
+                        }
+                      </td>
+                    </tr>
+                  } @empty {
+                    <tr>
+                      <td colspan="5" class="text-center py-6 text-slate-400 text-sm">
+                        Nenhum registro encontrado para Illusion Temple.
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+
+            <div class="ranking-info">
+              <div class="info-card ranking-info-card">
+                <div class="info-header">
+                  <h3>🔮 Disputa do Illusion Temple</h3>
+                </div>
+                <ul class="info-list">
+                  <li>
+                    <div class="info-icon">⚡</div>
+                    <div class="info-text">
+                      <strong>Confronto Tático 5 vs 5</strong>
+                      <p>Equipes Mirages vs Illusionistas disputam a posse da Esfera Sagrada em uma arena mágica repleta de habilidades proibidas.</p>
+                    </div>
+                  </li>
+                  <li>
+                    <div class="info-icon">🛡️</div>
+                    <div class="info-text">
+                      <strong>Habilidades Especiais do Templo</strong>
+                      <p>Utilize Shield of Protection, Restraint e Teleportation Relic para garantir a entrega das esferas aos altares.</p>
+                    </div>
+                  </li>
+                  <li>
+                    <div class="info-icon">🏆</div>
+                    <div class="info-text">
+                      <strong>Recompensas e Ranking</strong>
+                      <p>Vencedores garantem pacotes de Ancient Items e pontos diretos para a colocação do ranking da temporada.</p>
+                    </div>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 6. BATTLE SOCCER RANKING -->
+        <div id="battleSoccerRanking" class="ranking-content" [class.active]="rankingTab() === 'battlesoccer'">
+          <div class="ranking-container">
+            <div class="ranking-table-wrapper">
+              <table class="ranking-table">
+                <thead>
+                  <tr>
+                    <th class="rank-col">#</th>
+                    <th>Guild & Capitão</th>
+                    <th>Guild</th>
+                    <th class="text-center">Gols Marcados & Vitórias</th>
+                    <th class="text-right">Título da Divisão</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (player of filteredBattleSoccerRanking(); track player.position) {
+                    <tr>
+                      <td class="rank-col">
+                        @if (player.position === 1) {
+                          <span class="rank-badge-1">1</span>
+                        } @else if (player.position === 2) {
+                          <span class="rank-badge-2">2</span>
+                        } @else if (player.position === 3) {
+                          <span class="rank-badge-3">3</span>
+                        } @else {
+                          <span class="rank-badge-default">{{ player.position }}</span>
+                        }
+                      </td>
+                      <td>
+                        <div class="flex items-center gap-2">
+                          <span class="text-emerald-400 font-bold">{{ player.characterName }}</span>
+                          <span class="text-[10px] text-slate-400 px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700">
+                            {{ player.className }}
+                          </span>
+                        </div>
+                      </td>
+                      <td class="text-slate-300">
+                        {{ player.guildName }}
+                      </td>
+                      <td class="text-center font-bold text-emerald-300">
+                        {{ player.extraStat }}
+                      </td>
+                      <td class="text-right">
+                        <span class="text-xs text-slate-300 font-medium">{{ player.subStat }}</span>
+                        @if (player.badge) {
+                          <div class="text-[10px] text-emerald-400 font-bold">{{ player.badge }}</div>
+                        }
+                      </td>
+                    </tr>
+                  } @empty {
+                    <tr>
+                      <td colspan="5" class="text-center py-6 text-slate-400 text-sm">
+                        Nenhum registro encontrado para Battle Soccer.
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+
+            <div class="ranking-info">
+              <div class="info-card ranking-info-card">
+                <div class="info-header">
+                  <h3>⚽ Battle Soccer em Lorencia</h3>
+                </div>
+                <ul class="info-list">
+                  <li>
+                    <div class="info-icon">⚽</div>
+                    <div class="info-text">
+                      <strong>Futebol Mortal na Arena</strong>
+                      <p>Duelo entre Guilds em Lorencia Arena. Cada gol anotado garante 20 pontos e abates de jogadores inimigos contam pontos táticos.</p>
+                    </div>
+                  </li>
+                  <li>
+                    <div class="info-icon">🥅</div>
+                    <div class="info-text">
+                      <strong>Vitória aos 100 Pontos</strong>
+                      <p>A primeira equipe a atingir 100 pontos vence a partida e ganha prestígio no ranking oficial da federação de MU.</p>
+                    </div>
+                  </li>
+                  <li>
+                    <div class="info-icon">📜</div>
+                    <div class="info-text">
+                      <strong>Comando de Desafio</strong>
+                      <p>O Guild Master desafia outra aliança através do comando <code>/battlesoccer NomeDaGuild</code> na área de Lorencia.</p>
+                    </div>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 7. LEVEL RANKING -->
+        <div id="levelRanking" class="ranking-content" [class.active]="rankingTab() === 'level'">
+          <div class="ranking-container">
+            <div class="ranking-table-wrapper">
+              <table class="ranking-table">
+                <thead>
+                  <tr>
+                    <th class="rank-col">#</th>
+                    <th class="name-col">Personagem</th>
+                    <th class="guild-col">Guild</th>
+                    <th class="level-col">Level (Resets)</th>
+                  </tr>
+                </thead>
+                <tbody id="levelRankingBody">
+                  @for (player of filteredLevelRanking(); track player.position) {
+                    <tr>
+                      <td class="rank-col">
+                        @if (player.position === 1) {
+                          <span class="rank-badge-1">1</span>
+                        } @else if (player.position === 2) {
+                          <span class="rank-badge-2">2</span>
+                        } @else if (player.position === 3) {
+                          <span class="rank-badge-3">3</span>
+                        } @else {
+                          <span class="rank-badge-default">{{ player.position }}</span>
+                        }
+                      </td>
+                      <td class="name-col font-semibold">
+                        <div class="flex items-center gap-2">
+                          <span class="text-amber-300">{{ player.characterName }}</span>
+                          <span class="text-[10px] text-slate-400 px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700">
+                            {{ player.className }}
+                          </span>
+                        </div>
+                      </td>
+                      <td class="guild-col text-slate-300">
+                        <span class="inline-flex items-center gap-1">
+                          <span class="text-amber-500/70">🛡️</span>
+                          {{ player.guildName }}
+                        </span>
+                      </td>
+                      <td class="level-col font-bold text-amber-400">
+                        Lv {{ player.level }} <span class="text-xs text-slate-400 font-normal">({{ player.resets || 0 }}R)</span>
+                      </td>
+                    </tr>
+                  } @empty {
+                    <tr>
+                      <td colspan="4" class="text-center py-6 text-slate-400 text-sm">
+                        Nenhum personagem encontrado com os termos de busca.
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+
+            <div class="ranking-info">
+              <div class="info-card ranking-info-card">
+                <div class="info-header">
+                  <h3>🏆 Como subir no Ranking?</h3>
+                </div>
+                <ul class="info-list">
+                  <li>
+                    <div class="info-icon">⚔️</div>
+                    <div class="info-text">
+                      <strong>Derrote Monstros em Spots</strong>
+                      <p>Spots clássicos em Stadium (Arena), LostTower 7, Tarkan e Icarus garantem XP acelerada.</p>
+                    </div>
+                  </li>
+                  <li>
+                    <div class="info-icon">🎯</div>
+                    <div class="info-text">
+                      <strong>Complete Quests de Classe</strong>
+                      <p>Torne-se Blade Knight, Soul Master e Muse Elf para desbloquear o combo especial.</p>
+                    </div>
+                  </li>
+                  <li>
+                    <div class="info-icon">👥</div>
+                    <div class="info-text">
+                      <strong>Junte-se a uma Guild Forte</strong>
+                      <p>Dispute o trono de Castle Siege todo domingo e ganhe a coroa de Lorencia.</p>
+                    </div>
+                  </li>
+                  <li>
+                    <div class="info-icon">💎</div>
+                    <div class="info-text">
+                      <strong>Colete Joias & Itens Ancient</strong>
+                      <p>Aprimore seus sets para +11 / +13 na Chaos Machine para dominar as arenas.</p>
+                    </div>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 8. DEATHS / PK RANKING -->
+        <div id="deathsRanking" class="ranking-content" [class.active]="rankingTab() === 'deaths'">
+          <div class="ranking-container">
+            <div class="ranking-table-wrapper">
+              <table class="ranking-table deaths-table">
+                <thead>
+                  <tr>
+                    <th class="rank-col">#</th>
+                    <th class="name-col">Personagem</th>
+                    <th class="guild-col">Guild</th>
+                    <th class="kills-col">Kills / PK</th>
+                  </tr>
+                </thead>
+                <tbody id="deathsRankingBody">
+                  @for (player of filteredDeathsRanking(); track player.position) {
+                    <tr>
+                      <td class="rank-col">
+                        @if (player.position === 1) {
+                          <span class="rank-badge-1">1</span>
+                        } @else if (player.position === 2) {
+                          <span class="rank-badge-2">2</span>
+                        } @else if (player.position === 3) {
+                          <span class="rank-badge-3">3</span>
+                        } @else {
+                          <span class="rank-badge-default">{{ player.position }}</span>
+                        }
+                      </td>
+                      <td class="name-col font-semibold">
+                        <div class="flex items-center gap-2">
+                          <span class="text-red-400">{{ player.characterName }}</span>
+                          <span class="text-[10px] text-slate-400 px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700">
+                            {{ player.className }}
+                          </span>
+                        </div>
+                      </td>
+                      <td class="guild-col text-slate-300">
+                        <span class="inline-flex items-center gap-1">
+                          <span class="text-red-500/70">⚔️</span>
+                          {{ player.guildName }}
+                        </span>
+                      </td>
+                      <td class="kills-col font-bold text-red-400">
+                        {{ player.kills }} Kills
+                      </td>
+                    </tr>
+                  } @empty {
+                    <tr>
+                      <td colspan="4" class="text-center py-6 text-slate-400 text-sm">
+                        Nenhum guerreiro registrado no ranking de mortes.
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+
+            <div class="ranking-info">
+              <div class="info-card ranking-info-card deaths-info-card">
+                <div class="info-header">
+                  <h3>💀 Como funciona o Ranking PK?</h3>
+                </div>
+                <ul class="info-list">
+                  <li>
+                    <div class="info-icon">⚔️</div>
+                    <div class="info-text">
+                      <strong>PVP em Lorencia Ring & Devias</strong>
+                      <p>Duelos nos anéis de Lorencia e na saída de Devias somam pontuação direta de vitórias.</p>
+                    </div>
+                  </li>
+                  <li>
+                    <div class="info-icon">🏰</div>
+                    <div class="info-text">
+                      <strong>Castle Siege Guerra Total</strong>
+                      <p>Eliminações durante o evento dominical contam para as estatísticas de combate.</p>
+                    </div>
+                  </li>
+                  <li>
+                    <div class="info-icon">⚡</div>
+                    <div class="info-text">
+                      <strong>Status de Herói e Assassino</strong>
+                      <p>Guerreiros com alto número de PK recebem títulos exclusivos e auras cosméticas.</p>
+                    </div>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  }
+
+  <!-- ========================================== -->
+  <!-- DEDICATED EVENTS PAGE & DASHBOARD (GM ONLY) -->
+  <!-- ========================================== -->
+  @if (currentTab() === 'events') {
+    <section id="events" class="events-dashboard-section">
+      <div class="container">
+        @if (isGM()) {
+          <!-- Section Header -->
+          <div class="text-center max-w-3xl mx-auto mb-6">
+            <div class="flex items-center justify-center gap-3 flex-wrap">
+              <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-lg bg-black/60 border border-amber-500/25 text-amber-200 text-xs font-mono">
+                <mat-icon class="text-sm text-amber-400">schedule</mat-icon>
+                <span>Relógio do Servidor: <strong>{{ lastUpdate() }}</strong></span>
+              </div>
+            </div>
+          </div>
+
+        <!-- 4 Metric Stat Cards -->
+        <div class="events-stat-grid">
+          <!-- Total Events -->
+          <div class="dashboard-stat-card">
+            <div class="stat-card-icon bg-amber-500/10 border-amber-500/30 text-amber-400 text-xl">
+              ⚔️
+            </div>
+            <div>
+              <span class="stat-card-label">Total de Eventos</span>
+              <span class="stat-card-val text-amber-300">{{ eventsStats().total }}</span>
+            </div>
+          </div>
+
+          <!-- Active Events -->
+          <div class="dashboard-stat-card">
+            <div class="stat-card-icon bg-blue-500/10 border-blue-500/30 text-blue-400 text-xl">
+              🛡️
+            </div>
+            <div>
+              <span class="stat-card-label">Eventos Ativos</span>
+              <span class="stat-card-val text-blue-300">{{ eventsStats().active }}</span>
+            </div>
+          </div>
+
+          <!-- Open Now -->
+          <div class="dashboard-stat-card" [class.border-emerald-500]="eventsStats().openNow > 0">
+            <div class="stat-card-icon bg-emerald-500/10 border-emerald-500/30 text-emerald-400 text-xl">
+              🚪
+            </div>
+            <div>
+              <span class="stat-card-label">Portões Abertos Agora</span>
+              <span class="stat-card-val text-emerald-300">{{ eventsStats().openNow }}</span>
+            </div>
+          </div>
+
+          <!-- Imminent (<5 min) -->
+          <div class="dashboard-stat-card" [class.border-amber-400]="eventsStats().imminent > 0">
+            <div class="stat-card-icon bg-orange-500/10 border-orange-500/30 text-orange-400 text-xl">
+              ⏳
+            </div>
+            <div>
+              <span class="stat-card-label">Iniciando em Breve (&lt;5m)</span>
+              <span class="stat-card-val text-orange-300">{{ eventsStats().imminent }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Filter & Action Toolbar -->
+        <div class="events-filter-bar">
+          <!-- Category Tabs -->
+          <div class="events-filter-tabs">
+            <button
+              type="button"
+              class="events-filter-tab"
+              [class.active]="eventFilterCategory() === 'all'"
+              (click)="setEventFilterCategory('all')"
+            >
+              <span>Todos ({{ serverEventsList().length }})</span>
+            </button>
+
+            <button
+              type="button"
+              class="events-filter-tab"
+              [class.active]="eventFilterCategory() === 'events'"
+              (click)="setEventFilterCategory('events')"
+            >
+              <span>⚔️ Eventos Especiais</span>
+            </button>
+
+            <button
+              type="button"
+              class="events-filter-tab"
+              [class.active]="eventFilterCategory() === 'invasions'"
+              (click)="setEventFilterCategory('invasions')"
+            >
+              <span>🐲 Invasões de Monstros</span>
+            </button>
+
+            <button
+              type="button"
+              class="events-filter-tab"
+              [class.active]="eventFilterCategory() === 'active'"
+              (click)="setEventFilterCategory('active')"
+            >
+              <span>✅ Somente Ativos</span>
+            </button>
+          </div>
+
+          <!-- Search & Actions -->
+          <div class="flex flex-wrap items-center gap-3 w-full lg:w-auto justify-between lg:justify-end">
+            <!-- Search Box -->
+            <div class="relative flex-1 lg:flex-initial">
+              <mat-icon class="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-base">search</mat-icon>
+              <input
+                type="text"
+                class="event-search-input"
+                placeholder="Buscar evento, mapa ou drop..."
+                [value]="eventSearchQuery()"
+                (input)="eventSearchQuery.set($any($event.target).value)"
+              />
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                id="btn-add-new-event"
+                class="btn btn-primary text-xs px-3.5 py-2 flex items-center gap-1.5 shadow-lg shadow-amber-500/10"
+                (click)="openCreateEventModal()"
+              >
+                <mat-icon class="text-sm">add_circle</mat-icon>
+                <span>+ Adicionar Evento</span>
+              </button>
+
+              <button
+                type="button"
+                id="btn-restore-default-events"
+                class="btn btn-outline text-xs px-3 py-2 flex items-center gap-1 text-slate-300 hover:text-white"
+                (click)="restoreDefaultEvents()"
+                title="Restaurar lista de eventos padrão do MU FREE"
+              >
+                <mat-icon class="text-sm">restart_alt</mat-icon>
+                <span class="hidden sm:inline">Restaurar Padrões</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Events Cards Grid -->
+        @if (filteredEventsPageList().length > 0) {
+          <div class="events-cards-grid">
+            @for (event of filteredEventsPageList(); track event.id) {
+              <div
+                class="event-card"
+                [class.event-card-open]="event.isOpen"
+                [class.event-card-imminent]="event.isImminent"
+                [class.event-card-disabled]="event.enabled === false"
+                [style.border-left-color]="event.colorTheme"
+                [style.border-left-width]="'4px'"
+              >
+                <!-- Top Header Row -->
+                <div>
+                  <div class="event-card-header mb-3">
+                    <div class="flex items-center gap-3">
+                      <div
+                        class="event-icon-badge"
+                        [style.background]="event.colorTheme + '18'"
+                        [style.border-color]="event.colorTheme + '50'"
+                      >
+                        {{ event.icon }}
+                      </div>
+                      <div>
+                        <h3 class="event-info-title">{{ event.name }}</h3>
+                        <span
+                          class="event-info-category"
+                          [style.background]="event.colorTheme + '20'"
+                          [style.color]="event.colorTheme"
+                          [style.border]="'1px solid ' + event.colorTheme + '40'"
+                        >
+                          {{ event.category === 'events' ? '⚔️ Evento Clássico' : '🐲 Invasão de Monstros' }}
+                        </span>
+                      </div>
+                    </div>
+
+                    <!-- Enable/Disable Switch & Status Pill -->
+                    <div class="flex flex-col items-end gap-1.5">
+                      <label class="switch-toggle" [attr.for]="'switch-' + event.id" [title]="event.enabled !== false ? 'Desativar este evento' : 'Ativar este evento'">
+                        <input
+                          type="checkbox"
+                          [id]="'switch-' + event.id"
+                          [checked]="event.enabled !== false"
+                          (change)="toggleEventEnabled(event.id, $event)"
+                        />
+                        <span class="switch-slider"></span>
+                      </label>
+                      <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                        {{ event.enabled !== false ? 'Ativo' : 'Desativado' }}
+                      </span>
+                    </div>
+                  </div>
+
+                  <!-- Live Countdown & Status Box -->
+                  <div
+                    class="p-2.5 rounded-lg flex items-center justify-between gap-2 mb-3 border transition-all"
+                    [class.bg-emerald-950/40]="event.isOpen"
+                    [class.border-emerald-500/50]="event.isOpen"
+                    [class.text-emerald-300]="event.isOpen"
+                    [class.bg-amber-950/40]="event.isImminent"
+                    [class.border-amber-500/50]="event.isImminent"
+                    [class.text-amber-300]="event.isImminent"
+                    [class.bg-slate-900/60]="!event.isOpen && !event.isImminent"
+                    [class.border-slate-800]="!event.isOpen && !event.isImminent"
+                    [class.text-slate-300]="!event.isOpen && !event.isImminent"
+                  >
+                    <div class="flex items-center gap-2">
+                      <span class="w-2 h-2 rounded-full"
+                        [class.bg-emerald-400]="event.isOpen"
+                        [class.animate-ping]="event.isOpen || event.isImminent"
+                        [class.bg-amber-400]="event.isImminent"
+                        [class.bg-slate-500]="!event.isOpen && !event.isImminent"
+                      ></span>
+                      <span class="text-xs font-semibold uppercase tracking-wider">
+                        {{ event.statusLabel }}
+                      </span>
+                    </div>
+
+                    <span class="font-mono text-sm font-bold tracking-wider" [class.text-emerald-400]="event.isOpen" [class.text-amber-400]="event.isImminent">
+                      {{ event.countdownFormatted }}
+                    </span>
+                  </div>
+
+                  <!-- Cycle Progress Bar -->
+                  <div class="mb-3">
+                    <div class="flex items-center justify-between text-[10px] text-slate-400 font-mono mb-1">
+                      <span>Progresso do Ciclo</span>
+                      <span>{{ event.progressPct }}%</span>
+                    </div>
+                    <div class="event-progress-track">
+                      <div
+                        class="event-progress-fill"
+                        [style.width.%]="event.progressPct"
+                        [style.background]="event.isOpen ? '#10b981' : (event.isImminent ? '#f59e0b' : event.colorTheme)"
+                      ></div>
+                    </div>
+                  </div>
+
+                  <!-- Event Specs Matrix -->
+                  <div class="event-specs-grid mb-3">
+                    <div class="event-spec-item">
+                      <span class="event-spec-label">Horário Inicial</span>
+                      <span class="event-spec-val font-mono text-amber-300">{{ event.startTimeStr }}</span>
+                    </div>
+
+                    <div class="event-spec-item">
+                      <span class="event-spec-label">Intervalo</span>
+                      <span class="event-spec-val font-mono text-amber-200">A cada {{ event.startIntervalMin }}m</span>
+                    </div>
+
+                    <div class="event-spec-item">
+                      <span class="event-spec-label">Duração dos Portões</span>
+                      <span class="event-spec-val text-emerald-300">{{ event.durationMin }} Minutos</span>
+                    </div>
+
+                    <div class="event-spec-item">
+                      <span class="event-spec-label">Local de Entrada</span>
+                      <span class="event-spec-val text-slate-300 text-xs truncate" [title]="event.location">{{ event.location }}</span>
+                    </div>
+                  </div>
+
+                  <!-- Daily Schedule Timetable Chips -->
+                  <div class="p-2 bg-black/50 rounded border border-amber-500/15 mb-2">
+                    <div class="flex items-center justify-between text-[10px] text-slate-400 font-mono mb-1">
+                      <span class="flex items-center gap-1 text-amber-400 font-bold uppercase tracking-wider">
+                        <mat-icon class="text-[12px] w-3 h-3">schedule</mat-icon>
+                        Horários Diários:
+                      </span>
+                      @if (event.nextOccurrenceTime) {
+                        <span class="text-amber-300">Próximo: <strong>{{ event.nextOccurrenceTime }}</strong></span>
+                      }
+                    </div>
+                    <div class="flex flex-wrap gap-1">
+                      @for (t of event.scheduledTimes; track t) {
+                        <span
+                          class="px-1.5 py-0.5 rounded text-[11px] font-mono font-bold border"
+                          [class.bg-amber-500-20]="t === event.nextOccurrenceTime"
+                          [class.border-amber-400]="t === event.nextOccurrenceTime"
+                          [class.text-amber-300]="t === event.nextOccurrenceTime"
+                          [class.bg-slate-900]="t !== event.nextOccurrenceTime"
+                          [class.border-slate-800]="t !== event.nextOccurrenceTime"
+                          [class.text-slate-400]="t !== event.nextOccurrenceTime"
+                        >
+                          {{ t }}
+                        </span>
+                      }
+                    </div>
+                  </div>
+
+                  <!-- Rewards / Drops Box -->
+                  <div class="p-2 bg-black/40 rounded border border-amber-500/15 mb-2">
+                    <span class="event-spec-label block text-amber-400 font-bold mb-0.5">🎁 Drops & Premiações</span>
+                    <span class="text-xs text-amber-200/90 font-medium leading-relaxed block">{{ event.rewardTag }}</span>
+                  </div>
+
+                  <!-- Description -->
+                  @if (event.description) {
+                    <p class="text-xs text-slate-400 italic leading-relaxed bg-black/20 p-2 rounded border-l-2 border-slate-700">
+                      {{ event.description }}
+                    </p>
+                  }
+                </div>
+
+                <!-- Footer Action Buttons -->
+                <div class="event-card-actions">
+                  <div class="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      class="event-btn-action"
+                      (click)="openEditEventModal(event, $event)"
+                      title="Editar horários, frequência e dados deste evento"
+                    >
+                      <mat-icon class="text-xs">edit</mat-icon>
+                      <span>Editar</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      class="event-btn-action event-btn-test"
+                      (click)="forceStartEvent(event.id, $event)"
+                      title="Forçar início imediato agora para testar visualmente no painel"
+                    >
+                      <mat-icon class="text-xs">play_arrow</mat-icon>
+                      <span>Testar Agora</span>
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    class="event-btn-action event-btn-delete"
+                    (click)="deleteEvent(event.id, $event)"
+                    title="Excluir este evento do cronograma"
+                  >
+                    <mat-icon class="text-xs">delete</mat-icon>
+                  </button>
+                </div>
+              </div>
+            }
+          </div>
+        } @else {
+          <!-- Empty State -->
+          <div class="text-center py-16 px-4 bg-[#0e1018]/80 border border-dashed border-amber-500/30 rounded-xl max-w-xl mx-auto">
+            <div class="text-4xl mb-3">🔍</div>
+            <h3 class="text-lg font-bold text-white mb-2">Nenhum evento encontrado</h3>
+            <p class="text-sm text-slate-400 mb-6">
+              Não encontramos eventos com o filtro "{{ eventSearchQuery() || eventFilterCategory() }}".
+            </p>
+            <div class="flex items-center justify-center gap-3">
+              <button
+                type="button"
+                class="btn btn-primary text-xs px-4 py-2"
+                (click)="openCreateEventModal()"
+              >
+                + Criar Novo Evento
+              </button>
+              <button
+                type="button"
+                class="btn btn-outline text-xs px-4 py-2"
+                (click)="eventSearchQuery.set(''); eventFilterCategory.set('all')"
+              >
+                Limpar Filtros
+              </button>
+            </div>
+          </div>
+        }
+      } @else {
+        <!-- Access Denied for Non-GM Users -->
+        <div class="text-center py-20 px-6 bg-[#0e1018]/90 border border-red-500/30 rounded-2xl max-w-lg mx-auto shadow-2xl">
+            <div class="w-16 h-16 rounded-full bg-red-500/10 border border-red-500/40 text-red-400 flex items-center justify-center mx-auto mb-4">
+              <mat-icon class="text-3xl">lock</mat-icon>
+            </div>
+            <span class="px-2.5 py-0.5 rounded text-[10px] font-extrabold bg-red-600 text-white font-mono uppercase tracking-widest mb-2 inline-block">
+              Acesso Restrito Staff
+            </span>
+            <h2 class="text-2xl font-bold text-white mb-2 font-title">Acesso Exclusivo para Grand Master (GM)</h2>
+            <p class="text-sm text-slate-300 mb-6 leading-relaxed">
+              O painel de configuração e cronograma mestre de eventos é restrito aos membros da equipe com perfil <strong>Grand Master (GM)</strong>.
+            </p>
+            <div class="flex items-center justify-center gap-3">
+              <button
+                type="button"
+                class="btn btn-primary text-xs px-5 py-2.5"
+                (click)="navigateTo('home')"
+              >
+                <mat-icon class="text-sm mr-1">arrow_back</mat-icon>
+                Voltar à Página Inicial
+              </button>
+            </div>
+          </div>
+        }
+      </div>
+    </section>
+  }
+
+  <!-- DOWNLOAD SECTION -->
+  @if (currentTab() === 'home' || currentTab() === 'download') {
+      <section id="download" class="download-section">
+        <div class="container">
+          <div class="download-content">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-semibold uppercase tracking-widest mb-4">
+              Cliente Completo com Som & Efeitos HD
+            </div>
+
+            <h2 class="section-title">PRONTO PARA <span>JOGAR?</span></h2>
+            <p class="text-slate-300 mt-2">
+              Baixe o cliente oficial do jogo pré-configurado com launcher automático e conecte-se ao servidor MU Free Season 6 Episódio 3.
+            </p>
+
+            <div class="download-buttons">
+              <a
+                href="#"
+                class="btn btn-download"
+                (click)="$event.preventDefault(); showToast('Iniciando download do Cliente Completo (Google Drive / Mega)...')"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                BAIXAR CLIENTE COMPLETO (720 MB)
+              </a>
+
+              <a
+                href="#"
+                class="btn btn-download btn-patch"
+                (click)="$event.preventDefault(); showToast('Iniciando download do Patch de Atualização Manual...')"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 20h9"></path>
+                  <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                </svg>
+                PATCH MANUAL (35 MB)
+              </a>
+            </div>
+
+            <!-- Requirements table -->
+            <div class="mt-12 bg-black/50 border border-slate-800 rounded-lg p-5 text-left text-xs max-w-xl mx-auto">
+              <span class="text-amber-400 font-bold uppercase tracking-wider block mb-3 text-center">Requisitos do Sistema</span>
+              <div class="grid grid-cols-2 gap-4 text-slate-300">
+                <div>
+                  <strong class="text-white block mb-1">Requisitos Mínimos:</strong>
+                  <p>• Windows 7 / 8 / 10 / 11</p>
+                  <p>• 2 GB de Memória RAM</p>
+                  <p>• Placa de Vídeo 256MB DirectX 9</p>
+                  <p>• 2 GB de Espaço Livre</p>
+                </div>
+                <div>
+                  <strong class="text-white block mb-1">Recomendados:</strong>
+                  <p>• Windows 10 / 11 64-bit</p>
+                  <p>• 4 GB+ de Memória RAM</p>
+                  <p>• Placa de Vídeo Dedicada</p>
+                  <p>• Conexão Banda Larga</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    }
+  </main>
+
+  <!-- PUBLIC FOOTER -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-content">
+        <div
+          class="footer-brand"
+          role="button"
+          tabindex="0"
+          (click)="navigateTo('home')"
+          (keydown.enter)="navigateTo('home')"
+          (keydown.space)="navigateTo('home')"
+          style="cursor: pointer;"
+        >
+          <h3>MU <span>FREE</span></h3>
+          <p>{{ serverInfo().season }} • {{ serverInfo().version }}</p>
+        </div>
+
+        <div class="footer-links">
+          <a href="#" (click)="$event.preventDefault(); showToast('Abrindo comunidade no Discord...')">
+            <span class="mr-1">💬</span> Discord
+          </a>
+          <a href="#" (click)="$event.preventDefault(); showToast('Abrindo grupo oficial no WhatsApp...')">
+            <span class="mr-1">📱</span> WhatsApp
+          </a>
+          <a href="#" (click)="$event.preventDefault(); showToast('Canal do YouTube com tutoriais e trailers...')">
+            <span class="mr-1">▶️</span> YouTube
+          </a>
+        </div>
+
+        <div class="footer-copy">
+          <p>&copy; 2026 MU Free Season 6 Server. Todos os direitos reservados aos seus respectivos proprietários.</p>
+          <p class="text-[11px] text-slate-600 mt-1">Este é um servidor sem fins lucrativos dedicado aos fãs de MU Free Season 6 Episódio 3.</p>
+        </div>
+      </div>
+    </div>
+  </footer>
+}
+
+<!-- ========================================== -->
+<!-- DEDICATED PLAYER ACCOUNT CONTROL PANEL -->
+<!-- ========================================== -->
+@if (currentTab() === 'account') {
+  <div class="account-dashboard-shell">
+    <!-- Ambient Dashboard Background Visual FX -->
+    <div class="dash-bg-fx" aria-hidden="true">
+      <div class="dash-ambient-orb orb-gold"></div>
+      <div class="dash-ambient-orb orb-blue"></div>
+      <div class="dash-ambient-orb orb-crimson"></div>
+      <div class="dash-grid-overlay"></div>
+      <div class="dash-arcane-circle-left">
+        <svg viewBox="0 0 400 400" fill="none" stroke="currentColor">
+          <circle cx="200" cy="200" r="180" stroke-width="1" stroke-dasharray="8 8" opacity="0.3" />
+          <circle cx="200" cy="200" r="140" stroke-width="1.5" opacity="0.25" />
+          <circle cx="200" cy="200" r="90" stroke-width="1" stroke-dasharray="4 4" opacity="0.2" />
+          <polygon points="200,30 350,290 50,290" stroke-width="1" opacity="0.15" />
+          <polygon points="200,370 50,110 350,110" stroke-width="1" opacity="0.15" />
+        </svg>
+      </div>
+      <div class="dash-arcane-circle-right">
+        <svg viewBox="0 0 400 400" fill="none" stroke="currentColor">
+          <circle cx="200" cy="200" r="190" stroke-width="1" stroke-dasharray="6 6" opacity="0.25" />
+          <circle cx="200" cy="200" r="150" stroke-width="1.5" opacity="0.2" />
+          <circle cx="200" cy="200" r="100" stroke-width="1" opacity="0.18" />
+          <rect x="80" y="80" width="240" height="240" stroke-width="1" transform="rotate(45 200 200)" opacity="0.12" />
+          <circle cx="200" cy="200" r="40" stroke-width="1.5" stroke-dasharray="3 3" opacity="0.3" />
+        </svg>
+      </div>
+      <div class="dash-watermark">
+        <svg viewBox="0 0 100 100" fill="currentColor">
+          <path d="M50 0 L61 35 L98 35 L68 57 L79 91 L50 70 L21 91 L32 57 L2 35 L39 35 Z" opacity="0.04"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Dashboard Top Bar -->
+    <header class="dashboard-topbar">
+      <div class="container flex items-center justify-between">
+        <div class="flex items-center gap-4">
+          <div
+            class="logo cursor-pointer"
+            role="button"
+            tabindex="0"
+            (click)="navigateTo('home')"
+            (keydown.enter)="navigateTo('home')"
+          >
+            <div class="logo-diamond">
+              <span class="logo-diamond-text">M</span>
+            </div>
+            <div class="flex flex-col">
+              <h1 class="text-base font-bold">MU <span class="text-amber-400">FREE</span></h1>
+              @if (isGM()) {
+                <span class="text-[10px] text-amber-300 font-extrabold uppercase tracking-widest flex items-center gap-1">
+                  <span class="px-1 py-0.2 rounded text-[8px] bg-red-600 text-white font-mono">GM</span>
+                  Painel Grand Master
+                </span>
+              } @else {
+                <span class="text-[10px] text-amber-400 font-bold uppercase tracking-widest">Painel do Jogador</span>
+              }
+            </div>
+          </div>
+
+          <div class="h-6 w-px bg-amber-500/20 hidden sm:block"></div>
+
+          <button
+            type="button"
+            class="btn-back-to-site"
+            (click)="navigateTo('home')"
+          >
+            <mat-icon class="text-sm">arrow_back</mat-icon>
+            <span>Voltar ao Site</span>
+          </button>
+        </div>
+
+        <div class="flex items-center gap-3">
+          @if (isGM()) {
+            <button
+              type="button"
+              class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded bg-gradient-to-r from-red-600/30 to-amber-600/30 border border-amber-500/50 text-amber-200 text-xs font-bold hover:brightness-125 transition"
+              (click)="accountSubTab.set('gm_events')"
+              title="Acessar Gestão de Eventos GM"
+            >
+              <mat-icon class="text-sm text-red-400">tune</mat-icon>
+              <span>Gestão de Eventos GM</span>
+            </button>
+          } @else {
+            <div class="hidden md:flex items-center gap-2 px-3 py-1 rounded bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs">
+              <mat-icon class="text-xs">verified</mat-icon>
+              VIP Ancient Ativo
+            </div>
+          }
+
+          <div class="flex items-center gap-2 pl-3 border-l border-slate-800">
+            <div class="w-8 h-8 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 font-bold text-xs">
+              {{ (currentUser()?.loginName || 'U')[0].toUpperCase() }}
+            </div>
+            <div class="hidden sm:flex flex-col text-left">
+              <span class="text-xs font-bold text-slate-200">{{ currentUser()?.loginName }}</span>
+              <span class="text-[10px] text-slate-400">{{ currentUser()?.email }}</span>
+            </div>
+            <button
+              type="button"
+              class="btn btn-secondary text-xs px-2.5 py-1.5 border-red-500/40 text-red-300 hover:text-red-100 ml-2"
+              (click)="onLogout()"
+              title="Sair da Conta"
+            >
+              <mat-icon class="text-sm">logout</mat-icon>
+              <span class="hidden sm:inline ml-1">Sair</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Dashboard Main Container -->
+    <main class="dashboard-body">
+      <div class="container py-8">
+        <!-- Account Overview Metric Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div class="dashboard-stat-card" [class.border-amber-500-60]="isGM()">
+            <div class="stat-card-icon bg-amber-500/10 border-amber-500/30 text-amber-400">
+              <mat-icon>{{ isGM() ? 'admin_panel_settings' : 'account_circle' }}</mat-icon>
+            </div>
+            <div>
+              <span class="stat-card-label">{{ isGM() ? 'Perfil de Acesso' : 'Conta & Login' }}</span>
+              <strong class="stat-card-val text-amber-300">{{ isGM() ? 'Grand Master (GM)' : currentUser()?.loginName }}</strong>
+              <span class="text-[11px] text-slate-400 block mt-0.5">{{ currentUser()?.loginName }} • {{ currentUser()?.email }}</span>
+            </div>
+          </div>
+
+          <div class="dashboard-stat-card">
+            <div class="stat-card-icon bg-blue-500/10 border-blue-500/30 text-blue-400">
+              <mat-icon>groups</mat-icon>
+            </div>
+            <div>
+              <span class="stat-card-label">Personagens</span>
+              <strong class="stat-card-val text-blue-300">{{ currentUser()?.characters?.length || 0 }} Criados</strong>
+              <span class="text-[11px] text-slate-400 block mt-0.5">Slot: 5 disponíveis</span>
+            </div>
+          </div>
+
+          <div class="dashboard-stat-card">
+            <div class="stat-card-icon bg-emerald-500/10 border-emerald-500/30 text-emerald-400">
+              <mat-icon>diamond</mat-icon>
+            </div>
+            <div>
+              <span class="stat-card-label">Moedas WCoins</span>
+              <strong class="stat-card-val text-emerald-300">2.500 WCoins</strong>
+              <span class="text-[11px] text-emerald-400/80 block mt-0.5">+500 Bônus Diário</span>
+            </div>
+          </div>
+
+          <div class="dashboard-stat-card">
+            <div class="stat-card-icon bg-purple-500/10 border-purple-500/30 text-purple-400">
+              <mat-icon>{{ isGM() ? 'security' : 'military_tech' }}</mat-icon>
+            </div>
+            <div>
+              <span class="stat-card-label">{{ isGM() ? 'Privilégio de Staff' : 'Status VIP' }}</span>
+              <strong class="stat-card-val" [class.text-red-400]="isGM()" [class.text-amber-400]="!isGM()">{{ isGM() ? 'GM / Administrador' : 'VIP Ancient' }}</strong>
+              <span class="text-[11px] text-slate-400 block mt-0.5">{{ isGM() ? 'Acesso a Gestão de Eventos' : '+30% EXP / +15% Drop' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dashboard Sub-Navigation Tabs -->
+        <div class="dashboard-nav-tabs mb-6">
+          <button
+            type="button"
+            class="dashboard-nav-tab"
+            [class.active]="accountSubTab() === 'characters'"
+            (click)="accountSubTab.set('characters')"
+          >
+            <mat-icon class="text-sm">sports_martial_arts</mat-icon>
+            Meus Personagens & Reset
+          </button>
+
+          <button
+            type="button"
+            class="dashboard-nav-tab"
+            [class.active]="accountSubTab() === 'distribute'"
+            (click)="accountSubTab.set('distribute')"
+          >
+            <mat-icon class="text-sm">bolt</mat-icon>
+            Distribuir Pontos
+          </button>
+
+          <button
+            type="button"
+            class="dashboard-nav-tab"
+            [class.active]="accountSubTab() === 'vip'"
+            (click)="accountSubTab.set('vip')"
+          >
+            <mat-icon class="text-sm">build_circle</mat-icon>
+            Limpar PK & Teleporte
+          </button>
+
+          <button
+            type="button"
+            class="dashboard-nav-tab"
+            [class.active]="accountSubTab() === 'security'"
+            (click)="accountSubTab.set('security')"
+          >
+            <mat-icon class="text-sm">lock_reset</mat-icon>
+            Segurança & Senha
+          </button>
+
+          @if (isGM()) {
+            <button
+              type="button"
+              class="dashboard-nav-tab border-amber-500/50 bg-amber-500/10 text-amber-300 font-bold hover:bg-amber-500/20"
+              [class.active]="accountSubTab() === 'gm_events'"
+              (click)="accountSubTab.set('gm_events')"
+            >
+              <mat-icon class="text-sm text-red-400">tune</mat-icon>
+              Painel GM: Gestão de Eventos
+            </button>
+          }
+        </div>
+
+        <!-- SUB-TAB 1: MEUS PERSONAGENS & RESET -->
+        @if (accountSubTab() === 'characters') {
+          <div class="dashboard-content-box">
+            <div class="flex items-center justify-between flex-wrap gap-2 mb-6 pb-4 border-b border-amber-500/20">
+              <div>
+                <h3 class="text-lg font-bold text-white font-title">Gerenciamento de Personagens</h3>
+                <p class="text-xs text-slate-400">Resete seu personagem ao atingir Level 350+ e ganhe pontos adicionais de combate.</p>
+              </div>
+              <div class="text-xs text-amber-400 font-bold px-3 py-1.5 rounded bg-amber-500/10 border border-amber-500/30">
+                Bônus de Reset: +300 STR, +200 AGI, +150 VIT, +150 ENE
+              </div>
+            </div>
+
+            <div class="characters-grid">
+              @for (char of currentUser()?.characters || []; track char.id) {
+                <div class="character-card">
+                  <div class="character-header">
+                    <div>
+                      <h4 class="character-name">{{ char.name }}</h4>
+                      <span class="text-xs text-slate-400">Guild: <strong class="text-slate-200">{{ char.guild || 'Sem Guild' }}</strong></span>
+                    </div>
+                    <div class="flex flex-col items-end gap-1">
+                      <span class="character-class-badge">{{ char.className }}</span>
+                      <span class="text-[10px] px-2 py-0.5 rounded-full" [class.bg-emerald-500-20]="char.status === 'Online'" [class.text-emerald-300]="char.status === 'Online'" [class.bg-slate-700]="char.status === 'Offline'" [class.text-slate-400]="char.status === 'Offline'">
+                        ● {{ char.status }}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div class="char-stats-grid">
+                    <div class="char-stat-item">
+                      <span class="char-stat-lbl">Level</span>
+                      <span class="char-stat-val text-amber-400">{{ char.level }}</span>
+                    </div>
+                    <div class="char-stat-item">
+                      <span class="char-stat-lbl">Resets</span>
+                      <span class="char-stat-val text-amber-300">{{ char.resets }}</span>
+                    </div>
+                    <div class="char-stat-item">
+                      <span class="char-stat-lbl">Master Level</span>
+                      <span class="char-stat-val text-blue-400">{{ char.masterLevel }}</span>
+                    </div>
+                    <div class="char-stat-item">
+                      <span class="char-stat-lbl">PK Kills</span>
+                      <span class="char-stat-val text-red-400">{{ char.kills }}</span>
+                    </div>
+                  </div>
+
+                  <!-- Attributes Breakdown -->
+                  <div class="p-3 bg-black/50 rounded-lg border border-slate-800 text-xs mb-4">
+                    <span class="text-[10px] uppercase font-bold text-slate-400 tracking-wider block mb-2">Pontos Atuais</span>
+                    <div class="grid grid-cols-4 gap-2 text-center">
+                      <div>
+                        <span class="text-slate-500 block text-[9px]">STR</span>
+                        <strong class="text-amber-200">{{ char.strength }}</strong>
+                      </div>
+                      <div>
+                        <span class="text-slate-500 block text-[9px]">AGI</span>
+                        <strong class="text-emerald-200">{{ char.agility }}</strong>
+                      </div>
+                      <div>
+                        <span class="text-slate-500 block text-[9px]">VIT</span>
+                        <strong class="text-red-200">{{ char.vitality }}</strong>
+                      </div>
+                      <div>
+                        <span class="text-slate-500 block text-[9px]">ENE</span>
+                        <strong class="text-blue-200">{{ char.energy }}</strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="flex gap-2">
+                    <button
+                      type="button"
+                      class="btn btn-primary w-full text-xs py-2"
+                      (click)="performReset(char)"
+                    >
+                      <mat-icon class="text-sm">replay</mat-icon>
+                      RESETAR (LV 350+)
+                    </button>
+                  </div>
+                </div>
+              } @empty {
+                <div class="col-span-full text-center py-12 bg-black/40 border border-slate-800 rounded-lg p-6">
+                  <mat-icon class="text-4xl text-amber-500 mb-2">person_off</mat-icon>
+                  <h4 class="text-lg font-bold text-slate-200">Nenhum personagem encontrado</h4>
+                  <p class="text-sm text-slate-400 mt-1">Conecte-se ao servidor pelo cliente do jogo para criar seus personagens.</p>
+                  <a
+                    href="#download"
+                    class="btn btn-primary mt-4"
+                    (click)="$event.preventDefault(); navigateTo('download')"
+                  >
+                    Baixar Cliente
+                  </a>
+                </div>
+              }
+            </div>
+          </div>
+        }
+
+        <!-- SUB-TAB 2: DISTRIBUIR PONTOS -->
+        @if (accountSubTab() === 'distribute') {
+          <div class="dashboard-content-box">
+            <div class="mb-6 pb-4 border-b border-amber-500/20">
+              <h3 class="text-lg font-bold text-white font-title">Distribuidor Rápido de Status</h3>
+              <p class="text-xs text-slate-400">Distribua pontos diretamente nos atributos de Força, Agilidade, Vitalidade e Energia dos seus guerreiros.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              @for (char of currentUser()?.characters || []; track char.id) {
+                <div class="bg-black/60 border border-amber-500/20 rounded-lg p-5">
+                  <div class="flex items-center justify-between pb-3 mb-4 border-b border-slate-800">
+                    <div>
+                      <h4 class="text-base font-bold text-amber-300">{{ char.name }}</h4>
+                      <span class="text-xs text-slate-400">{{ char.className }} • Lv {{ char.level }} • {{ char.resets }} Resets</span>
+                    </div>
+                    <span class="text-xs px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold">Slot Ativo</span>
+                  </div>
+
+                  <div class="space-y-3">
+                    <!-- STR -->
+                    <div class="flex items-center justify-between p-2.5 rounded bg-slate-900/60 border border-slate-800">
+                      <div>
+                        <strong class="text-amber-200 text-sm block">Força (STR): {{ char.strength }}</strong>
+                        <span class="text-[10px] text-slate-400">Aumenta dano físico e ataque</span>
+                      </div>
+                      <div class="flex gap-1.5">
+                        <button type="button" class="px-2 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded text-xs font-bold" (click)="performAddPoints(char, 'str', 10)">+10</button>
+                        <button type="button" class="px-2 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded text-xs font-bold" (click)="performAddPoints(char, 'str', 50)">+50</button>
+                        <button type="button" class="px-2 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded text-xs font-bold" (click)="performAddPoints(char, 'str', 100)">+100</button>
+                      </div>
+                    </div>
+
+                    <!-- AGI -->
+                    <div class="flex items-center justify-between p-2.5 rounded bg-slate-900/60 border border-slate-800">
+                      <div>
+                        <strong class="text-emerald-200 text-sm block">Agilidade (AGI): {{ char.agility }}</strong>
+                        <span class="text-[10px] text-slate-400">Aumenta velocidade de ataque e defesa</span>
+                      </div>
+                      <div class="flex gap-1.5">
+                        <button type="button" class="px-2 py-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 rounded text-xs font-bold" (click)="performAddPoints(char, 'agi', 10)">+10</button>
+                        <button type="button" class="px-2 py-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 rounded text-xs font-bold" (click)="performAddPoints(char, 'agi', 50)">+50</button>
+                        <button type="button" class="px-2 py-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 rounded text-xs font-bold" (click)="performAddPoints(char, 'agi', 100)">+100</button>
+                      </div>
+                    </div>
+
+                    <!-- VIT -->
+                    <div class="flex items-center justify-between p-2.5 rounded bg-slate-900/60 border border-slate-800">
+                      <div>
+                        <strong class="text-red-200 text-sm block">Vitalidade (VIT): {{ char.vitality }}</strong>
+                        <span class="text-[10px] text-slate-400">Aumenta HP máximo e resistência</span>
+                      </div>
+                      <div class="flex gap-1.5">
+                        <button type="button" class="px-2 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/40 rounded text-xs font-bold" (click)="performAddPoints(char, 'vit', 10)">+10</button>
+                        <button type="button" class="px-2 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/40 rounded text-xs font-bold" (click)="performAddPoints(char, 'vit', 50)">+50</button>
+                        <button type="button" class="px-2 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/40 rounded text-xs font-bold" (click)="performAddPoints(char, 'vit', 100)">+100</button>
+                      </div>
+                    </div>
+
+                    <!-- ENE -->
+                    <div class="flex items-center justify-between p-2.5 rounded bg-slate-900/60 border border-slate-800">
+                      <div>
+                        <strong class="text-blue-200 text-sm block">Energia (ENE): {{ char.energy }}</strong>
+                        <span class="text-[10px] text-slate-400">Aumenta Mana, dano mágico e buffs</span>
+                      </div>
+                      <div class="flex gap-1.5">
+                        <button type="button" class="px-2 py-1 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-500/40 rounded text-xs font-bold" (click)="performAddPoints(char, 'ene', 10)">+10</button>
+                        <button type="button" class="px-2 py-1 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-500/40 rounded text-xs font-bold" (click)="performAddPoints(char, 'ene', 50)">+50</button>
+                        <button type="button" class="px-2 py-1 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 border border-blue-500/40 rounded text-xs font-bold" (click)="performAddPoints(char, 'ene', 100)">+100</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+        }
+
+        <!-- SUB-TAB 3: LIMPAR PK & DESBUGAR -->
+        @if (accountSubTab() === 'vip') {
+          <div class="dashboard-content-box">
+            <div class="mb-6 pb-4 border-b border-amber-500/20">
+              <h3 class="text-lg font-bold text-white font-title">Utilitários do Jogador</h3>
+              <p class="text-xs text-slate-400">Serviços rápidos para limpeza de status de PK (Assassino) e teleporte de segurança para Lorencia.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              @for (char of currentUser()?.characters || []; track char.id) {
+                <div class="bg-black/60 border border-amber-500/20 rounded-lg p-5">
+                  <div class="flex items-center justify-between pb-3 mb-4 border-b border-slate-800">
+                    <div>
+                      <h4 class="text-base font-bold text-amber-300">{{ char.name }}</h4>
+                      <span class="text-xs text-slate-400">{{ char.className }} • Status PK: <strong class="text-red-400">{{ char.kills }} Kills</strong></span>
+                    </div>
+                    <span class="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-300">
+                      Guild: {{ char.guild || 'Sem Guild' }}
+                    </span>
+                  </div>
+
+                  <div class="space-y-3">
+                    <div class="p-3 bg-slate-900/60 rounded border border-slate-800 flex items-center justify-between">
+                      <div>
+                        <strong class="text-white text-xs block">Limpar Status de PK (Hero / Neutro)</strong>
+                        <span class="text-[10px] text-slate-400">Zera o contador de PKs e remove status de assassino</span>
+                      </div>
+                      <button
+                        type="button"
+                        class="btn btn-secondary text-xs px-3 py-1.5 border-amber-500/40 text-amber-300 hover:bg-amber-500/20"
+                        (click)="performClearPk(char)"
+                      >
+                        <mat-icon class="text-sm mr-1">cleaning_services</mat-icon>
+                        Limpar PK
+                      </button>
+                    </div>
+
+                    <div class="p-3 bg-slate-900/60 rounded border border-slate-800 flex items-center justify-between">
+                      <div>
+                        <strong class="text-white text-xs block">Desbugar Posição do Personagem</strong>
+                        <span class="text-[10px] text-slate-400">Move o personagem instantaneamente para Lorencia Bar (125, 125)</span>
+                      </div>
+                      <button
+                        type="button"
+                        class="btn btn-secondary text-xs px-3 py-1.5 border-blue-500/40 text-blue-300 hover:bg-blue-500/20"
+                        (click)="performUnbug(char)"
+                      >
+                        <mat-icon class="text-sm mr-1">my_location</mat-icon>
+                        Mover Lorencia
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+        }
+
+        <!-- SUB-TAB 4: SEGURANÇA & SENHA -->
+        @if (accountSubTab() === 'security') {
+          <div class="dashboard-content-box max-w-xl">
+            <div class="mb-6 pb-4 border-b border-amber-500/20">
+              <h3 class="text-lg font-bold text-white font-title">Segurança da Conta & Troca de Senha</h3>
+              <p class="text-xs text-slate-400">Mantenha sua conta protegida alterando periodicamente sua senha de acesso.</p>
+            </div>
+
+            <form [formGroup]="changePasswordForm" (ngSubmit)="onChangePasswordSubmit()" class="space-y-4">
+              <div class="form-group">
+                <label for="currentPwd" class="text-xs text-slate-300 font-bold uppercase tracking-wider block mb-1.5">Senha Atual</label>
+                <div class="input-wrapper">
+                  <input
+                    type="password"
+                    id="currentPwd"
+                    formControlName="currentPassword"
+                    placeholder="Digite sua senha atual"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="newPwd" class="text-xs text-slate-300 font-bold uppercase tracking-wider block mb-1.5">Nova Senha (Mínimo 6 dígitos)</label>
+                <div class="input-wrapper">
+                  <input
+                    type="password"
+                    id="newPwd"
+                    formControlName="newPassword"
+                    placeholder="Nova senha secreta"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="confirmNewPwd" class="text-xs text-slate-300 font-bold uppercase tracking-wider block mb-1.5">Confirmar Nova Senha</label>
+                <div class="input-wrapper">
+                  <input
+                    type="password"
+                    id="confirmNewPwd"
+                    formControlName="confirmNewPassword"
+                    placeholder="Repita a nova senha"
+                    required
+                  />
+                </div>
+              </div>
+
+              <!-- Código de Segurança (Personal ID) -->
+              <div class="form-group">
+                <div class="flex items-center justify-between mb-1.5">
+                  <label for="securityCodePwd" class="text-xs text-amber-300 font-bold uppercase tracking-wider block flex items-center gap-1">
+                    <mat-icon class="text-xs text-amber-400">shield</mat-icon>
+                    Código de Segurança (Personal ID)
+                  </label>
+                  <span class="text-[10px] text-amber-400/90 font-semibold uppercase tracking-wider">Validação 4 a 10 dígitos</span>
+                </div>
+                <div class="input-wrapper">
+                  <input
+                    type="password"
+                    id="securityCodePwd"
+                    formControlName="securityCode"
+                    placeholder="Digite seu Personal ID cadastrado"
+                    required
+                    minlength="4"
+                    maxlength="10"
+                  />
+                </div>
+                <span class="text-[11px] text-slate-400 mt-1 block">
+                  Informe o Código de Segurança (Personal ID) cadastrado na criação da conta para autorizar a troca de senha.
+                </span>
+              </div>
+
+              <button
+                type="submit"
+                class="btn btn-primary w-full mt-4"
+                [disabled]="changePasswordForm.invalid"
+              >
+                <mat-icon class="text-sm">security</mat-icon>
+                SALVAR NOVA SENHA
+              </button>
+            </form>
+          </div>
+        }
+
+        <!-- SUB-TAB 5: PAINEL GM - GESTÃO DE EVENTOS E HORÁRIOS -->
+        @if (accountSubTab() === 'gm_events' && isGM()) {
+          <div class="dashboard-content-box border-amber-500/30">
+            <!-- GM Sub-tab Header -->
+            <div class="flex items-center justify-between flex-wrap gap-4 mb-6 pb-4 border-b border-amber-500/20">
+              <div>
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-gradient-to-r from-red-600 to-amber-500 text-white font-mono shadow-sm">
+                    PAINEL GM EXCLUSIVO
+                  </span>
+                  <span class="text-xs text-slate-400 font-mono">Relógio: <strong class="text-amber-300">{{ lastUpdate() }}</strong></span>
+                </div>
+                <h3 class="text-xl font-bold text-white font-title">Gestão de Horários & Eventos do Servidor</h3>
+                <p class="text-xs text-slate-400 mt-1">
+                  Gerencie os horários, intervalos de repetição, minutos de abertura e drops de todos os eventos e invasões. Todas as configurações alteradas aqui são refletidas imediatamente na página inicial.
+                </p>
+              </div>
+
+              <div class="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  class="btn btn-secondary text-xs px-3 py-2 border-slate-700 text-slate-300 hover:text-white"
+                  (click)="resetEventsToDefault()"
+                  title="Restaurar eventos padrão de fábrica"
+                >
+                  <mat-icon class="text-sm">restart_alt</mat-icon>
+                  <span>Restaurar Padrões</span>
+                </button>
+
+                <button
+                  type="button"
+                  class="btn btn-secondary text-xs px-3 py-2 border-amber-500/40 text-amber-300 hover:bg-amber-500/20"
+                  (click)="navigateTo('events')"
+                  title="Abrir Tela Cheia de Gestão de Eventos"
+                >
+                  <mat-icon class="text-sm">open_in_full</mat-icon>
+                  <span>Modo Tela Cheia</span>
+                </button>
+
+                <button
+                  type="button"
+                  class="btn btn-primary text-xs px-4 py-2 flex items-center gap-1.5 shadow-lg shadow-amber-500/20"
+                  (click)="openCreateEventModal()"
+                >
+                  <mat-icon class="text-sm">add_circle</mat-icon>
+                  <span>Novo Evento GM</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- GM Metric Summary -->
+            <div class="events-stat-grid mb-6">
+              <div class="dashboard-stat-card">
+                <div class="stat-card-icon bg-amber-500/10 border-amber-500/30 text-amber-400 text-xl">
+                  ⚔️
+                </div>
+                <div>
+                  <span class="stat-card-label">Total de Eventos</span>
+                  <span class="stat-card-val text-amber-300">{{ eventsStats().total }}</span>
+                </div>
+              </div>
+
+              <div class="dashboard-stat-card">
+                <div class="stat-card-icon bg-blue-500/10 border-blue-500/30 text-blue-400 text-xl">
+                  🛡️
+                </div>
+                <div>
+                  <span class="stat-card-label">Eventos Habilitados</span>
+                  <span class="stat-card-val text-blue-300">{{ eventsStats().active }}</span>
+                </div>
+              </div>
+
+              <div class="dashboard-stat-card" [class.border-emerald-500]="eventsStats().openNow > 0">
+                <div class="stat-card-icon bg-emerald-500/10 border-emerald-500/30 text-emerald-400 text-xl">
+                  🚪
+                </div>
+                <div>
+                  <span class="stat-card-label">Portões Abertos Agora</span>
+                  <span class="stat-card-val text-emerald-300">{{ eventsStats().openNow }}</span>
+                </div>
+              </div>
+
+              <div class="dashboard-stat-card" [class.border-amber-400]="eventsStats().imminent > 0">
+                <div class="stat-card-icon bg-orange-500/10 border-orange-500/30 text-orange-400 text-xl">
+                  ⏳
+                </div>
+                <div>
+                  <span class="stat-card-label">Iniciando (&lt;5m)</span>
+                  <span class="stat-card-val text-orange-300">{{ eventsStats().imminent }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Search & Filter Controls -->
+            <div class="events-filter-bar mb-6">
+              <div class="events-filter-tabs">
+                <button
+                  type="button"
+                  class="events-filter-tab"
+                  [class.active]="eventFilterCategory() === 'all'"
+                  (click)="setEventFilterCategory('all')"
+                >
+                  <span>Todos ({{ serverEventsList().length }})</span>
+                </button>
+
+                <button
+                  type="button"
+                  class="events-filter-tab"
+                  [class.active]="eventFilterCategory() === 'events'"
+                  (click)="setEventFilterCategory('events')"
+                >
+                  <span>⚔️ Eventos Especiais</span>
+                </button>
+
+                <button
+                  type="button"
+                  class="events-filter-tab"
+                  [class.active]="eventFilterCategory() === 'invasions'"
+                  (click)="setEventFilterCategory('invasions')"
+                >
+                  <span>🐲 Invasões de Monstros</span>
+                </button>
+
+                <button
+                  type="button"
+                  class="events-filter-tab"
+                  [class.active]="eventFilterCategory() === 'active'"
+                  (click)="setEventFilterCategory('active')"
+                >
+                  <span>✅ Somente Ativos</span>
+                </button>
+              </div>
+
+              <div class="events-search-wrapper">
+                <mat-icon class="search-icon">search</mat-icon>
+                <input
+                  type="text"
+                  placeholder="Filtrar por nome, mapa ou drop..."
+                  [value]="eventSearchQuery()"
+                  (input)="onSearchInput($event)"
+                  class="events-search-input"
+                  aria-label="Buscar eventos no painel GM"
+                />
+                @if (eventSearchQuery()) {
+                  <button
+                    type="button"
+                    class="clear-search-btn"
+                    (click)="eventSearchQuery.set('')"
+                    aria-label="Limpar busca"
+                  >&times;</button>
+                }
+              </div>
+            </div>
+
+            <!-- Events Grid in GM Panel -->
+            <div class="events-management-grid">
+              @for (ev of filteredEventsPageList(); track ev.id) {
+                <div class="event-mgmt-card" [class.opacity-60]="ev.enabled === false">
+                  <!-- Header -->
+                  <div class="event-mgmt-header">
+                    <div class="flex items-center gap-3">
+                      <span class="event-mgmt-icon">{{ ev.icon }}</span>
+                      <div>
+                        <div class="flex items-center gap-2">
+                          <h4 class="event-mgmt-title">{{ ev.name }}</h4>
+                          @if (ev.enabled === false) {
+                            <span class="text-[9px] px-1.5 py-0.5 rounded bg-red-900/60 text-red-300 border border-red-500/30 uppercase font-mono">Desativado</span>
+                          }
+                        </div>
+                        <span class="event-mgmt-subtitle">
+                          {{ ev.category === 'invasions' ? 'Invasão' : 'Evento Especial' }} • Mapa: <strong>{{ ev.location }}</strong>
+                        </span>
+                      </div>
+                    </div>
+
+                    <!-- Status Pill -->
+                    <div class="flex items-center gap-2">
+                      @if (ev.isOpen) {
+                        <span class="event-status-pill open">
+                          <span class="status-pulse-dot"></span>
+                          ABERTO AGORA
+                        </span>
+                      } @else if (ev.isImminent) {
+                        <span class="event-status-pill imminent">
+                          <span class="status-pulse-dot bg-amber-400"></span>
+                          {{ ev.countdownFormatted }}
+                        </span>
+                      } @else {
+                        <span class="event-status-pill upcoming">
+                          {{ ev.countdownFormatted }}
+                        </span>
+                      }
+                    </div>
+                  </div>
+
+                  <!-- Timing and Interval Details -->
+                  <div class="event-mgmt-details">
+                    <div class="detail-item">
+                      <span class="detail-label">Status Atual</span>
+                      <span class="detail-value text-amber-300 font-mono font-bold">{{ ev.statusLabel }}</span>
+                    </div>
+
+                    <div class="detail-item">
+                      <span class="detail-label">Horário Inicial / Intervalo</span>
+                      <span class="detail-value text-amber-200 font-mono">{{ ev.startTimeStr }} (a cada {{ ev.startIntervalMin }}m)</span>
+                    </div>
+
+                    <div class="detail-item">
+                      <span class="detail-label">Duração dos Portões</span>
+                      <span class="detail-value text-slate-300">{{ ev.durationMin }} minutos</span>
+                    </div>
+
+                    <div class="detail-item">
+                      <span class="detail-label">Recompensas & Drops</span>
+                      <span class="detail-value text-amber-300 text-xs truncate max-w-[200px]" [title]="ev.rewardTag">{{ ev.rewardTag }}</span>
+                    </div>
+                  </div>
+
+                  <!-- Daily occurrences chips in GM Card -->
+                  <div class="mt-2.5 pt-2 border-t border-slate-800/80">
+                    <div class="flex items-center justify-between text-[10px] text-slate-400 font-mono mb-1">
+                      <span class="text-amber-400 font-semibold uppercase">Horários de Execução ({{ ev.scheduledTimes.length }}x):</span>
+                      @if (ev.nextOccurrenceTime) {
+                        <span class="text-amber-300">Próxima: <strong>{{ ev.nextOccurrenceTime }}</strong></span>
+                      }
+                    </div>
+                    <div class="flex flex-wrap gap-1">
+                      @for (t of ev.scheduledTimes; track t) {
+                        <span
+                          class="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold border"
+                          [class.bg-amber-500-20]="t === ev.nextOccurrenceTime"
+                          [class.border-amber-400]="t === ev.nextOccurrenceTime"
+                          [class.text-amber-300]="t === ev.nextOccurrenceTime"
+                          [class.bg-slate-900]="t !== ev.nextOccurrenceTime"
+                          [class.border-slate-800]="t !== ev.nextOccurrenceTime"
+                          [class.text-slate-400]="t !== ev.nextOccurrenceTime"
+                        >
+                          {{ t }}
+                        </span>
+                      }
+                    </div>
+                  </div>
+
+                  <!-- Actions -->
+                  <div class="mt-3 pt-3 border-t border-slate-800 flex items-center justify-between gap-2 flex-wrap text-xs">
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                      <span class="text-slate-400 text-[11px]">Progresso do Ciclo:</span>
+                      <div class="w-24 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                        <div class="h-full bg-gradient-to-r from-amber-500 to-amber-300 rounded-full" [style.width.%]="ev.progressPct"></div>
+                      </div>
+                      <span class="text-[10px] text-amber-400/80 font-mono">{{ ev.progressPct }}%</span>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        class="btn-mgmt-action text-xs"
+                        (click)="toggleEventEnabled(ev.id)"
+                        [title]="ev.enabled !== false ? 'Desativar este evento' : 'Ativar este evento'"
+                      >
+                        <mat-icon class="text-sm" [class.text-emerald-400]="ev.enabled !== false" [class.text-slate-400]="ev.enabled === false">
+                          {{ ev.enabled !== false ? 'toggle_on' : 'toggle_off' }}
+                        </mat-icon>
+                        <span>{{ ev.enabled !== false ? 'Ativo' : 'Inativo' }}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        class="btn-mgmt-action text-xs"
+                        (click)="forceStartEvent(ev.id)"
+                        title="Forçar início imediato deste evento"
+                      >
+                        <mat-icon class="text-sm text-amber-400">bolt</mat-icon>
+                        <span>Iniciar</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        class="btn-mgmt-action text-xs border-amber-500/40 text-amber-300"
+                        (click)="openEditEventModal(ev)"
+                        title="Editar horários e parâmetros deste evento"
+                      >
+                        <mat-icon class="text-sm">edit</mat-icon>
+                        <span>Editar</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        class="btn-mgmt-action text-xs border-red-500/30 text-red-400 hover:bg-red-500/20"
+                        (click)="deleteEvent(ev.id)"
+                        title="Remover evento"
+                      >
+                        <mat-icon class="text-sm">delete</mat-icon>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              } @empty {
+                <div class="col-span-full p-8 text-center bg-black/40 border border-dashed border-amber-500/20 rounded-xl">
+                  <mat-icon class="text-4xl text-amber-400 mb-2">event_busy</mat-icon>
+                  <h4 class="text-white font-bold mb-1">Nenhum evento encontrado</h4>
+                  <p class="text-xs text-slate-400 mb-4">Nenhum evento corresponde ao filtro atual.</p>
+                  <button type="button" class="btn btn-secondary text-xs" (click)="eventSearchQuery.set(''); eventFilterCategory.set('all')">
+                    Limpar Filtros
+                  </button>
+                </div>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    </main>
+
+    <!-- Dedicated Dashboard Footer -->
+    <footer class="dashboard-footer">
+      <div class="container flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500 py-6 border-t border-amber-500/15">
+        <div>
+          MU Free Season 6 • Painel de Controle Oficial do Jogador
+        </div>
+        <div class="flex items-center gap-4">
+          <button (click)="navigateTo('home')" class="hover:text-amber-400 transition cursor-pointer">Voltar ao Site Principal</button>
+          <button (click)="navigateTo('download')" class="hover:text-amber-400 transition cursor-pointer">Download do Jogo</button>
+          <button (click)="onLogout()" class="text-red-400 hover:text-red-300 transition cursor-pointer">Desconectar</button>
+        </div>
+      </div>
+    </footer>
+  </div>
+}
+
+<!-- LOGIN MODAL DIALOG (Preserving IDs & exact form elements) -->
+<div class="login-overlay" id="loginOverlay" [hidden]="!isLoginOpen()">
+  <div class="login-dialog" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
+    <button
+      type="button"
+      class="login-close"
+      id="loginCloseBtn"
+      aria-label="Fechar"
+      (click)="closeLogin()"
+    >&times;</button>
+
+    <div class="card-header">
+      <div class="card-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+          <circle cx="12" cy="7" r="4"></circle>
+        </svg>
+      </div>
+      <div>
+        <h3 id="loginTitle">Entrar na Conta</h3>
+        <p class="text-xs text-slate-400 mt-0.5">Acesse o painel do jogador</p>
+      </div>
+    </div>
+
+    <form id="loginForm" [formGroup]="loginForm" (ngSubmit)="onLoginSubmit()" class="register-form">
+      <div class="form-group">
+        <label for="loginUser">Login</label>
+        <div class="input-wrapper">
+          <input
+            type="text"
+            id="loginUser"
+            name="loginUser"
+            formControlName="loginUser"
+            maxlength="10"
+            autocomplete="username"
+            placeholder="Seu login da conta"
+            required
+          />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="loginPassword">Senha</label>
+        <div class="input-wrapper">
+          <input
+            type="password"
+            id="loginPassword"
+            name="loginPassword"
+            formControlName="loginPassword"
+            autocomplete="current-password"
+            placeholder="Sua senha secreta"
+            required
+          />
+        </div>
+      </div>
+
+      @if (loginError()) {
+        <p id="loginError" class="login-error">{{ loginError() }}</p>
+      }
+
+      <button
+        type="submit"
+        class="btn btn-submit mt-2"
+        id="loginSubmitBtn"
+        [disabled]="isLoggingIn() || loginForm.invalid"
+      >
+        @if (isLoggingIn()) {
+          <span class="flex items-center justify-center gap-2">
+            <svg class="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+            </svg>
+            Entrando...
+          </span>
+        } @else {
+          <span>ENTRAR NO PAINEL</span>
+        }
+      </button>
+
+      <div class="text-center text-xs text-slate-400 mt-3 pt-3 border-t border-slate-800">
+        Não possui uma conta?
+        <a
+          href="#register"
+          class="text-amber-400 hover:underline font-semibold ml-1"
+          (click)="$event.preventDefault(); closeLogin(); navigateTo('register')"
+        >
+          Cadastre-se grátis
+        </a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- CLASS DETAIL MODAL -->
+@if (selectedClass()) {
+  <div
+    class="login-overlay"
+    role="dialog"
+    aria-modal="true"
+    tabindex="0"
+    (click)="closeClassModal()"
+    (keydown.escape)="closeClassModal()"
+  >
+    <div
+      class="login-dialog max-w-lg"
+      role="document"
+      tabindex="0"
+      (click)="$event.stopPropagation()"
+      (keydown)="$event.stopPropagation()"
+    >
+      <button
+        type="button"
+        class="login-close"
+        (click)="closeClassModal()"
+      >&times;</button>
+
+      <div class="flex items-center gap-3 mb-4 pb-3 border-b border-amber-500/20">
+        <span class="text-3xl">{{ selectedClass()?.icon }}</span>
+        <div>
+          <h3 class="text-xl font-bold text-white font-serif">{{ selectedClass()?.name }}</h3>
+          <span class="text-xs text-amber-400 uppercase tracking-widest font-bold">{{ selectedClass()?.role }}</span>
+        </div>
+      </div>
+
+      <p class="text-sm text-slate-300 italic mb-4 p-2.5 bg-black/40 rounded border-l-2 border-amber-500">
+        "{{ selectedClass()?.quote }}"
+      </p>
+
+      <p class="text-sm text-slate-300 leading-relaxed mb-4">
+        {{ selectedClass()?.description }}
+      </p>
+
+      <div class="mb-4">
+        <span class="text-xs text-slate-400 font-bold uppercase tracking-wider block mb-2">Habilidades Principais</span>
+        <div class="flex flex-wrap gap-1.5">
+          @for (skill of selectedClass()?.keySkills; track skill) {
+            <span class="px-2.5 py-1 rounded bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs font-semibold">
+              ✨ {{ skill }}
+            </span>
+          }
+        </div>
+      </div>
+
+      <div class="bg-black/50 p-3 rounded border border-slate-800 mb-4">
+        <span class="text-xs text-slate-400 font-bold uppercase tracking-wider block mb-1.5">Atributos Iniciais</span>
+        <div class="grid grid-cols-4 gap-2 text-center text-xs">
+          <div class="p-1.5 bg-slate-900/60 rounded">
+            <span class="text-slate-500 text-[10px] block">STR</span>
+            <strong class="text-amber-300">{{ selectedClass()?.stats?.str }}</strong>
+          </div>
+          <div class="p-1.5 bg-slate-900/60 rounded">
+            <span class="text-slate-500 text-[10px] block">AGI</span>
+            <strong class="text-emerald-300">{{ selectedClass()?.stats?.agi }}</strong>
+          </div>
+          <div class="p-1.5 bg-slate-900/60 rounded">
+            <span class="text-slate-500 text-[10px] block">VIT</span>
+            <strong class="text-red-300">{{ selectedClass()?.stats?.vit }}</strong>
+          </div>
+          <div class="p-1.5 bg-slate-900/60 rounded">
+            <span class="text-slate-500 text-[10px] block">ENE</span>
+            <strong class="text-blue-300">{{ selectedClass()?.stats?.ene }}</strong>
+          </div>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        class="btn btn-primary w-full"
+        (click)="closeClassModal(); navigateTo('register')"
+      >
+        CRIAR CONTA PARA JOGAR
+      </button>
+    </div>
+  </div>
+}
+
+<!-- ========================================== -->
+<!-- EVENT CONFIGURATION & SCHEDULING MODAL -->
+<!-- ========================================== -->
+@if (isEventModalOpen()) {
+  <div
+    class="event-modal-backdrop"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="modal-event-title"
+    tabindex="0"
+    (keydown.escape)="closeEventModal()"
+  >
+    <div class="event-modal-card">
+      <!-- Modal Header -->
+      <div class="event-modal-header">
+        <div class="flex items-center gap-2.5">
+          <span class="text-2xl">{{ eventForm.get('icon')?.value || '⚔️' }}</span>
+          <div>
+            <h3 id="modal-event-title" class="text-base font-bold text-white font-serif tracking-wide">
+              {{ editingEventId() ? 'Configurar Horários e Dados do Evento' : 'Novo Evento / Invasão Personalizado' }}
+            </h3>
+            <span class="text-[11px] text-amber-400 font-mono block">
+              MU FREE Season 6 • Sincronizado com Página Inicial
+            </span>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          aria-label="Fechar janela de configuração de evento"
+          class="text-slate-400 hover:text-white p-1 rounded-full hover:bg-white/10 transition"
+          (click)="closeEventModal()"
+        >
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+
+      <!-- Modal Body / Form -->
+      <form [formGroup]="eventForm" (ngSubmit)="saveEventModal()" class="event-modal-body">
+        <!-- Row 1: Name and Category -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="sm:col-span-2">
+            <label for="modal-evt-name" class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
+              Nome do Evento *
+            </label>
+            <input
+              id="modal-evt-name"
+              type="text"
+              formControlName="name"
+              class="w-full px-3 py-2 bg-black/60 border border-slate-700 rounded text-white text-sm focus:outline-none focus:border-amber-400"
+              placeholder="Ex: Blood Castle, Kundun Boss, etc."
+            />
+          </div>
+
+          <div>
+            <label for="modal-evt-category" class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
+              Categoria *
+            </label>
+            <select
+              id="modal-evt-category"
+              formControlName="category"
+              class="w-full px-3 py-2 bg-black/60 border border-slate-700 rounded text-white text-sm focus:outline-none focus:border-amber-400"
+            >
+              <option value="events">⚔️ Evento Clássico</option>
+              <option value="invasions">🐲 Invasão de Monstros</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Row 2: Visual Icon Presets & Color Theme -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-black/40 p-3 rounded-lg border border-slate-800">
+          <!-- Icon Picker -->
+          <div>
+            <span class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+              Ícone Visual: <strong class="text-amber-300">{{ eventForm.get('icon')?.value }}</strong>
+            </span>
+            <div class="flex flex-wrap gap-1.5">
+              @for (iconPreset of ['🩸', '😈', '🐲', '⚔️', '🔮', '🧙‍♂️', '⚽', '🏰', '👑', '🐍', '💎', '⚡', '🛡️', '💀', '👹', '🔥', '🏆', '💰']; track iconPreset) {
+                <button
+                  type="button"
+                  [attr.aria-label]="'Escolher ícone ' + iconPreset"
+                  class="w-8 h-8 rounded bg-slate-900 border border-slate-700 hover:border-amber-400 flex items-center justify-center text-sm transition"
+                  [class.border-amber-400]="eventForm.get('icon')?.value === iconPreset"
+                  [class.bg-amber-500/20]="eventForm.get('icon')?.value === iconPreset"
+                  (click)="selectIconPreset(iconPreset)"
+                >
+                  {{ iconPreset }}
+                </button>
+              }
+            </div>
+          </div>
+
+          <!-- Color Theme Picker -->
+          <div>
+            <span class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+              Cor de Destaque
+            </span>
+            <div class="flex flex-wrap items-center gap-1.5 mb-2">
+              @for (colorPreset of ['#ef4444', '#a855f7', '#d4af37', '#f59e0b', '#06b6d4', '#3b82f6', '#10b981', '#ec4899', '#e2e8f0']; track colorPreset) {
+                <button
+                  type="button"
+                  [attr.aria-label]="'Escolher cor de tema ' + colorPreset"
+                  class="w-6 h-6 rounded-full border-2 transition transform hover:scale-110"
+                  [style.background-color]="colorPreset"
+                  [style.border-color]="eventForm.get('colorTheme')?.value === colorPreset ? '#ffffff' : 'transparent'"
+                  (click)="selectColorPreset(colorPreset)"
+                >
+                  <span class="sr-only">{{ colorPreset }}</span>
+                </button>
+              }
+            </div>
+            <div class="flex items-center gap-2">
+              <input
+                id="modal-evt-color"
+                type="color"
+                formControlName="colorTheme"
+                aria-label="Selecionar cor personalizada"
+                class="w-8 h-8 rounded border border-slate-700 bg-transparent cursor-pointer"
+              />
+              <span class="text-xs font-mono text-slate-400 uppercase">{{ eventForm.get('colorTheme')?.value }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Row 3: Schedule Timing / Frequência & Horário Inicial -->
+        <div class="bg-amber-950/20 border border-amber-500/20 p-3.5 rounded-lg">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1">
+              <mat-icon class="text-sm">schedule</mat-icon>
+              Programação de Horários & Intervalo
+            </span>
+            <span class="text-[11px] font-mono text-amber-400/90 font-bold">
+              {{ eventForm.get('frequency')?.value }}
+            </span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+            <!-- Start Time (HH:mm) -->
+            <div>
+              <label for="modal-evt-starttime" class="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                Horário Inicial (HH:mm) *
+              </label>
+              <input
+                id="modal-evt-starttime"
+                type="time"
+                formControlName="startTimeStr"
+                (input)="onStartTimeInput($event)"
+                class="w-full px-3 py-1.5 bg-black/60 border border-slate-700 rounded text-amber-300 text-sm font-mono focus:outline-none focus:border-amber-400"
+              />
+              <!-- Presets -->
+              <div class="flex flex-wrap gap-1 mt-1.5">
+                @for (presetTime of ['00:00', '00:15', '00:30', '00:40', '01:00', '02:00', '04:00', '20:00']; track presetTime) {
+                  <button
+                    type="button"
+                    class="preset-chip-btn"
+                    [class.active]="eventForm.get('startTimeStr')?.value === presetTime"
+                    (click)="selectStartTimePreset(presetTime)"
+                  >
+                    {{ presetTime }}
+                  </button>
+                }
+              </div>
+            </div>
+
+            <!-- Start Interval (Minutes) -->
+            <div>
+              <label for="modal-evt-interval" class="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                Repetir a cada (Minutos) *
+              </label>
+              <input
+                id="modal-evt-interval"
+                type="number"
+                min="10"
+                max="1440"
+                step="10"
+                formControlName="startIntervalMin"
+                (input)="onIntervalInput($event)"
+                class="w-full px-3 py-1.5 bg-black/60 border border-slate-700 rounded text-white text-sm font-mono focus:outline-none focus:border-amber-400"
+              />
+              <!-- Presets -->
+              <div class="flex flex-wrap gap-1 mt-1.5">
+                <button type="button" class="preset-chip-btn" [class.active]="eventForm.get('startIntervalMin')?.value === 30" (click)="selectIntervalPreset(30)">30m</button>
+                <button type="button" class="preset-chip-btn" [class.active]="eventForm.get('startIntervalMin')?.value === 60" (click)="selectIntervalPreset(60)">1h</button>
+                <button type="button" class="preset-chip-btn" [class.active]="eventForm.get('startIntervalMin')?.value === 120" (click)="selectIntervalPreset(120)">2h</button>
+                <button type="button" class="preset-chip-btn" [class.active]="eventForm.get('startIntervalMin')?.value === 180" (click)="selectIntervalPreset(180)">3h</button>
+                <button type="button" class="preset-chip-btn" [class.active]="eventForm.get('startIntervalMin')?.value === 240" (click)="selectIntervalPreset(240)">4h</button>
+                <button type="button" class="preset-chip-btn" [class.active]="eventForm.get('startIntervalMin')?.value === 360" (click)="selectIntervalPreset(360)">6h</button>
+                <button type="button" class="preset-chip-btn" [class.active]="eventForm.get('startIntervalMin')?.value === 720" (click)="selectIntervalPreset(720)">12h</button>
+                <button type="button" class="preset-chip-btn" [class.active]="eventForm.get('startIntervalMin')?.value === 1440" (click)="selectIntervalPreset(1440)">24h</button>
+              </div>
+            </div>
+
+            <!-- Duration Open (Minutes) -->
+            <div>
+              <label for="modal-evt-duration" class="block text-[11px] font-semibold text-slate-300 uppercase tracking-wider mb-1">
+                Duração do Portão (Min) *
+              </label>
+              <input
+                id="modal-evt-duration"
+                type="number"
+                min="1"
+                max="300"
+                formControlName="durationMin"
+                class="w-full px-3 py-1.5 bg-black/60 border border-slate-700 rounded text-emerald-300 text-sm font-mono focus:outline-none focus:border-amber-400"
+              />
+              <!-- Presets -->
+              <div class="flex flex-wrap gap-1 mt-1.5">
+                <button type="button" class="preset-chip-btn" [class.active]="eventForm.get('durationMin')?.value === 5" (click)="selectDurationPreset(5)">5m</button>
+                <button type="button" class="preset-chip-btn" [class.active]="eventForm.get('durationMin')?.value === 10" (click)="selectDurationPreset(10)">10m</button>
+                <button type="button" class="preset-chip-btn" [class.active]="eventForm.get('durationMin')?.value === 15" (click)="selectDurationPreset(15)">15m</button>
+                <button type="button" class="preset-chip-btn" [class.active]="eventForm.get('durationMin')?.value === 20" (click)="selectDurationPreset(20)">20m</button>
+                <button type="button" class="preset-chip-btn" [class.active]="eventForm.get('durationMin')?.value === 30" (click)="selectDurationPreset(30)">30m</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Calculated Daily Schedule Preview -->
+          <div class="bg-black/50 border border-amber-500/20 rounded p-2.5 mt-2">
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="text-[11px] text-amber-300 font-bold uppercase tracking-wider flex items-center gap-1">
+                <mat-icon class="text-xs">format_list_bulleted</mat-icon>
+                Horários Calculados do Dia ({{ modalScheduledTimes().length }} ocorrências):
+              </span>
+              <span class="text-[10px] text-slate-400 font-mono">
+                Inicial: <strong class="text-amber-300">{{ eventForm.get('startTimeStr')?.value }}</strong> | A cada <strong class="text-amber-300">{{ eventForm.get('startIntervalMin')?.value }}m</strong>
+              </span>
+            </div>
+            <div class="flex flex-wrap gap-1.5">
+              @for (schedTime of modalScheduledTimes(); track schedTime) {
+                <span class="px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-mono font-bold">
+                  {{ schedTime }}
+                </span>
+              }
+            </div>
+          </div>
+        </div>
+
+        <!-- Row 4: Location and Rewards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label for="modal-evt-location" class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
+              Local de Entrada / NPC *
+            </label>
+            <input
+              id="modal-evt-location"
+              type="text"
+              formControlName="location"
+              class="w-full px-3 py-2 bg-black/60 border border-slate-700 rounded text-white text-sm focus:outline-none focus:border-amber-400"
+              placeholder="Ex: Lorencia (Coordenadas 130, 125)"
+            />
+          </div>
+
+          <div>
+            <label for="modal-evt-rewards" class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
+              Recompensas & Drops Principais *
+            </label>
+            <input
+              id="modal-evt-rewards"
+              type="text"
+              formControlName="rewardTag"
+              class="w-full px-3 py-2 bg-black/60 border border-slate-700 rounded text-amber-200 text-sm focus:outline-none focus:border-amber-400"
+              placeholder="Ex: Box of Kundun +5, Joias, XP Bônus"
+            />
+          </div>
+        </div>
+
+        <!-- Row 5: Description & Enable Toggle -->
+        <div>
+          <label for="modal-evt-description" class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
+            Descrição / Regras do Evento
+          </label>
+          <textarea
+            id="modal-evt-description"
+            formControlName="description"
+            rows="2"
+            class="w-full px-3 py-2 bg-black/60 border border-slate-700 rounded text-slate-200 text-sm focus:outline-none focus:border-amber-400 resize-none"
+            placeholder="Breve explicação das regras, premiações ou dicas para os jogadores..."
+          ></textarea>
+        </div>
+
+        <div class="flex items-center gap-3 p-3 bg-slate-900/60 rounded-lg border border-slate-800">
+          <label class="switch-toggle" for="modal-evt-enabled">
+            <input id="modal-evt-enabled" type="checkbox" formControlName="enabled" />
+            <span class="switch-slider"></span>
+          </label>
+          <div>
+            <strong class="text-xs text-white block">Ativar este evento no servidor</strong>
+            <span class="text-[11px] text-slate-400">Quando desativado, o evento não aparece nos contadores da página inicial.</span>
+          </div>
+        </div>
+
+        <!-- Modal Footer Actions -->
+        <div class="event-modal-footer">
+          <button
+            type="button"
+            class="btn btn-outline text-xs px-4 py-2 text-slate-300"
+            (click)="closeEventModal()"
+          >
+            Cancelar
+          </button>
+
+          <button
+            type="submit"
+            class="btn btn-primary text-xs px-5 py-2 flex items-center gap-1.5 shadow-lg shadow-amber-500/20"
+          >
+            <mat-icon class="text-sm">save</mat-icon>
+            <span>Salvar & Sincronizar</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+}
+

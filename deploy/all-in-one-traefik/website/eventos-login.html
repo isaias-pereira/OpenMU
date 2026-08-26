@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <title>MU FREE - Acesso Restrito | Painel de Eventos</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="icon" type="image/x-icon" href="favicon.ico" />
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1.5rem;
+        background: radial-gradient(circle at 50% 0%, #1a1d2e 0%, #07080d 65%);
+        font-family: 'Open Sans', sans-serif;
+        color: #e2e8f0;
+      }
+      .gate-card {
+        width: 100%;
+        max-width: 400px;
+        background: rgba(14, 16, 24, 0.92);
+        border: 1px solid rgba(212, 175, 55, 0.35);
+        border-radius: 10px;
+        padding: 2rem 1.75rem;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.75);
+      }
+      .gate-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #fca5a5;
+        background: rgba(239, 68, 68, 0.12);
+        border: 1px solid rgba(239, 68, 68, 0.35);
+        border-radius: 999px;
+        padding: 4px 10px;
+        margin-bottom: 1rem;
+      }
+      h1 {
+        font-family: 'Cinzel', serif;
+        font-size: 1.35rem;
+        color: #ffffff;
+        margin: 0 0 0.5rem;
+      }
+      p.hint { font-size: 0.82rem; color: #94a3b8; margin: 0 0 1.5rem; line-height: 1.5; }
+      label {
+        display: block;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #fde047;
+        margin-bottom: 5px;
+      }
+      input {
+        width: 100%;
+        padding: 10px 12px;
+        margin-bottom: 1rem;
+        background: rgba(0, 0, 0, 0.55);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 6px;
+        color: #ffffff;
+        font-size: 0.9rem;
+        font-family: inherit;
+      }
+      input:focus { outline: none; border-color: #d4af37; }
+      button {
+        width: 100%;
+        padding: 11px;
+        background: linear-gradient(180deg, #d4af37, #a67c15);
+        border: none;
+        border-radius: 6px;
+        color: #14161f;
+        font-family: 'Cinzel', serif;
+        font-size: 0.9rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        cursor: pointer;
+      }
+      button:disabled { opacity: 0.6; cursor: progress; }
+      .msg {
+        display: none;
+        margin-bottom: 1rem;
+        padding: 9px 11px;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        line-height: 1.45;
+      }
+      .msg.error { display: block; background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.4); color: #fca5a5; }
+      .msg.ok { display: block; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.4); color: #6ee7b7; }
+      .back { display: block; margin-top: 1.25rem; text-align: center; font-size: 0.78rem; color: #94a3b8; text-decoration: none; }
+      .back:hover { color: #d4af37; }
+    </style>
+  </head>
+  <body>
+    <div class="gate-card">
+      <span class="gate-badge">Acesso restrito</span>
+      <h1>Painel de Eventos</h1>
+      <p class="hint">
+        Este painel controla os cartões exibidos em <strong>“Eventos do Servidor”</strong> na
+        página inicial. Entre com uma conta de <strong>Game Master</strong> para continuar.
+      </p>
+
+      <div id="gateMessage" class="msg"></div>
+
+      <form id="gateForm" autocomplete="off">
+        <label for="gateLogin">Conta</label>
+        <input id="gateLogin" name="login" type="text" maxlength="10" required />
+
+        <label for="gatePassword">Senha</label>
+        <input id="gatePassword" name="password" type="password" required />
+
+        <button id="gateSubmit" type="submit">Entrar no painel</button>
+      </form>
+
+      <a class="back" href="/">&#8592; Voltar ao site</a>
+    </div>
+
+    <script>
+      (function () {
+        var form = document.getElementById('gateForm');
+        var messageEl = document.getElementById('gateMessage');
+        var submitEl = document.getElementById('gateSubmit');
+
+        function show(text, kind) {
+          messageEl.textContent = text;
+          messageEl.className = 'msg ' + kind;
+        }
+
+        // Already signed in but without permission? Say so up front.
+        fetch('/api/session')
+          .then(function (response) { return response.json(); })
+          .then(function (data) {
+            if (data && data.loggedIn && !data.isAdmin) {
+              show('A conta "' + data.loginName + '" não tem permissão de Game Master.', 'error');
+            }
+          })
+          .catch(function () { /* the form still works */ });
+
+        form.addEventListener('submit', function (event) {
+          event.preventDefault();
+          submitEl.disabled = true;
+          show('Verificando credenciais...', 'ok');
+
+          fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              loginName: document.getElementById('gateLogin').value.trim(),
+              password: document.getElementById('gatePassword').value
+            })
+          })
+            .then(function (response) {
+              return response.json().then(function (data) { return { ok: response.ok, data: data }; });
+            })
+            .then(function (result) {
+              if (!result.ok || !result.data.success) {
+                throw new Error(result.data.message || 'Login ou senha inválidos');
+              }
+              return fetch('/api/session').then(function (r) { return r.json(); });
+            })
+            .then(function (info) {
+              if (!info.isAdmin) {
+                throw new Error('Esta conta não tem permissão de Game Master.');
+              }
+              show('Acesso liberado. Abrindo o painel...', 'ok');
+              window.location.reload();
+            })
+            .catch(function (error) {
+              show(error.message || 'Não foi possível entrar.', 'error');
+              submitEl.disabled = false;
+            });
+        });
+      })();
+    </script>
+  </body>
+</html>

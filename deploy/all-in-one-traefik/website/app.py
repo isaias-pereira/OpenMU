@@ -4,6 +4,7 @@ import uuid
 import math
 import logging
 import json
+import secrets
 import urllib.request
 from datetime import datetime, timezone
 
@@ -17,9 +18,26 @@ from flask_cors import CORS
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = Flask(__name__, static_folder='.', static_url_path='')
+# static_folder is disabled on purpose: Flask's built-in static rule is also
+# "/<path:filename>", and it would shadow the static_files() catch-all below — which
+# is what gates /eventos.html and falls back to public/. All file serving goes
+# through static_files() so those rules cannot be bypassed.
+app = Flask(__name__, static_folder=None)
+SITE_ROOT = os.path.dirname(os.path.abspath(__file__))
+PUBLIC_ROOT = os.path.join(SITE_ROOT, 'public')
 CORS(app)
-app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'change-this-secret-key')
+
+# The session cookie authenticates the staff panel, so a predictable key would let
+# anyone forge an admin session. Fall back to a random per-process key instead of a
+# hardcoded one; sessions then reset on restart until FLASK_SECRET_KEY is provided.
+_secret_key = os.environ.get('FLASK_SECRET_KEY')
+if not _secret_key:
+    _secret_key = secrets.token_hex(32)
+    logger.warning(
+        'FLASK_SECRET_KEY is not set: generated a temporary key. Logins will be '
+        'dropped whenever the site restarts. Set FLASK_SECRET_KEY in production.'
+    )
+app.secret_key = _secret_key
 
 # Database configuration from environment
 DB_CONFIG = {
@@ -166,13 +184,274 @@ def get_account_by_login(login_name: str):
 @app.route('/')
 def index():
     """Serve the main website."""
-    return send_from_directory('.', 'index.html')
+    return send_from_directory(SITE_ROOT, 'index.html')
+
+
+# ---------------------------------------------------------------------------
+# Staff events panel (eventos.html)
+# ---------------------------------------------------------------------------
+
+# AccountState values that may edit the events panel: 2 = GameMaster,
+# 3 = GameMasterInvisible.
+ADMIN_ACCOUNT_STATES = (2, 3)
+
+# Key under which the events panel configuration is stored.
+EVENTS_CONFIG_KEY = 'server_events'
+
+# Fields of a single event, kept in sync with public/js/eventos.js and with the
+# event cards of the home page.
+EVENT_TEXT_FIELDS = ('id', 'name', 'category', 'icon', 'colorTheme', 'location',
+                     'frequency', 'startTimeStr', 'rewardTag', 'description')
+EVENT_INT_FIELDS = ('startIntervalMin', 'startOffsetMin', 'durationMin')
+
+
+def get_session_account():
+    """Return (loginName, state) of the signed-in account, or None."""
+    account_id = session.get('account_id')
+    if not account_id:
+        return None
+
+    try:
+        conn = get_db_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                'SELECT "LoginName", "State" FROM "data"."Account" WHERE "Id" = %s LIMIT 1',
+                (account_id,)
+            )
+            return cursor.fetchone()
+        finally:
+            conn.close()
+    except PGError as error:
+        logger.error(f"Could not read the signed-in account: {error}")
+        return None
+
+
+def is_admin_session() -> bool:
+    """Check whether the current session belongs to a game master."""
+    account = get_session_account()
+    return bool(account) and account[1] in ADMIN_ACCOUNT_STATES
+
+
+def ensure_site_config_table(cursor):
+    """Create the website's own configuration table if it does not exist yet.
+
+    It lives in a separate "website" schema so it never collides with the schemas
+    that OpenMU manages through its own migrations. The database is used instead of
+    a file because the website container has no persistent volume.
+    """
+    cursor.execute('CREATE SCHEMA IF NOT EXISTS "website"')
+    cursor.execute(
+        'CREATE TABLE IF NOT EXISTS "website"."SiteConfig" ('
+        '"Key" text PRIMARY KEY, '
+        '"Value" text NOT NULL, '
+        '"UpdatedAt" timestamptz NOT NULL DEFAULT now(), '
+        '"UpdatedBy" text)'
+    )
+
+
+def read_events_config():
+    """Return the stored events panel configuration, or None when unset."""
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        ensure_site_config_table(cursor)
+        conn.commit()
+        cursor.execute(
+            'SELECT "Value" FROM "website"."SiteConfig" WHERE "Key" = %s',
+            (EVENTS_CONFIG_KEY,)
+        )
+        row = cursor.fetchone()
+        if not row:
+            return None
+
+        events = json.loads(row[0])
+        return events if isinstance(events, list) and events else None
+    except (ValueError, TypeError) as error:
+        logger.error(f"Stored events configuration is not valid JSON: {error}")
+        return None
+    finally:
+        conn.close()
+
+
+def write_events_config(events, updated_by: str):
+    """Persist the events panel configuration."""
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        ensure_site_config_table(cursor)
+        cursor.execute(
+            'INSERT INTO "website"."SiteConfig" ("Key", "Value", "UpdatedAt", "UpdatedBy") '
+            'VALUES (%s, %s, %s, %s) '
+            'ON CONFLICT ("Key") DO UPDATE SET '
+            '"Value" = EXCLUDED."Value", "UpdatedAt" = EXCLUDED."UpdatedAt", '
+            '"UpdatedBy" = EXCLUDED."UpdatedBy"',
+            (EVENTS_CONFIG_KEY, json.dumps(events), datetime.now(timezone.utc), updated_by)
+        )
+        conn.commit()
+    except PGError:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def delete_events_config():
+    """Drop the stored configuration so the site falls back to the game data."""
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        ensure_site_config_table(cursor)
+        cursor.execute('DELETE FROM "website"."SiteConfig" WHERE "Key" = %s', (EVENTS_CONFIG_KEY,))
+        conn.commit()
+    except PGError:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def sanitize_events(raw_events):
+    """Validate and normalize the event list coming from the panel.
+
+    Only known fields are kept, so the panel can never store arbitrary data that
+    later gets rendered on the public home page.
+    """
+    if not isinstance(raw_events, list) or not raw_events:
+        raise ValueError('Envie ao menos um evento')
+
+    if len(raw_events) > 60:
+        raise ValueError('Limite de 60 eventos excedido')
+
+    events = []
+    seen_ids = set()
+    for raw in raw_events:
+        if not isinstance(raw, dict):
+            raise ValueError('Formato de evento inválido')
+
+        name = str(raw.get('name', '')).strip()
+        if not name:
+            raise ValueError('Todo evento precisa de um nome')
+
+        event = {}
+        for field in EVENT_TEXT_FIELDS:
+            value = raw.get(field)
+            if value is not None:
+                event[field] = str(value)[:300]
+
+        event['name'] = name[:120]
+        event['category'] = 'invasions' if event.get('category') == 'invasions' else 'events'
+
+        event_id = (event.get('id') or '').strip() or f'evt-{uuid.uuid4().hex[:8]}'
+        if event_id in seen_ids:
+            raise ValueError(f'Evento duplicado: {event_id}')
+        seen_ids.add(event_id)
+        event['id'] = event_id[:60]
+
+        for field in EVENT_INT_FIELDS:
+            try:
+                event[field] = int(float(raw.get(field, 0) or 0))
+            except (TypeError, ValueError):
+                raise ValueError(f'Valor numérico inválido em "{field}"')
+
+        # Keep the schedule maths safe for the countdown on the home page.
+        event['startIntervalMin'] = min(max(event['startIntervalMin'] or 120, 1), 10080)
+        event['startOffsetMin'] = min(max(event['startOffsetMin'], 0), 10079)
+        event['durationMin'] = min(max(event['durationMin'] or 1, 1), event['startIntervalMin'])
+        event['enabled'] = raw.get('enabled') is not False
+        events.append(event)
+
+    return events
+
+
+@app.route('/eventos.html')
+def events_panel():
+    """Serve the staff events panel, but only to signed-in game masters."""
+    if not is_admin_session():
+        return send_from_directory(SITE_ROOT, 'eventos-login.html'), 401
+    return send_from_directory(PUBLIC_ROOT, 'eventos.html')
+
+
+@app.route('/api/events/config', methods=['GET'])
+def get_events_config():
+    """Return the stored panel configuration (game masters only)."""
+    if not is_admin_session():
+        return jsonify({'success': False, 'message': 'Acesso restrito à equipe'}), 403
+
+    try:
+        return jsonify({'success': True, 'events': read_events_config() or []}), 200
+    except Exception as error:
+        logger.error(f"Error reading events configuration: {error}")
+        return jsonify({'success': False, 'message': 'Erro ao carregar configuração'}), 500
+
+
+@app.route('/api/events/config', methods=['PUT', 'POST'])
+def save_events_config():
+    """Store the panel configuration so the home page reflects it."""
+    account = get_session_account()
+    if not account or account[1] not in ADMIN_ACCOUNT_STATES:
+        return jsonify({'success': False, 'message': 'Acesso restrito à equipe'}), 403
+
+    try:
+        payload = request.get_json(silent=True) or {}
+        events = sanitize_events(payload.get('events'))
+        write_events_config(events, account[0])
+        return jsonify({'success': True, 'events': events}), 200
+    except ValueError as error:
+        return jsonify({'success': False, 'message': str(error)}), 400
+    except Exception as error:
+        logger.error(f"Error saving events configuration: {error}")
+        return jsonify({'success': False, 'message': 'Erro ao salvar configuração'}), 500
+
+
+@app.route('/api/events/config', methods=['DELETE'])
+def reset_events_config():
+    """Remove the stored configuration and fall back to the game's own data."""
+    if not is_admin_session():
+        return jsonify({'success': False, 'message': 'Acesso restrito à equipe'}), 403
+
+    try:
+        delete_events_config()
+        return jsonify({'success': True}), 200
+    except Exception as error:
+        logger.error(f"Error resetting events configuration: {error}")
+        return jsonify({'success': False, 'message': 'Erro ao restaurar configuração'}), 500
+
+
+@app.route('/api/session', methods=['GET'])
+def get_session_info():
+    """Report whether the visitor is signed in and may open the staff panel."""
+    account = get_session_account()
+    return jsonify({
+        'success': True,
+        'loggedIn': bool(account),
+        'loginName': account[0] if account else None,
+        'isAdmin': bool(account) and account[1] in ADMIN_ACCOUNT_STATES
+    }), 200
 
 
 @app.route('/<path:path>')
 def static_files(path):
-    """Serve static files."""
-    return send_from_directory('.', path)
+    """Serve static files.
+
+    Files placed in "public" are also served from the root, mirroring what the
+    Angular build does with that folder, so the panel's assets keep working
+    without having to duplicate them.
+    """
+    if '..' in path:
+        return jsonify({'success': False, 'message': 'Caminho inválido'}), 400
+
+    # The panel itself must always go through the authenticated route above.
+    if path.lower() in ('eventos.html', 'public/eventos.html'):
+        return events_panel()
+
+    if os.path.isfile(os.path.join(SITE_ROOT, path)):
+        return send_from_directory(SITE_ROOT, path)
+
+    if os.path.isfile(os.path.join(PUBLIC_ROOT, path)):
+        return send_from_directory(PUBLIC_ROOT, path)
+
+    return send_from_directory(SITE_ROOT, path)
 
 
 @app.route('/api/register', methods=['POST'])
@@ -547,9 +826,56 @@ def get_event_ranking(event_name):
         return jsonify({'success': False, 'ranking': []}), 500
 
 
+# Type ids (GUIDs) of the periodic "start" plugins that automatically open each
+# mini-game. They come from the GameLogic source (MiniGameStartBasePlugIn
+# implementations). When such a plugin is active the event runs on a fixed
+# timetable, so the website should show a live countdown instead of waiting for a
+# manual trigger.
+EVENT_START_PLUGIN_IDS = {
+    'blood-castle': '95e68c14-ad87-4b3c-af46-45b8f1c3bc2a',
+    'devil-square': '61c61a58-211e-4d6a-9ea1-d25e0c4a47c5',
+    'chaos-castle': '3ad96a70-ed24-4979-80b8-169e461e548f',
+}
+
+
 @app.route('/api/events/schedule', methods=['GET'])
 def get_events_schedule():
-    """Return event definitions and whether the plugin has an automatic schedule."""
+    """Return the event cards shown in the "Eventos do Servidor" panel.
+
+    When the staff panel (eventos.html) has a stored configuration, it is
+    authoritative: the response carries the full list and "replace": true, so the
+    home page renders exactly what the panel defines. Otherwise the mini-game
+    definitions from the game database are returned as a partial overlay
+    ("replace": false), which only adjusts the site's built-in cards.
+
+    Blood Castle, Devil Square and Chaos Castle are opened by periodic start
+    plugins. While the start plugin is active the event is on an automatic
+    timetable ('fixed'), so the front-end renders a countdown. Only a disabled
+    start plugin makes the event effectively manual.
+    """
+    try:
+        stored_events = read_events_config()
+    except Exception as error:
+        logger.error(f"Error reading stored events configuration: {error}")
+        stored_events = None
+
+    if stored_events:
+        events = [{
+            'id': event.get('id'),
+            'name': event.get('name'),
+            'icon': event.get('icon') or '⚔️',
+            'category': 'invasions' if event.get('category') == 'invasions' else 'events',
+            'location': event.get('location') or '-',
+            'frequency': event.get('frequency') or '-',
+            'rewardTag': event.get('rewardTag') or '-',
+            'colorTheme': event.get('colorTheme') or '#d4af37',
+            'startIntervalMin': event.get('startIntervalMin') or 120,
+            'startOffsetMin': event.get('startOffsetMin') or 0,
+            'durationMin': event.get('durationMin') or 15,
+            'scheduleMode': 'fixed',
+        } for event in stored_events if event.get('enabled') is not False]
+        return jsonify({'success': True, 'replace': True, 'events': events}), 200
+
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -568,17 +894,44 @@ def get_events_schedule():
             GROUP BY 1
             ORDER BY 1
         ''')
+        rows = cursor.fetchall()
+
+        # Find out which start plugins are enabled so we can tell an automatically
+        # scheduled event from a genuinely manual one. Missing rows default to
+        # active, because these plugins are active by default.
+        active_by_event = {event_id: True for event_id in EVENT_START_PLUGIN_IDS}
+        try:
+            cursor.execute(
+                'SELECT "TypeId"::text, "IsActive" FROM "config"."PlugInConfiguration" '
+                'WHERE "TypeId"::text IN %s',
+                (tuple(EVENT_START_PLUGIN_IDS.values()),)
+            )
+            active_by_type = {type_id: is_active for type_id, is_active in cursor.fetchall()}
+            for event_id, type_id in EVENT_START_PLUGIN_IDS.items():
+                active_by_event[event_id] = active_by_type.get(type_id, True)
+        except PGError as plugin_error:
+            logger.warning(f"Could not read event start plugin state: {plugin_error}")
+
+        conn.close()
+
         events = []
-        for event_id, name, enter_seconds, game_seconds in cursor.fetchall():
-            events.append({
+        for event_id, name, enter_seconds, game_seconds in rows:
+            if not event_id:
+                continue
+            # Only send the fields the front-end should override. The website keeps
+            # its own countdown schedule (start offset/interval and frequency text),
+            # matching the other automatic events (Golden Invasion, Illusion Temple).
+            event = {
                 'id': event_id,
                 'name': name.rsplit(' ', 1)[0],
-                'frequency': 'Manual pelo plugin',
-                'scheduleMode': 'manual',
+                'scheduleMode': 'fixed' if active_by_event.get(event_id, True) else 'manual',
                 'enterDurationMin': int((enter_seconds or 0) / 60),
-                'durationMin': int((game_seconds or 0) / 60)
-            })
-        return jsonify({'success': True, 'events': events}), 200
+            }
+            duration_min = int((game_seconds or enter_seconds or 0) / 60)
+            if duration_min > 0:
+                event['durationMin'] = duration_min
+            events.append(event)
+        return jsonify({'success': True, 'replace': False, 'events': events}), 200
     except Exception as error:
         logger.error(f"Error getting event schedule: {error}")
         return jsonify({'success': False, 'events': []}), 500

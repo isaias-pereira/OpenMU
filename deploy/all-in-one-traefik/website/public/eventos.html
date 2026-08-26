@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <title>MU FREE - Painel de Eventos & Horários</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Painel de controle, horários, intervalos e premiações dos eventos e invasões de MU FREE Season 6 Episódio 3." />
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;800;900&family=Cinzel+Decorative:wght@700;900&family=Rajdhani:wght@500;600;700&family=Open+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="icon" type="image/x-icon" href="favicon.ico" />
+
+    <!-- Dedicated Events CSS -->
+    <link rel="stylesheet" href="css/eventos.css" />
+  </head>
+  <body>
+
+    <!-- Header Bar -->
+    <header class="eventos-header-bar">
+      <div class="container header-content">
+        <a href="/" class="header-logo" title="Voltar ao Portal Principal">
+          <div class="logo-diamond">
+            <span class="logo-diamond-text">M</span>
+          </div>
+          <div class="header-title-group">
+            <h1>MU <span>FREE</span></h1>
+            <p class="subtitle">Painel Staff • Exibição de Eventos no Site</p>
+          </div>
+        </a>
+
+        <div class="header-actions">
+          <div class="server-clock-badge">
+            <span class="material-icons" style="font-size: 15px; color: #d4af37;">schedule</span>
+            <span>Relógio: <strong id="serverClock">--:--:--</strong></span>
+          </div>
+
+          <a href="/" class="btn btn-secondary text-xs" title="Voltar para a Página Inicial">
+            <span class="material-icons" style="font-size: 14px;">home</span>
+            <span>Início</span>
+          </a>
+
+          <button type="button" class="btn btn-primary" onclick="openCreateModal()">
+            <span class="material-icons" style="font-size: 16px;">add</span>
+            <span>+ Novo Evento</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content Section -->
+    <main class="events-dashboard-section">
+      <div class="container">
+
+        <!-- 4 Metric Stat Cards -->
+        <div class="events-stat-grid">
+          <!-- Total Events -->
+          <div class="dashboard-stat-card">
+            <div class="stat-card-icon" style="background: rgba(212, 175, 55, 0.1); border-color: rgba(212, 175, 55, 0.3); color: #d4af37;">
+              ⚔️
+            </div>
+            <div>
+              <span class="stat-card-label">Total de Eventos</span>
+              <span class="stat-card-val" style="color: #fde047;" id="statTotal">0</span>
+            </div>
+          </div>
+
+          <!-- Active Events -->
+          <div class="dashboard-stat-card">
+            <div class="stat-card-icon" style="background: rgba(56, 189, 248, 0.1); border-color: rgba(56, 189, 248, 0.3); color: #38bdf8;">
+              🛡️
+            </div>
+            <div>
+              <span class="stat-card-label">Eventos Ativos</span>
+              <span class="stat-card-val" style="color: #7dd3fc;" id="statActive">0</span>
+            </div>
+          </div>
+
+          <!-- Open Now -->
+          <div class="dashboard-stat-card">
+            <div class="stat-card-icon" style="background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.3); color: #10b981;">
+              🚪
+            </div>
+            <div>
+              <span class="stat-card-label">Abertos Agora</span>
+              <span class="stat-card-val" style="color: #6ee7b7;" id="statOpen">0</span>
+            </div>
+          </div>
+
+          <!-- Starting in 5 min -->
+          <div class="dashboard-stat-card">
+            <div class="stat-card-icon" style="background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.3); color: #f59e0b;">
+              ⏳
+            </div>
+            <div>
+              <span class="stat-card-label">Iniciando em Breve</span>
+              <span class="stat-card-val" style="color: #fde68a;" id="statImminent">0</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Filter and Search Bar -->
+        <div class="events-filter-bar">
+          <!-- Category Tabs -->
+          <div class="events-filter-tabs">
+            <button type="button" class="events-filter-tab active" data-filter="all">
+              <span>Todos (Geral)</span>
+            </button>
+            <button type="button" class="events-filter-tab" data-filter="events">
+              <span>⚔️ Eventos Clássicos</span>
+            </button>
+            <button type="button" class="events-filter-tab" data-filter="invasions">
+              <span>🐲 Invasões de Monstros</span>
+            </button>
+            <button type="button" class="events-filter-tab" data-filter="active">
+              <span>🚪 Abertos / Iminentes</span>
+            </button>
+          </div>
+
+          <!-- Actions & Search Input -->
+          <div class="filter-actions-group">
+            <div class="event-search-wrapper">
+              <span class="material-icons event-search-icon">search</span>
+              <input
+                id="eventSearchInput"
+                type="text"
+                class="event-search-input"
+                placeholder="Buscar por nome, mapa ou drop..."
+                aria-label="Buscar eventos"
+              />
+            </div>
+
+            <button type="button" class="btn btn-outline text-xs" onclick="resetToDefaults()" title="Restaurar eventos originais de fábrica">
+              <span class="material-icons" style="font-size: 14px;">restart_alt</span>
+              <span>Restaurar Padrões</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Events Cards Grid -->
+        <div id="eventsCardsGrid" class="events-cards-grid">
+          <!-- Populated dynamically via js/eventos.js -->
+        </div>
+
+        <!-- Empty State -->
+        <div id="emptyEventsState" style="display: none; text-align: center; padding: 4rem 1.5rem; background: rgba(14, 16, 24, 0.85); border: 1px dashed rgba(212, 175, 55, 0.3); border-radius: 8px; max-width: 540px; margin: 2rem auto;">
+          <div style="font-size: 2.5rem; margin-bottom: 0.75rem;">🔍</div>
+          <h3 style="font-family: var(--font-title); font-size: 1.25rem; color: #ffffff; margin-bottom: 0.5rem;">Nenhum evento encontrado</h3>
+          <p style="font-size: 0.85rem; color: #94a3b8; margin-bottom: 1.5rem;">
+            Não encontramos eventos correspondentes ao filtro "<span id="emptyFilterName" style="color: #fde047;"></span>".
+          </p>
+          <div style="display: flex; justify-content: center; gap: 0.75rem;">
+            <button type="button" class="btn btn-primary" onclick="openCreateModal()">+ Criar Novo Evento</button>
+            <button type="button" class="btn btn-outline" onclick="document.getElementById('eventSearchInput').value=''; currentSearchQuery=''; renderEventsGrid();">Limpar Busca</button>
+          </div>
+        </div>
+
+      </div>
+    </main>
+
+    <!-- Modal for Create / Edit Event -->
+    <div id="eventModalBackdrop" class="event-modal-backdrop">
+      <div class="event-modal-card">
+        <!-- Header -->
+        <div class="event-modal-header">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="material-icons" style="font-size: 18px; color: #d4af37;">edit_calendar</span>
+            <h3 id="modalTitle" style="font-family: var(--font-title); font-size: 1rem; color: #ffffff; margin: 0;">
+              CRIAR NOVO EVENTO OU INVASÃO
+            </h3>
+          </div>
+          <button type="button" onclick="closeEventModal()" style="background: none; border: none; color: #94a3b8; font-size: 1.5rem; cursor: pointer; line-height: 1;">
+            &times;
+          </button>
+        </div>
+
+        <!-- Body Form -->
+        <form id="eventConfigForm">
+          <div class="event-modal-body">
+            <input type="hidden" id="formEventId" value="" />
+
+            <!-- Row 1: Name and Category -->
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px;">
+              <div class="form-group">
+                <label for="formEventName">Nome do Evento *</label>
+                <input id="formEventName" type="text" class="form-input" placeholder="Ex: Blood Castle, Lord Kundun..." required />
+              </div>
+
+              <div class="form-group">
+                <label for="formEventCategory">Categoria *</label>
+                <select id="formEventCategory" class="form-select">
+                  <option value="events">⚔️ Evento Clássico</option>
+                  <option value="invasions">🐲 Invasão de Monstros</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Row 2: Visual Icon & Color Theme -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; background: rgba(0,0,0,0.35); padding: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06);">
+              <!-- Icon Picker -->
+              <div>
+                <label for="formEventIcon">Ícone Visual</label>
+                <input id="formEventIcon" type="text" class="form-input" value="⚔️" style="max-width: 80px; text-align: center; font-size: 1.1rem; margin-bottom: 8px;" />
+                <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                  <button type="button" class="preset-chip-btn" onclick="selectIconPreset('🩸')">🩸</button>
+                  <button type="button" class="preset-chip-btn" onclick="selectIconPreset('😈')">😈</button>
+                  <button type="button" class="preset-chip-btn" onclick="selectIconPreset('🐲')">🐲</button>
+                  <button type="button" class="preset-chip-btn" onclick="selectIconPreset('⚔️')">⚔️</button>
+                  <button type="button" class="preset-chip-btn" onclick="selectIconPreset('🔮')">🔮</button>
+                  <button type="button" class="preset-chip-btn" onclick="selectIconPreset('🧙‍♂️')">🧙‍♂️</button>
+                  <button type="button" class="preset-chip-btn" onclick="selectIconPreset('⚽')">⚽</button>
+                  <button type="button" class="preset-chip-btn" onclick="selectIconPreset('🏰')">🏰</button>
+                  <button type="button" class="preset-chip-btn" onclick="selectIconPreset('👑')">👑</button>
+                  <button type="button" class="preset-chip-btn" onclick="selectIconPreset('🐍')">🐍</button>
+                  <button type="button" class="preset-chip-btn" onclick="selectIconPreset('💎')">💎</button>
+                  <button type="button" class="preset-chip-btn" onclick="selectIconPreset('⚡')">⚡</button>
+                </div>
+              </div>
+
+              <!-- Color Theme -->
+              <div>
+                <label>Cor de Destaque</label>
+                <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px;">
+                  <button type="button" class="preset-chip-btn" style="background:#f43f5e; color:#fff;" onclick="selectColorPreset('#f43f5e')">Rubi</button>
+                  <button type="button" class="preset-chip-btn" style="background:#a855f7; color:#fff;" onclick="selectColorPreset('#a855f7')">Roxo</button>
+                  <button type="button" class="preset-chip-btn" style="background:#d4af37; color:#000; font-weight:bold;" onclick="selectColorPreset('#d4af37')">Ouro</button>
+                  <button type="button" class="preset-chip-btn" style="background:#f97316; color:#fff;" onclick="selectColorPreset('#f97316')">Laranja</button>
+                  <button type="button" class="preset-chip-btn" style="background:#06b6d4; color:#000;" onclick="selectColorPreset('#06b6d4')">Ciano</button>
+                  <button type="button" class="preset-chip-btn" style="background:#10b981; color:#000;" onclick="selectColorPreset('#10b981')">Verde</button>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <input id="formEventColor" type="color" value="#d4af37" style="width: 32px; height: 32px; border: none; border-radius: 4px; cursor: pointer; background: transparent;" />
+                  <span id="formEventColorText" style="font-family: monospace; font-size: 12px; color: #94a3b8;">#D4AF37</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Row 3: Schedule Timing / Frequência & Horário Inicial -->
+            <div style="background: rgba(212, 175, 55, 0.06); border: 1px solid rgba(212, 175, 55, 0.25); border-radius: 8px; padding: 12px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span style="font-size: 11px; font-weight: bold; color: #fde047; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 4px;">
+                  <span class="material-icons" style="font-size: 14px;">schedule</span>
+                  Programação de Horários & Intervalo
+                </span>
+                <span id="modalFrequencyPreview" style="font-family: monospace; font-size: 11px; color: #fde68a;">
+                  A cada 2h
+                </span>
+              </div>
+
+              <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                <!-- Start Time -->
+                <div class="form-group">
+                  <label for="formStartTime">Horário Inicial (HH:mm) *</label>
+                  <input id="formStartTime" type="time" class="form-input" value="00:00" required />
+                  <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px;">
+                    <button type="button" class="preset-chip-btn" onclick="selectStartTimePreset('00:00')">00:00</button>
+                    <button type="button" class="preset-chip-btn" onclick="selectStartTimePreset('00:30')">00:30</button>
+                    <button type="button" class="preset-chip-btn" onclick="selectStartTimePreset('01:00')">01:00</button>
+                    <button type="button" class="preset-chip-btn" onclick="selectStartTimePreset('04:00')">04:00</button>
+                    <button type="button" class="preset-chip-btn" onclick="selectStartTimePreset('20:00')">20:00</button>
+                  </div>
+                </div>
+
+                <!-- Interval -->
+                <div class="form-group">
+                  <label for="formStartInterval">Repetir a cada (Min) *</label>
+                  <input id="formStartInterval" type="number" min="10" max="1440" step="10" class="form-input" value="120" required />
+                  <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px;">
+                    <button type="button" class="preset-chip-btn" onclick="selectIntervalPreset(60)">1h</button>
+                    <button type="button" class="preset-chip-btn" onclick="selectIntervalPreset(120)">2h</button>
+                    <button type="button" class="preset-chip-btn" onclick="selectIntervalPreset(240)">4h</button>
+                    <button type="button" class="preset-chip-btn" onclick="selectIntervalPreset(720)">12h</button>
+                    <button type="button" class="preset-chip-btn" onclick="selectIntervalPreset(1440)">24h</button>
+                  </div>
+                </div>
+
+                <!-- Duration -->
+                <div class="form-group">
+                  <label for="formDuration">Duração Portão (Min) *</label>
+                  <input id="formDuration" type="number" min="1" max="300" class="form-input" value="15" required />
+                  <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px;">
+                    <button type="button" class="preset-chip-btn" onclick="selectDurationPreset(5)">5m</button>
+                    <button type="button" class="preset-chip-btn" onclick="selectDurationPreset(10)">10m</button>
+                    <button type="button" class="preset-chip-btn" onclick="selectDurationPreset(15)">15m</button>
+                    <button type="button" class="preset-chip-btn" onclick="selectDurationPreset(20)">20m</button>
+                    <button type="button" class="preset-chip-btn" onclick="selectDurationPreset(60)">60m</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Calculated Daily Occurrences Box -->
+              <div style="background: rgba(0,0,0,0.5); border: 1px solid rgba(212,175,55,0.2); border-radius: 6px; padding: 8px;">
+                <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 6px;">
+                  <span style="color: #fde047; font-weight: bold; text-transform: uppercase;">
+                    Horários Calculados do Dia <span id="modalScheduleCount" style="color: #94a3b8;"></span>:
+                  </span>
+                  <span id="modalScheduleSummary" style="font-family: monospace; font-size: 10px; color: #cbd5e1;"></span>
+                </div>
+                <div id="modalScheduleChips" style="display: flex; flex-wrap: wrap; gap: 4px;">
+                  <!-- Generated chips -->
+                </div>
+              </div>
+            </div>
+
+            <!-- Row 4: Location & Reward -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+              <div class="form-group">
+                <label for="formEventLocation">Local de Entrada / NPC *</label>
+                <input id="formEventLocation" type="text" class="form-input" placeholder="Ex: Lorencia (Coordenadas 130, 125)" required />
+              </div>
+
+              <div class="form-group">
+                <label for="formRewardTag">Recompensas & Drops Principais *</label>
+                <input id="formRewardTag" type="text" class="form-input" placeholder="Ex: Box of Kundun +5, Joias, XP Bônus" required />
+              </div>
+            </div>
+
+            <!-- Row 5: Description -->
+            <div class="form-group">
+              <label for="formDescription">Descrição / Regras do Evento</label>
+              <textarea id="formDescription" class="form-textarea" rows="2" placeholder="Breve explicação das regras, premiações ou dicas..."></textarea>
+            </div>
+
+            <!-- Active Toggle -->
+            <div style="display: flex; align-items: center; gap: 12px; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.06);">
+              <label class="switch-toggle" for="formEnabled">
+                <input id="formEnabled" type="checkbox" checked />
+                <span class="switch-slider"></span>
+              </label>
+              <div>
+                <strong style="font-size: 12px; color: #ffffff; display: block;">Exibir este evento na página inicial</strong>
+                <span style="font-size: 11px; color: #94a3b8;">Quando desativado, o evento deixa de aparecer no painel "Eventos do Servidor" da página inicial.</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Footer Actions -->
+          <div class="event-modal-footer">
+            <button type="button" class="btn btn-outline text-xs" onclick="closeEventModal()">Cancelar</button>
+            <button type="submit" class="btn btn-primary text-xs">
+              <span class="material-icons" style="font-size: 15px;">save</span>
+              <span>Salvar & Sincronizar</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="eventToast" style="display: none; position: fixed; bottom: 24px; right: 24px; z-index: 150; background: #0f121d; border: 1px solid #d4af37; color: #ffffff; padding: 12px 20px; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.8), 0 0 15px rgba(212,175,55,0.3); font-size: 13px; font-weight: 600; transition: opacity 0.3s ease;">
+    </div>
+
+    <!-- Dedicated Events JS -->
+    <script src="js/eventos.js"></script>
+  </body>
+</html>

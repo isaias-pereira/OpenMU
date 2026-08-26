@@ -1,0 +1,6 @@
+{
+  "name": "MU FREE",
+  "description": "Portal oficial do servidor MU FREE Season 6 com painel da conta, cadastro, ranking, download e estilização temática com artes de personagens.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
