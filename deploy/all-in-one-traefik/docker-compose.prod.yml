@@ -70,6 +70,8 @@ services:
       DB_USER: postgres
       DB_PASSWORD: postgres
       FLASK_DEBUG: "false"
+      FLASK_SECRET_KEY: "change-me-in-production"
+      OPENMU_API_URL: "http://openmu-startup:8080"
     depends_on:
       database:
         condition: service_healthy

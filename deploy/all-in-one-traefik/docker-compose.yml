@@ -18,6 +18,7 @@ services:
       - "44406:44406"
       - "55980:55980"
     environment:
+      ASPNETCORE_ENVIRONMENT: Development
       DB_HOST: database
       ConnectionStrings__DefaultConnection: Host=database;Port=5432;Database=openmu;Username=postgres;Password=postgres
       RESOLVE_IP: 127.0.0.1
@@ -74,6 +75,8 @@ services:
       DB_USER: postgres
       DB_PASSWORD: postgres
       FLASK_DEBUG: "false"
+      FLASK_SECRET_KEY: "change-me-in-production"
+      OPENMU_API_URL: "http://openmu:8080"
     depends_on:
       database:
         condition: service_healthy

@@ -1005,23 +1005,13 @@ export class App implements OnInit, OnDestroy {
       }
 
       // Try to recover custom server events schedule from localStorage
-      const savedEvents = localStorage.getItem('mu_server_events_config');
-      if (savedEvents) {
-        try {
-          const parsedEvents: ServerScheduleEvent[] = JSON.parse(savedEvents);
-          if (Array.isArray(parsedEvents) && parsedEvents.length > 0) {
-            const normalized = parsedEvents.map(e => ({
-              ...e,
-              startTimeStr: e.startTimeStr || (e.startOffsetMin !== undefined ? formatMinutesToTime(e.startOffsetMin) : '00:00'),
-              startIntervalMin: Number(e.startIntervalMin) || 120,
-              durationMin: Number(e.durationMin) || 15
-            }));
-            this.serverEventsList.set(normalized);
-          }
-        } catch {
-          // ignore
-        }
-      }
+      this.loadEventsFromStorage();
+
+      // Keep the Index Live widget (#hero-events-box) in sync with the events
+      // configured in the eventos.html admin panel. eventos.js writes to the
+      // same "mu_server_events_config" key and the browser fires a "storage"
+      // event on this tab whenever that key changes in another tab.
+      window.addEventListener('storage', this.onStorageEvent);
     }
   }
 
@@ -1029,6 +1019,34 @@ export class App implements OnInit, OnDestroy {
     if (this.timerInterval) {
       clearInterval(this.timerInterval);
       this.timerInterval = null;
+    }
+    window.removeEventListener('storage', this.onStorageEvent);
+  }
+
+  private readonly onStorageEvent = (event: StorageEvent): void => {
+    if (event.key === 'mu_server_events_config') {
+      this.loadEventsFromStorage();
+    }
+  };
+
+  private loadEventsFromStorage(): void {
+    if (!this.isBrowser) return;
+    const savedEvents = localStorage.getItem('mu_server_events_config');
+    if (savedEvents) {
+      try {
+        const parsedEvents: ServerScheduleEvent[] = JSON.parse(savedEvents);
+        if (Array.isArray(parsedEvents) && parsedEvents.length > 0) {
+          const normalized = parsedEvents.map(e => ({
+            ...e,
+            startTimeStr: e.startTimeStr || (e.startOffsetMin !== undefined ? formatMinutesToTime(e.startOffsetMin) : '00:00'),
+            startIntervalMin: Number(e.startIntervalMin) || 120,
+            durationMin: Number(e.durationMin) || 15
+          }));
+          this.serverEventsList.set(normalized);
+        }
+      } catch {
+        // ignore
+      }
     }
   }
 

@@ -70,7 +70,11 @@ class FakeConn:
 
 
 import app as site
-site.get_db_connection = lambda: FakeConn()
+from webapp import db as site_db
+
+# All routes resolve the connection factory through the webapp.db module, so
+# patching it here swaps the database for every endpoint at once.
+site_db.get_db_connection = lambda: FakeConn()
 site.app.config.update(TESTING=True)
 client = site.app.test_client()
 

@@ -67,19 +67,104 @@ async function loadAccount() {
 }
 
 document.querySelectorAll('.panel-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
+    tab.addEventListener('click', async () => {
         document.querySelectorAll('.panel-tab').forEach(item => item.classList.remove('active'));
         document.querySelectorAll('.panel-content').forEach(panel => panel.classList.add('hidden-panel'));
         tab.classList.add('active');
-        document.getElementById(`${tab.dataset.panel}Panel`).classList.remove('hidden-panel');
+        const panelId = `${tab.dataset.panel}Panel`;
+        document.getElementById(panelId).classList.remove('hidden-panel');
+
+        // Load eventos.html content when Events tab is clicked
+        if (tab.dataset.panel === 'events') {
+            await loadEventsPanel();
+        }
     });
 });
+
+async function loadEventsPanel() {
+    const eventsContent = document.getElementById('eventsContent');
+    
+    // Check if already loaded
+    if (eventsContent.dataset.loaded === 'true') {
+        return;
+    }
+
+    try {
+        const response = await fetch('/eventos.html');
+        
+        if (response.status === 401) {
+            // Not admin - show message
+            eventsContent.innerHTML = `
+                <div class="events-access-denied">
+                    <h3>&#128274; Acesso Restrito</h3>
+                    <p>O painel de eventos é exclusivo para administradores.</p>
+                    <p>Faça login com uma conta de administrador para acessar.</p>
+                </div>
+            `;
+            eventsContent.dataset.loaded = 'true';
+            return;
+        }
+
+        if (!response.ok) {
+            throw new Error(`Erro ao carregar painel de eventos: ${response.status}`);
+        }
+
+        const html = await response.text();
+        
+        // Extract the main content from eventos.html (everything inside <main> or the body content)
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        
+        // Get the main content - eventos.html has a <main> tag with the panel content
+        const mainContent = doc.querySelector('main');
+        const contentToInject = mainContent ? mainContent.innerHTML : doc.body.innerHTML;
+        
+        eventsContent.innerHTML = contentToInject;
+        eventsContent.dataset.loaded = 'true';
+
+        // Load eventos.css if not already loaded
+        if (!document.querySelector('link[href*="eventos.css"]')) {
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = '/css/eventos.css';
+            document.head.appendChild(link);
+        }
+
+        // Load eventos.js and manually initialize after load.
+        await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = '/js/eventos.js';
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+        });
+
+        // Initialize the events panel. eventos.js exposes initEventsPanel()
+        // which works whether the script loads before or after DOMContentLoaded.
+        if (typeof initEventsPanel === 'function') {
+            initEventsPanel();
+        } else if (typeof renderEventsGrid === 'function') {
+            renderEventsGrid();
+        }
+    } catch (error) {
+        eventsContent.innerHTML = `
+            <div class="events-error">
+                <h3>&#9888;&#65039; Erro ao carregar eventos</h3>
+                <p>Não foi possível carregar o painel de eventos.</p>
+                <p>${escapeHtml(error.message)}</p>
+                <button class="btn-retry" onclick="loadEventsPanel()">Tentar Novamente</button>
+            </div>
+        `;
+    }
+}
 
 document.getElementById('logoutBtn').addEventListener('click', async () => {
     await fetch('/api/logout', { method: 'POST' });
     window.location.href = 'index.html';
 });
 
-loadAccount().catch(error => {
-    document.getElementById('accountMessage').textContent = error.message;
-});
+loadAccount()
+    .then(() => loadEventsPanel())
+    .catch(error => {
+        document.getElementById('accountMessage').textContent = error.message;
+    });

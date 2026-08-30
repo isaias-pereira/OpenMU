@@ -137,9 +137,10 @@ const DEFAULT_SERVER_EVENTS = [
   }
 ];
 
+const STORAGE_KEY = 'mu_server_events_config';
+
 // State variables
 let serverEvents = [];
-let isStoredOnServer = false;
 let currentCategoryFilter = 'all';
 let currentSearchQuery = '';
 let editingEventId = null;
@@ -255,70 +256,33 @@ function computeEventStatus(event, now = new Date()) {
   };
 }
 
-// Normalize one event coming from the server (or from the defaults)
-function normalizeEvent(e) {
-  return {
-    ...e,
-    startTimeStr: e.startTimeStr || (e.startOffsetMin !== undefined ? formatMinutesToTime(e.startOffsetMin) : '00:00'),
-    startIntervalMin: Number(e.startIntervalMin) || 120,
-    startOffsetMin: Number(e.startOffsetMin) || 0,
-    durationMin: Number(e.durationMin) || 15,
-    enabled: e.enabled !== false
-  };
+// Load events from LocalStorage
+function loadEvents() {
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        serverEvents = parsed.map(e => ({
+          ...e,
+          startTimeStr: e.startTimeStr || (e.startOffsetMin !== undefined ? formatMinutesToTime(e.startOffsetMin) : '00:00'),
+          startIntervalMin: Number(e.startIntervalMin) || 120,
+          durationMin: Number(e.durationMin) || 15
+        }));
+        return;
+      }
+    } catch (err) {
+      console.warn('Erro ao carregar eventos:', err);
+    }
+  }
+  serverEvents = JSON.parse(JSON.stringify(DEFAULT_SERVER_EVENTS));
+  saveEvents();
 }
 
-// Load events from the server. The configuration is shared by the whole site, so
-// the home page ("Eventos do Servidor") shows exactly what is stored here.
-// While nothing has been saved yet, the factory defaults are shown.
-async function loadEvents() {
-  try {
-    const response = await fetch('/api/events/config');
-    if (response.status === 403 || response.status === 401) {
-      window.location.reload(); // session expired: fall back to the login gate
-      return;
-    }
-
-    const data = await response.json();
-    if (response.ok && data.success && Array.isArray(data.events) && data.events.length > 0) {
-      serverEvents = data.events.map(normalizeEvent);
-      isStoredOnServer = true;
-      return;
-    }
-  } catch (err) {
-    console.warn('Erro ao carregar eventos do servidor:', err);
-    showToast('⚠️ Não foi possível carregar a configuração salva. Exibindo padrões.');
-  }
-
-  // Nothing stored yet: start from the factory defaults without publishing them.
-  serverEvents = JSON.parse(JSON.stringify(DEFAULT_SERVER_EVENTS)).map(normalizeEvent);
-  isStoredOnServer = false;
-}
-
-// Persist the events on the server so every visitor sees the same panel.
-async function saveEvents() {
-  try {
-    const response = await fetch('/api/events/config', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ events: serverEvents })
-    });
-    const data = await response.json().catch(() => ({}));
-
-    if (!response.ok || !data.success) {
-      throw new Error(data.message || 'Falha ao salvar no servidor');
-    }
-
-    if (Array.isArray(data.events)) {
-      serverEvents = data.events.map(normalizeEvent);
-    }
-    isStoredOnServer = true;
-    renderEventsGrid();
-    return true;
-  } catch (err) {
-    console.error('Erro ao salvar eventos:', err);
-    showToast('❌ ' + (err.message || 'Não foi possível salvar no servidor.'));
-    return false;
-  }
+// Save events to LocalStorage & dispatch cross-window event
+function saveEvents() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(serverEvents));
+  window.dispatchEvent(new Event('storage'));
 }
 
 // Format date time for server clock
@@ -566,7 +530,7 @@ function forceStartEvent(id) {
   });
   saveEvents();
   renderEventsGrid();
-  showToast('⚡ Horário deslocado para agora: o contador da página inicial abre imediatamente.');
+  showToast('⚡ Portões abertos com sucesso para teste ao vivo!');
 }
 
 // Delete event with confirmation
@@ -583,27 +547,13 @@ function deleteEvent(id) {
 }
 
 // Reset all events to defaults
-async function resetToDefaults() {
-  if (!confirm('Restaurar todos os eventos e horários para as configurações padrão originais?\n\nIsto também remove a configuração publicada, e a página inicial voltará a usar os dados do servidor de jogo.')) {
-    return;
+function resetToDefaults() {
+  if (confirm('Restaurar todos os eventos e horários para as configurações padrão originais?')) {
+    serverEvents = JSON.parse(JSON.stringify(DEFAULT_SERVER_EVENTS));
+    saveEvents();
+    renderEventsGrid();
+    showToast('🔄 Configurações de eventos restauradas para os padrões.');
   }
-
-  try {
-    const response = await fetch('/api/events/config', { method: 'DELETE' });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok || !data.success) {
-      throw new Error(data.message || 'Falha ao restaurar no servidor');
-    }
-  } catch (err) {
-    console.error('Erro ao restaurar eventos:', err);
-    showToast('❌ ' + (err.message || 'Não foi possível restaurar no servidor.'));
-    return;
-  }
-
-  serverEvents = JSON.parse(JSON.stringify(DEFAULT_SERVER_EVENTS)).map(normalizeEvent);
-  isStoredOnServer = false;
-  renderEventsGrid();
-  showToast('🔄 Padrões restaurados. Publique novamente para aplicar na página inicial.');
 }
 
 // Toast notification helper
@@ -827,14 +777,14 @@ function handleEventFormSubmit(e) {
 }
 
 // Global initialization
-window.addEventListener('DOMContentLoaded', async () => {
-  updateClock();
-  await loadEvents();
-  renderEventsGrid();
+let eventsPanelInitialized = false;
+function initEventsPanel() {
+  if (eventsPanelInitialized) return;
+  eventsPanelInitialized = true;
 
-  if (!isStoredOnServer) {
-    showToast('ℹ️ Nenhuma configuração publicada ainda. Salve um evento para aplicar na página inicial.');
-  }
+  loadEvents();
+  updateClock();
+  renderEventsGrid();
 
   // 1-second dynamic tick
   setInterval(() => {
@@ -892,8 +842,19 @@ window.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // Re-sync with the server periodically, so a second staff member's changes show up
-  setInterval(() => {
-    loadEvents().then(renderEventsGrid);
-  }, 60000);
-});
+  // Listen for storage events across tabs
+  window.addEventListener('storage', (e) => {
+    if (e.key === STORAGE_KEY) {
+      loadEvents();
+      renderEventsGrid();
+    }
+  });
+}
+
+// Run initialization whether the script loads before or after DOMContentLoaded
+// (account.js injects this script dynamically, so DOMContentLoaded may have already fired).
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initEventsPanel);
+} else {
+  initEventsPanel();
+}
