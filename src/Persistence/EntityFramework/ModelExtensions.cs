@@ -159,9 +159,9 @@ public static class ModelExtensions
     /// <returns>The column name for a property.</returns>
     internal static string GetColumnName(this IReadOnlyProperty property)
     {
-        if (StoreObjectIdentifier.Create(property.DeclaringEntityType, StoreObjectType.Table) is not { } keyIdentifier)
+        if (StoreObjectIdentifier.Create(property.DeclaringType, StoreObjectType.Table) is not { } keyIdentifier)
         {
-            throw new InvalidOperationException($"Couldn't create a {nameof(StoreObjectIdentifier)} for declaring entity type {property.DeclaringEntityType} of property {property}.");
+            throw new InvalidOperationException($"Couldn't create a {nameof(StoreObjectIdentifier)} for declaring entity type {property.DeclaringType} of property {property}.");
         }
 
         if (property.GetDefaultColumnName(keyIdentifier) is not { } columnName)

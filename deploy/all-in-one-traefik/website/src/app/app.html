@@ -788,6 +788,16 @@
 
             <button
               class="ranking-tab"
+              [class.active]="rankingTab() === 'chaoscastle'"
+              data-tab="chaoscastle"
+              (click)="setRankingTab('chaoscastle')"
+            >
+              <span class="tab-icon">⚔️</span>
+              <span>Chaos Castle</span>
+            </button>
+
+            <button
+              class="ranking-tab"
               [class.active]="rankingTab() === 'illusiontemple'"
               data-tab="illusiontemple"
               (click)="setRankingTab('illusiontemple')"
@@ -1227,7 +1237,96 @@
           </div>
         </div>
 
-        <!-- 5. ILLUSION TEMPLE RANKING -->
+        <!-- 5. CHAOS CASTLE RANKING -->
+        <div id="chaosCastleRanking" class="ranking-content" [class.active]="rankingTab() === 'chaoscastle'">
+          <div class="ranking-container">
+            <div class="ranking-table-wrapper">
+              <table class="ranking-table">
+                <thead>
+                  <tr>
+                    <th class="rank-col">#</th>
+                    <th>Guerreiro</th>
+                    <th>Guild</th>
+                    <th class="text-center">Pontuação & Sobrevivência</th>
+                    <th class="text-center">Classe</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (player of filteredChaosCastleRanking(); track player.position) {
+                    <tr>
+                      <td class="rank-col">
+                        @if (player.position === 1) {
+                          <span class="rank-badge-1">1</span>
+                        } @else if (player.position === 2) {
+                          <span class="rank-badge-2">2</span>
+                        } @else if (player.position === 3) {
+                          <span class="rank-badge-3">3</span>
+                        } @else {
+                          <span class="rank-badge-default">{{ player.position }}</span>
+                        }
+                      </td>
+                      <td>
+                        <div class="flex items-center gap-2.5">
+                          <span class="text-xl p-1 rounded bg-slate-900 border border-amber-500/30">{{ player.badge || '⚔️' }}</span>
+                          <div>
+                            <div class="font-bold text-amber-300">{{ player.characterName }}</div>
+                            <span class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
+                              {{ player.subStat || 'Sobrevivente do Caos' }}
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+                      <td class="text-center font-medium text-slate-300">{{ player.guildName }}</td>
+                      <td class="text-center font-bold text-amber-400">{{ player.score.toLocaleString('pt-BR') }} pts</td>
+                      <td class="text-center font-medium text-slate-300">{{ player.className }}</td>
+                    </tr>
+                  } @empty {
+                    <tr>
+                      <td colspan="5" class="text-center py-8 text-slate-500">
+                        Nenhum dado de ranking disponível para Chaos Castle.
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+            <div class="ranking-info-panel">
+              <h4 class="text-amber-300 font-title mb-3">Sobre o Chaos Castle</h4>
+              <ul class="info-list">
+                <li>
+                  <div class="info-icon">⚔️</div>
+                  <div class="info-text">
+                    <strong>Battle Royale Individual</strong>
+                    <p>Todos os participantes recebem a mesma armadura (Armor of Guardsman) e competem em igualdade de condições.</p>
+                  </div>
+                </li>
+                <li>
+                  <div class="info-icon">🏰</div>
+                  <div class="info-text">
+                    <strong>Piso Dinâmico</strong>
+                    <p>O chão do castelo desmorona progressivamente, forçando os jogadores a se moverem e se confrontarem.</p>
+                  </div>
+                </li>
+                <li>
+                  <div class="info-icon">💎</div>
+                  <div class="info-text">
+                    <strong>Premiação</strong>
+                    <p>Itens Ancient, Joias Life & Harmony, e pacotes de criação para os melhores colocados.</p>
+                  </div>
+                </li>
+                <li>
+                  <div class="info-icon">🎟️</div>
+                  <div class="info-text">
+                    <strong>Entrada</strong>
+                    <p>O evento inicia a cada 2 horas no NPC Armor of Guardsman em todos os mapas.</p>
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- 6. ILLUSION TEMPLE RANKING -->
         <div id="illusionTempleRanking" class="ranking-content" [class.active]="rankingTab() === 'illusiontemple'">
           <div class="ranking-container">
             <div class="ranking-table-wrapper">

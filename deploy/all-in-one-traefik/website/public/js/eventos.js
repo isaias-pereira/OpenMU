@@ -137,8 +137,6 @@ const DEFAULT_SERVER_EVENTS = [
   }
 ];
 
-const STORAGE_KEY = 'mu_server_events_config';
-
 // State variables
 let serverEvents = [];
 let currentCategoryFilter = 'all';
@@ -256,14 +254,14 @@ function computeEventStatus(event, now = new Date()) {
   };
 }
 
-// Load events from LocalStorage
-function loadEvents() {
-  const saved = localStorage.getItem(STORAGE_KEY);
-  if (saved) {
-    try {
-      const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        serverEvents = parsed.map(e => ({
+// Load events from the backend (single source of truth).
+async function loadEvents() {
+  try {
+    const response = await fetch('/api/events/config', { credentials: 'same-origin' });
+    if (response.ok) {
+      const data = await response.json();
+      if (data.success && Array.isArray(data.events) && data.events.length > 0) {
+        serverEvents = data.events.map(e => ({
           ...e,
           startTimeStr: e.startTimeStr || (e.startOffsetMin !== undefined ? formatMinutesToTime(e.startOffsetMin) : '00:00'),
           startIntervalMin: Number(e.startIntervalMin) || 120,
@@ -271,18 +269,27 @@ function loadEvents() {
         }));
         return;
       }
-    } catch (err) {
-      console.warn('Erro ao carregar eventos:', err);
     }
+  } catch (err) {
+    console.warn('Erro ao carregar eventos do servidor:', err);
   }
+  // Fallback template when no configuration is stored yet. It is only shown in
+  // the panel; it is not persisted until the GM saves a change.
   serverEvents = JSON.parse(JSON.stringify(DEFAULT_SERVER_EVENTS));
-  saveEvents();
 }
 
-// Save events to LocalStorage & dispatch cross-window event
-function saveEvents() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(serverEvents));
-  window.dispatchEvent(new Event('storage'));
+// Save events to the backend (single source of truth).
+async function saveEvents() {
+  try {
+    await fetch('/api/events/config', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ events: serverEvents })
+    });
+  } catch (err) {
+    console.warn('Erro ao salvar eventos no servidor:', err);
+  }
 }
 
 // Format date time for server clock
@@ -501,19 +508,19 @@ function renderEventsGrid() {
 }
 
 // Toggle enabled status of event
-function toggleEventEnabled(id) {
+async function toggleEventEnabled(id) {
   serverEvents = serverEvents.map(e => {
     if (e.id === id) {
       return { ...e, enabled: e.enabled === false ? true : false };
     }
     return e;
   });
-  saveEvents();
+  await saveEvents();
   renderEventsGrid();
 }
 
 // Force start event (aligns startTime to current hour/minute so gates open immediately)
-function forceStartEvent(id) {
+async function forceStartEvent(id) {
   const now = new Date();
   const currentHHMM = formatMinutesToTime(now.getHours() * 60 + now.getMinutes());
   
@@ -528,29 +535,29 @@ function forceStartEvent(id) {
     }
     return e;
   });
-  saveEvents();
+  await saveEvents();
   renderEventsGrid();
   showToast('⚡ Portões abertos com sucesso para teste ao vivo!');
 }
 
 // Delete event with confirmation
-function deleteEvent(id) {
+async function deleteEvent(id) {
   const target = serverEvents.find(e => e.id === id);
   if (!target) return;
   
   if (confirm(`Tem certeza que deseja excluir o evento "${target.name}"?`)) {
     serverEvents = serverEvents.filter(e => e.id !== id);
-    saveEvents();
+    await saveEvents();
     renderEventsGrid();
     showToast(`🗑️ Evento "${target.name}" removido.`);
   }
 }
 
 // Reset all events to defaults
-function resetToDefaults() {
+async function resetToDefaults() {
   if (confirm('Restaurar todos os eventos e horários para as configurações padrão originais?')) {
     serverEvents = JSON.parse(JSON.stringify(DEFAULT_SERVER_EVENTS));
-    saveEvents();
+    await saveEvents();
     renderEventsGrid();
     showToast('🔄 Configurações de eventos restauradas para os padrões.');
   }
@@ -691,7 +698,7 @@ function selectDurationPreset(min) {
 }
 
 // Save modal event form
-function handleEventFormSubmit(e) {
+async function handleEventFormSubmit(e) {
   e.preventDefault();
 
   const name = document.getElementById('formEventName').value.trim();
@@ -771,18 +778,18 @@ function handleEventFormSubmit(e) {
     showToast(`🎉 Novo evento "${name}" criado com sucesso!`);
   }
 
-  saveEvents();
+  await saveEvents();
   closeEventModal();
   renderEventsGrid();
 }
 
 // Global initialization
 let eventsPanelInitialized = false;
-function initEventsPanel() {
+async function initEventsPanel() {
   if (eventsPanelInitialized) return;
   eventsPanelInitialized = true;
 
-  loadEvents();
+  await loadEvents();
   updateClock();
   renderEventsGrid();
 
@@ -841,14 +848,6 @@ function initEventsPanel() {
       document.getElementById('formEventColorText').innerText = e.target.value.toUpperCase();
     });
   }
-
-  // Listen for storage events across tabs
-  window.addEventListener('storage', (e) => {
-    if (e.key === STORAGE_KEY) {
-      loadEvents();
-      renderEventsGrid();
-    }
-  });
 }
 
 // Run initialization whether the script loads before or after DOMContentLoaded

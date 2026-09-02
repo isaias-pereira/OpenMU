@@ -37,6 +37,7 @@ interface AccountData {
   securityCode?: string;
   password?: string;
   role?: 'PLAYER' | 'GM' | 'ADMIN';
+  isAdmin?: boolean;
   characters: Character[];
 }
 
@@ -425,7 +426,7 @@ export class App implements OnInit, OnDestroy {
 
   // Active View State
   readonly currentTab = signal<'home' | 'register' | 'classes' | 'ranking' | 'download' | 'account' | 'events'>('home');
-  readonly rankingTab = signal<'level' | 'resets' | 'deaths' | 'guilds' | 'bloodcastle' | 'devilsquare' | 'illusiontemple' | 'battlesoccer'>('guilds');
+  readonly rankingTab = signal<'level' | 'resets' | 'deaths' | 'guilds' | 'bloodcastle' | 'devilsquare' | 'chaoscastle' | 'illusiontemple' | 'battlesoccer'>('guilds');
   readonly accountSubTab = signal<'characters' | 'distribute' | 'security' | 'vip' | 'gm_events'>('characters');
   readonly heroEventCategory = signal<'all' | 'events' | 'invasions'>('all');
   readonly isLoginOpen = signal<boolean>(false);
@@ -437,24 +438,12 @@ export class App implements OnInit, OnDestroy {
   readonly isGM = computed<boolean>(() => {
     const user = this.currentUser();
     if (!user) return false;
-    const role = user.role?.toUpperCase();
-    const name = (user.loginName || '').toLowerCase().trim();
-    return (
-      role === 'GM' ||
-      role === 'ADMIN' ||
-      name === 'admin' ||
-      name === 'gm' ||
-      name === 'testgm' ||
-      name.startsWith('testgm') ||
-      name.startsWith('gm_') ||
-      name.startsWith('gm-') ||
-      name.includes('grandmaster') ||
-      name.includes('game master')
-    );
+    return user.isAdmin === true || user.role === 'GM';
   });
 
-  // Server event schedules (Stateful, persisted in localStorage & linked to Index Live widget)
-  readonly serverEventsList = signal<ServerScheduleEvent[]>(DEFAULT_SERVER_EVENTS);
+  // Server event schedules. Single source of truth is the backend
+  // (/api/events/schedule for public reads, /api/events/config for the GM panel).
+  readonly serverEventsList = signal<ServerScheduleEvent[]>([]);
 
   // Events Dashboard Management State
   readonly eventSearchQuery = signal<string>('');
@@ -615,9 +604,9 @@ export class App implements OnInit, OnDestroy {
     serverName: 'MU FREE',
     season: 'Season 6',
     version: 'Episódio 3 (S6E3)',
-    onlinePlayers: 348,
-    peakOnline: 890,
-    totalAccounts: 1248,
+    onlinePlayers: 0,
+    peakOnline: 0,
+    totalAccounts: 0,
     expRate: '150x',
     dropRate: '40%',
     status: 'ONLINE',
@@ -634,64 +623,7 @@ export class App implements OnInit, OnDestroy {
   readonly selectedClass = signal<ClassDetail | null>(null);
 
   // User Authentication State
-  readonly currentUser = signal<AccountData | null>({
-    loginName: 'admin',
-    email: 'admin@mufree.com',
-    role: 'GM',
-    characters: [
-      {
-        id: 'c1',
-        name: 'DarkVader',
-        className: 'Blade Knight',
-        classCode: 'BK',
-        guild: 'BloodLords',
-        level: 400,
-        masterLevel: 150,
-        kills: 142,
-        resets: 85,
-        masterResets: 5,
-        strength: 1800,
-        agility: 1200,
-        vitality: 900,
-        energy: 600,
-        status: 'Online'
-      },
-      {
-        id: 'c2',
-        name: 'SoulReaper',
-        className: 'Soul Master',
-        classCode: 'SM',
-        guild: 'BloodLords',
-        level: 380,
-        masterLevel: 110,
-        kills: 89,
-        resets: 62,
-        masterResets: 2,
-        strength: 650,
-        agility: 1100,
-        vitality: 800,
-        energy: 2200,
-        status: 'Offline'
-      },
-      {
-        id: 'c3',
-        name: 'WindGoddess',
-        className: 'Muse Elf',
-        classCode: 'ME',
-        guild: 'SilverThorns',
-        level: 395,
-        masterLevel: 130,
-        kills: 67,
-        resets: 74,
-        masterResets: 3,
-        strength: 700,
-        agility: 2100,
-        vitality: 750,
-        energy: 950,
-        status: 'Offline'
-      }
-    ]
-  });
+  readonly currentUser = signal<AccountData | null>(null);
 
   // Login form
   readonly loginForm = new FormGroup({
@@ -753,89 +685,25 @@ export class App implements OnInit, OnDestroy {
   // Ranking data
   readonly heroRankTab = signal<'resets' | 'kills' | 'pvp'>('resets');
 
-  readonly guildRanking = signal<RankingGuild[]>([
-    { position: 1, guildName: 'BloodLords', masterName: 'DarkVader', masterClass: 'Blade Knight', membersCount: 38, totalResets: 1850, score: 32500, castleStatus: 'Dono do Castelo (Lord)', emblemEmoji: '🏰' },
-    { position: 2, guildName: 'Imperium', masterName: 'LordSauron', masterClass: 'Dark Lord', membersCount: 35, totalResets: 1640, score: 28900, castleStatus: 'Aliança Desafiante', emblemEmoji: '👑' },
-    { position: 3, guildName: 'Valhalla', masterName: 'ChaosGladiator', masterClass: 'Magic Gladiator', membersCount: 32, totalResets: 1420, score: 24300, castleStatus: 'Aliança Desafiante', emblemEmoji: '🛡️' },
-    { position: 4, guildName: 'SilverThorns', masterName: 'WindGoddess', masterClass: 'Muse Elf', membersCount: 29, totalResets: 1290, score: 21800, castleStatus: 'Guild Soberana', emblemEmoji: '🏹' },
-    { position: 5, guildName: 'MysticOrder', masterName: 'ArcaneEmperor', masterClass: 'Soul Master', membersCount: 26, totalResets: 1110, score: 18400, castleStatus: 'Membro da União', emblemEmoji: '🔮' },
-    { position: 6, guildName: 'NoriaGuard', masterName: 'ShadowDiva', masterClass: 'Summoner', membersCount: 24, totalResets: 980, score: 15700, castleStatus: 'Membro da União', emblemEmoji: '✨' },
-    { position: 7, guildName: 'KarutanFists', masterName: 'IronFist', masterClass: 'Rage Fighter', membersCount: 20, totalResets: 820, score: 13200, castleStatus: 'Guild em Ascensão', emblemEmoji: '🥊' },
-  ]);
+  readonly guildRanking = signal<RankingGuild[]>([]);
 
-  readonly resetsRanking = signal<RankingPlayer[]>([
-    { position: 1, characterName: 'DarkVader', guildName: 'BloodLords', level: 400, className: 'Blade Knight', resets: 85, masterResets: 5 },
-    { position: 2, characterName: 'LordSauron', guildName: 'Imperium', level: 398, className: 'Dark Lord', resets: 80, masterResets: 4 },
-    { position: 3, characterName: 'WindGoddess', guildName: 'SilverThorns', level: 395, className: 'Muse Elf', resets: 74, masterResets: 3 },
-    { position: 4, characterName: 'ArcaneEmperor', guildName: 'MysticOrder', level: 390, className: 'Soul Master', resets: 70, masterResets: 3 },
-    { position: 5, characterName: 'ChaosGladiator', guildName: 'Valhalla', level: 388, className: 'Magic Gladiator', resets: 68, masterResets: 2 },
-    { position: 6, characterName: 'BloodSeeker', guildName: 'BloodLords', level: 382, className: 'Blade Knight', resets: 65, masterResets: 2 },
-    { position: 7, characterName: 'SoulReaper', guildName: 'BloodLords', level: 380, className: 'Soul Master', resets: 62, masterResets: 2 },
-    { position: 8, characterName: 'ShadowDiva', guildName: 'NoriaGuard', level: 375, className: 'Summoner', resets: 60, masterResets: 1 },
-  ]);
+  readonly resetsRanking = signal<RankingPlayer[]>([]);
 
-  readonly bloodCastleRanking = signal<RankingEventPlayer[]>([
-    { position: 1, characterName: 'DarkVader', className: 'Blade Knight', guildName: 'BloodLords', score: 148, extraStat: '148 Entregas • 03m 12s recorde', subStat: 'Archangel Weapon Master', badge: '🥇 1º Lugar' },
-    { position: 2, characterName: 'ArcaneEmperor', className: 'Soul Master', guildName: 'MysticOrder', score: 135, extraStat: '135 Entregas • 03m 24s recorde', subStat: 'Teleport Sprinter', badge: '🥈 2º Lugar' },
-    { position: 3, characterName: 'WindGoddess', className: 'Muse Elf', guildName: 'SilverThorns', score: 122, extraStat: '122 Entregas • 03m 45s recorde', subStat: 'Infinity Speed', badge: '🥉 3º Lugar' },
-    { position: 4, characterName: 'ChaosGladiator', className: 'Magic Gladiator', guildName: 'Valhalla', score: 110, extraStat: '110 Entregas • 03m 58s recorde', subStat: 'Bridge Cleaner' },
-    { position: 5, characterName: 'LordSauron', className: 'Dark Lord', guildName: 'Imperium', score: 98, extraStat: '98 Entregas • 04m 10s recorde', subStat: 'Dark Horse Runner' },
-    { position: 6, characterName: 'IronFist', className: 'Rage Fighter', guildName: 'KarutanFists', score: 84, extraStat: '84 Entregas • 04m 32s recorde', subStat: 'Statue Breaker' },
-  ]);
+  readonly bloodCastleRanking = signal<RankingEventPlayer[]>([]);
 
-  readonly devilSquareRanking = signal<RankingEventPlayer[]>([
-    { position: 1, characterName: 'ArcaneEmperor', className: 'Soul Master', guildName: 'MysticOrder', score: '1.245.000', extraStat: '1.245.000 pts • 4.820 Mobs', subStat: 'Evil Spirits AoE King', badge: '🥇 1º Lugar' },
-    { position: 2, characterName: 'DarkVader', className: 'Blade Knight', guildName: 'BloodLords', score: '1.180.000', extraStat: '1.180.000 pts • 4.410 Mobs', subStat: 'Twisting Slash Master', badge: '🥈 2º Lugar' },
-    { position: 3, characterName: 'ChaosGladiator', className: 'Magic Gladiator', guildName: 'Valhalla', score: '1.090.000', extraStat: '1.090.000 pts • 4.150 Mobs', subStat: 'Gigantic Storm Smasher', badge: '🥉 3º Lugar' },
-    { position: 4, characterName: 'ShadowDiva', className: 'Summoner', guildName: 'NoriaGuard', score: '985.000', extraStat: '985.000 pts • 3.820 Mobs', subStat: 'Lightning Chain Storm' },
-    { position: 5, characterName: 'LordSauron', className: 'Dark Lord', guildName: 'Imperium', score: '920.000', extraStat: '920.000 pts • 3.600 Mobs', subStat: 'Fire Scream Sweeper' },
-    { position: 6, characterName: 'WindGoddess', className: 'Muse Elf', guildName: 'SilverThorns', score: '860.000', extraStat: '860.000 pts • 3.290 Mobs', subStat: 'Triple Shot Blaster' },
-  ]);
+  readonly devilSquareRanking = signal<RankingEventPlayer[]>([]);
 
-  readonly illusionTempleRanking = signal<RankingEventPlayer[]>([
-    { position: 1, characterName: 'WindGoddess', className: 'Muse Elf', guildName: 'SilverThorns', score: 94, extraStat: '94 Relíquias • 78 Vitórias', subStat: 'Illusion Relic Carrier', badge: '🥇 1º Lugar' },
-    { position: 2, characterName: 'LordSauron', className: 'Dark Lord', guildName: 'Imperium', score: 86, extraStat: '86 Relíquias • 71 Vitórias', subStat: 'Temple Conqueror', badge: '🥈 2º Lugar' },
-    { position: 3, characterName: 'DarkVader', className: 'Blade Knight', guildName: 'BloodLords', score: 80, extraStat: '80 Relíquias • 65 Vitórias', subStat: 'Relic Guardian Slayer', badge: '🥉 3º Lugar' },
-    { position: 4, characterName: 'ShadowDiva', className: 'Summoner', guildName: 'NoriaGuard', score: 72, extraStat: '72 Relíquias • 58 Vitórias', subStat: 'Dimensional Curse Master' },
-    { position: 5, characterName: 'ArcaneEmperor', className: 'Soul Master', guildName: 'MysticOrder', score: 65, extraStat: '65 Relíquias • 52 Vitórias', subStat: 'Barrier Protector' },
-    { position: 6, characterName: 'ChaosGladiator', className: 'Magic Gladiator', guildName: 'Valhalla', score: 58, extraStat: '58 Relíquias • 47 Vitórias', subStat: 'Combat Support' },
-  ]);
+  readonly chaosCastleRanking = signal<RankingEventPlayer[]>([]);
 
-  readonly battleSoccerRanking = signal<RankingEventPlayer[]>([
-    { position: 1, characterName: 'BloodLords (DarkVader)', className: 'Blade Knight', guildName: 'BloodLords', score: 54, extraStat: '54 Gols • 32 Vitórias em Arena', subStat: 'Lorencia Soccer Champions', badge: '🥇 1º Lugar' },
-    { position: 2, characterName: 'Imperium (LordSauron)', className: 'Dark Lord', guildName: 'Imperium', score: 48, extraStat: '48 Gols • 29 Vitórias em Arena', subStat: 'Royal Strikers', badge: '🥈 2º Lugar' },
-    { position: 3, characterName: 'Valhalla (ChaosGladiator)', className: 'Magic Gladiator', guildName: 'Valhalla', score: 41, extraStat: '41 Gols • 24 Vitórias em Arena', subStat: 'Thunder Scorers', badge: '🥉 3º Lugar' },
-    { position: 4, characterName: 'SilverThorns (WindGoddess)', className: 'Muse Elf', guildName: 'SilverThorns', score: 35, extraStat: '35 Gols • 21 Vitórias em Arena', subStat: 'Precision Wings' },
-    { position: 5, characterName: 'MysticOrder (ArcaneEmperor)', className: 'Soul Master', guildName: 'MysticOrder', score: 29, extraStat: '29 Gols • 18 Vitórias em Arena', subStat: 'Arcane Tactics' },
-    { position: 6, characterName: 'KarutanFists (IronFist)', className: 'Rage Fighter', guildName: 'KarutanFists', score: 22, extraStat: '22 Gols • 14 Vitórias em Arena', subStat: 'Power Kickers' },
-  ]);
+  readonly illusionTempleRanking = signal<RankingEventPlayer[]>([]);
 
-  readonly levelRanking = signal<RankingPlayer[]>([
-    { position: 1, characterName: 'DarkVader', guildName: 'BloodLords', level: 400, className: 'Blade Knight', resets: 85 },
-    { position: 2, characterName: 'LordSauron', guildName: 'Imperium', level: 398, className: 'Dark Lord', resets: 80 },
-    { position: 3, characterName: 'WindGoddess', guildName: 'SilverThorns', level: 395, className: 'Muse Elf', resets: 74 },
-    { position: 4, characterName: 'ArcaneEmperor', guildName: 'MysticOrder', level: 390, className: 'Soul Master', resets: 70 },
-    { position: 5, characterName: 'ChaosGladiator', guildName: 'Valhalla', level: 388, className: 'Magic Gladiator', resets: 68 },
-    { position: 6, characterName: 'BloodSeeker', guildName: 'BloodLords', level: 382, className: 'Blade Knight', resets: 65 },
-    { position: 7, characterName: 'ShadowDiva', guildName: 'NoriaGuard', level: 375, className: 'Summoner', resets: 60 },
-  ]);
+  readonly battleSoccerRanking = signal<RankingEventPlayer[]>([]);
 
-  readonly deathsRanking = signal<RankingPlayer[]>([
-    { position: 1, characterName: 'DarkVader', guildName: 'BloodLords', kills: 142, className: 'Blade Knight' },
-    { position: 2, characterName: 'LordSauron', guildName: 'Imperium', kills: 115, className: 'Dark Lord' },
-    { position: 3, characterName: 'SoulReaper', guildName: 'BloodLords', kills: 89, className: 'Soul Master' },
-    { position: 4, characterName: 'ChaosGladiator', guildName: 'Valhalla', kills: 78, className: 'Magic Gladiator' },
-    { position: 5, characterName: 'WindGoddess', guildName: 'SilverThorns', kills: 67, className: 'Muse Elf' },
-    { position: 6, characterName: 'BloodSeeker', guildName: 'BloodLords', kills: 54, className: 'Blade Knight' },
-  ]);
+  readonly levelRanking = signal<RankingPlayer[]>([]);
 
-  readonly pvpRanking = signal<RankingPlayer[]>([
-    { position: 1, characterName: 'DarkVader', guildName: 'BloodLords', className: 'Blade Knight', resets: 85, kills: 142 },
-    { position: 2, characterName: 'LordSauron', guildName: 'Imperium', className: 'Dark Lord', resets: 80, kills: 115 },
-    { position: 3, characterName: 'ChaosGladiator', guildName: 'Valhalla', className: 'Magic Gladiator', resets: 68, kills: 78 },
-    { position: 4, characterName: 'SoulReaper', guildName: 'BloodLords', className: 'Soul Master', resets: 62, kills: 89 },
-    { position: 5, characterName: 'WindGoddess', guildName: 'SilverThorns', className: 'Muse Elf', resets: 74, kills: 67 },
-  ]);
+  readonly deathsRanking = signal<RankingPlayer[]>([]);
+
+  readonly pvpRanking = signal<RankingPlayer[]>([]);
 
   readonly rankingSearch = signal<string>('');
 
@@ -867,6 +735,14 @@ export class App implements OnInit, OnDestroy {
     const q = this.rankingSearch().toLowerCase().trim();
     if (!q) return this.devilSquareRanking();
     return this.devilSquareRanking().filter(
+      p => p.characterName.toLowerCase().includes(q) || p.guildName.toLowerCase().includes(q)
+    );
+  });
+
+  readonly filteredChaosCastleRanking = computed(() => {
+    const q = this.rankingSearch().toLowerCase().trim();
+    if (!q) return this.chaosCastleRanking();
+    return this.chaosCastleRanking().filter(
       p => p.characterName.toLowerCase().includes(q) || p.guildName.toLowerCase().includes(q)
     );
   });
@@ -993,25 +869,17 @@ export class App implements OnInit, OnDestroy {
         this.updateClock();
       }, 1000);
 
-      // Try to recover any saved account in localStorage
-      const savedUser = localStorage.getItem('mu_account_session');
-      if (savedUser) {
-        try {
-          const parsed = JSON.parse(savedUser);
-          this.currentUser.set(parsed);
-        } catch {
-          // ignore
-        }
-      }
+      // Load the real event schedule from the backend (single source of truth).
+      this.loadEventsFromApi();
 
-      // Try to recover custom server events schedule from localStorage
-      this.loadEventsFromStorage();
+      // Load real server info (online players, total accounts) from the backend.
+      this.loadServerInfo();
 
-      // Keep the Index Live widget (#hero-events-box) in sync with the events
-      // configured in the eventos.html admin panel. eventos.js writes to the
-      // same "mu_server_events_config" key and the browser fires a "storage"
-      // event on this tab whenever that key changes in another tab.
-      window.addEventListener('storage', this.onStorageEvent);
+      // Load real rankings from the backend.
+      this.loadRankings();
+
+      // Restore session from backend
+      this.loadSession();
     }
   }
 
@@ -1020,23 +888,16 @@ export class App implements OnInit, OnDestroy {
       clearInterval(this.timerInterval);
       this.timerInterval = null;
     }
-    window.removeEventListener('storage', this.onStorageEvent);
   }
 
-  private readonly onStorageEvent = (event: StorageEvent): void => {
-    if (event.key === 'mu_server_events_config') {
-      this.loadEventsFromStorage();
-    }
-  };
-
-  private loadEventsFromStorage(): void {
+  private async loadEventsFromApi(): Promise<void> {
     if (!this.isBrowser) return;
-    const savedEvents = localStorage.getItem('mu_server_events_config');
-    if (savedEvents) {
-      try {
-        const parsedEvents: ServerScheduleEvent[] = JSON.parse(savedEvents);
-        if (Array.isArray(parsedEvents) && parsedEvents.length > 0) {
-          const normalized = parsedEvents.map(e => ({
+    try {
+      const response = await fetch('/api/events/schedule');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && Array.isArray(data.events)) {
+          const normalized = (data.events as ServerScheduleEvent[]).map((e: ServerScheduleEvent) => ({
             ...e,
             startTimeStr: e.startTimeStr || (e.startOffsetMin !== undefined ? formatMinutesToTime(e.startOffsetMin) : '00:00'),
             startIntervalMin: Number(e.startIntervalMin) || 120,
@@ -1044,9 +905,114 @@ export class App implements OnInit, OnDestroy {
           }));
           this.serverEventsList.set(normalized);
         }
-      } catch {
-        // ignore
       }
+    } catch (err) {
+      console.warn('Erro ao carregar eventos do servidor:', err);
+    }
+  }
+
+  private async loadSession(): Promise<void> {
+    if (!this.isBrowser) return;
+    try {
+      const sessionResponse = await fetch('/api/session', { credentials: 'same-origin' });
+      if (sessionResponse.ok) {
+        const sessionData = await sessionResponse.json();
+        if (sessionData.success && sessionData.loggedIn) {
+          const meResponse = await fetch('/api/me', { credentials: 'same-origin' });
+          if (meResponse.ok) {
+            const meData = await meResponse.json();
+            if (meData.success && meData.account) {
+              const account = meData.account;
+              const characters: Character[] = (account.characters || []).map((c: any) => ({
+                id: c.id,
+                name: c.name,
+                className: c.className,
+                classCode: c.classCode,
+                guild: c.guild,
+                level: c.level,
+                masterLevel: c.masterLevel,
+                kills: c.kills,
+                resets: c.resets,
+                masterResets: c.masterResets,
+                strength: c.strength,
+                agility: c.agility,
+                vitality: c.vitality,
+                energy: c.energy,
+                status: c.status
+              }));
+              this.currentUser.set({
+                loginName: account.loginName,
+                email: account.email,
+                role: account.role,
+                isAdmin: account.isAdmin,
+                characters
+              });
+              return;
+            }
+          }
+        }
+      }
+      this.currentUser.set(null);
+    } catch (err) {
+      console.warn('Erro ao restaurar sessão:', err);
+      this.currentUser.set(null);
+    }
+  }
+
+  private async loadServerInfo(): Promise<void> {
+    if (!this.isBrowser) return;
+    try {
+      const response = await fetch('/api/server-info', { credentials: 'same-origin' });
+      if (response.ok) {
+        const data = await response.json();
+        this.serverInfo.update(info => ({
+          ...info,
+          onlinePlayers: Number(data.onlinePlayers) || 0,
+          totalAccounts: Number(data.totalAccounts) || 0,
+          status: (data.status || 'online').toUpperCase()
+        }));
+      }
+    } catch (err) {
+      console.warn('Erro ao carregar informações do servidor:', err);
+    }
+  }
+
+  private async loadRankings(): Promise<void> {
+    if (!this.isBrowser) return;
+    try {
+      const [levelRes, deathsRes, resetsRes, guildsRes, bcRes, dsRes, ccRes] = await Promise.all([
+        fetch('/api/ranking', { credentials: 'same-origin' }),
+        fetch('/api/ranking/deaths', { credentials: 'same-origin' }),
+        fetch('/api/ranking/resets', { credentials: 'same-origin' }),
+        fetch('/api/ranking/guilds', { credentials: 'same-origin' }),
+        fetch('/api/ranking/events/blood-castle', { credentials: 'same-origin' }),
+        fetch('/api/ranking/events/devil-square', { credentials: 'same-origin' }),
+        fetch('/api/ranking/events/chaos-castle', { credentials: 'same-origin' }),
+      ]);
+
+      const parse = async (res: Response) => {
+        if (!res.ok) return [];
+        const data = await res.json();
+        return data.success ? (data.ranking || []) : [];
+      };
+
+      const [level, deaths, resets, guilds, bc, ds, cc] = await Promise.all([
+        parse(levelRes), parse(deathsRes), parse(resetsRes), parse(guildsRes), parse(bcRes), parse(dsRes), parse(ccRes)
+      ]);
+
+      this.levelRanking.set(level);
+      this.deathsRanking.set(deaths);
+      this.resetsRanking.set(resets);
+      this.guildRanking.set((guilds as any[]).map((g: any) => ({
+        ...g,
+        emblemEmoji: g.emblemEmoji || '🛡️',
+        castleStatus: g.castleStatus || 'Guild Registrada'
+      })));
+      this.bloodCastleRanking.set(bc);
+      this.devilSquareRanking.set(ds);
+      this.chaosCastleRanking.set(cc);
+    } catch (err) {
+      console.warn('Erro ao carregar rankings:', err);
     }
   }
 
@@ -1072,7 +1038,7 @@ export class App implements OnInit, OnDestroy {
     }
   }
 
-  setRankingTab(tab: 'level' | 'resets' | 'deaths' | 'guilds' | 'bloodcastle' | 'devilsquare' | 'illusiontemple' | 'battlesoccer'): void {
+  setRankingTab(tab: 'level' | 'resets' | 'deaths' | 'guilds' | 'bloodcastle' | 'devilsquare' | 'chaoscastle' | 'illusiontemple' | 'battlesoccer'): void {
     this.rankingTab.set(tab);
   }
 
@@ -1099,216 +1065,48 @@ export class App implements OnInit, OnDestroy {
     this.isLoggingIn.set(true);
     this.loginError.set(null);
 
-    setTimeout(() => {
-      this.isLoggingIn.set(false);
-      const cleanUser = loginUser.toLowerCase().trim();
-      // Valid credentials check for testgm
-      if (cleanUser === 'testgm' && loginPassword === 'testgm') {
-        const testGmAcc: AccountData = {
-          loginName: 'testgm',
-          email: 'testgm@mufree.com',
-          role: 'GM',
-          characters: [
-            {
-              id: 'c-gm1',
-              name: '[GM]Master',
-              className: 'Grand Master',
-              classCode: 'SM',
-              guild: 'STAFF',
-              level: 400,
-              masterLevel: 200,
-              kills: 0,
-              resets: 100,
-              masterResets: 10,
-              strength: 2000,
-              agility: 2000,
-              vitality: 2000,
-              energy: 2000,
-              status: 'Online'
-            },
-            {
-              id: 'c-gm2',
-              name: '[GM]Archangel',
-              className: 'Blade Knight',
-              classCode: 'BK',
-              guild: 'STAFF',
-              level: 400,
-              masterLevel: 200,
-              kills: 0,
-              resets: 100,
-              masterResets: 10,
-              strength: 2500,
-              agility: 2000,
-              vitality: 2000,
-              energy: 1000,
-              status: 'Offline'
-            },
-            {
-              id: 'c-gm3',
-              name: '[GM]Seraph',
-              className: 'High Elf',
-              classCode: 'ME',
-              guild: 'STAFF',
-              level: 400,
-              masterLevel: 200,
-              kills: 0,
-              resets: 100,
-              masterResets: 10,
-              strength: 1200,
-              agility: 2800,
-              vitality: 1500,
-              energy: 2000,
-              status: 'Offline'
-            }
-          ]
-        };
-        this.currentUser.set(testGmAcc);
-        if (this.isBrowser) {
-          localStorage.setItem('mu_account_session', JSON.stringify(testGmAcc));
-        }
-        this.isLoginOpen.set(false);
-        this.showToast('Login de GM realizado com sucesso! Bem-vindo(a), [GM] testgm.');
-        this.navigateTo('account');
-        return;
-      }
-
-      // Valid credentials check for admin
-      if ((cleanUser === 'admin' && loginPassword === '123456') || (cleanUser === 'admin' && loginPassword === 'admin')) {
-        const adminAcc: AccountData = {
-          loginName: 'admin',
-          email: 'admin@muonline.com',
-          role: 'GM',
-          characters: [
-            {
-              id: 'c1',
-              name: 'DarkVader',
-              className: 'Blade Knight',
-              classCode: 'BK',
-              guild: 'BloodLords',
-              level: 400,
-              masterLevel: 150,
-              kills: 142,
-              resets: 85,
-              masterResets: 5,
-              strength: 1800,
-              agility: 1200,
-              vitality: 900,
-              energy: 600,
-              status: 'Online'
-            },
-            {
-              id: 'c2',
-              name: 'SoulReaper',
-              className: 'Soul Master',
-              classCode: 'SM',
-              guild: 'BloodLords',
-              level: 380,
-              masterLevel: 110,
-              kills: 89,
-              resets: 62,
-              masterResets: 2,
-              strength: 650,
-              agility: 1100,
-              vitality: 800,
-              energy: 2200,
-              status: 'Offline'
-            },
-            {
-              id: 'c3',
-              name: 'WindGoddess',
-              className: 'Muse Elf',
-              classCode: 'ME',
-              guild: 'SilverThorns',
-              level: 395,
-              masterLevel: 130,
-              kills: 67,
-              resets: 74,
-              masterResets: 3,
-              strength: 700,
-              agility: 2100,
-              vitality: 750,
-              energy: 950,
-              status: 'Offline'
-            }
-          ]
-        };
-        this.currentUser.set(adminAcc);
-        if (this.isBrowser) {
-          localStorage.setItem('mu_account_session', JSON.stringify(adminAcc));
-        }
-        this.isLoginOpen.set(false);
-        this.showToast('Login realizado com sucesso! Bem-vindo(a) ao painel.');
-        this.navigateTo('account');
-      } else {
-        // Check dynamic account
-        const savedUsers = this.getSavedAccounts();
-        const found = savedUsers.find(u => u.loginName.toLowerCase() === loginUser.toLowerCase());
-        if (found) {
-          this.currentUser.set(found);
-          if (this.isBrowser) {
-            localStorage.setItem('mu_account_session', JSON.stringify(found));
-          }
+    fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ loginName: loginUser, password: loginPassword })
+    })
+      .then(response => response.json())
+      .then(data => {
+        this.isLoggingIn.set(false);
+        if (data.success) {
           this.isLoginOpen.set(false);
-          this.showToast(`Login realizado com sucesso! Olá, ${found.loginName}`);
-          this.navigateTo('account');
-        } else {
-          // Demo fallback allows instant testing if user enters anything valid
-          if (loginPassword.length >= 6) {
-            const isGmUser = cleanUser.startsWith('gm') || cleanUser.includes('admin');
-            const dynamicAcc: AccountData = {
-              loginName: loginUser,
-              email: `${loginUser}@mufree.com`,
-              role: isGmUser ? 'GM' : 'PLAYER',
-              characters: [
-                {
-                  id: `char-${Date.now()}`,
-                  name: isGmUser ? `[GM]${loginUser}` : loginUser,
-                  className: 'Blade Knight',
-                  classCode: 'BK',
-                  guild: isGmUser ? 'STAFF' : 'Guerreiros',
-                  level: 350,
-                  masterLevel: 45,
-                  kills: 24,
-                  resets: 15,
-                  masterResets: 0,
-                  strength: 950,
-                  agility: 600,
-                  vitality: 450,
-                  energy: 200,
-                  status: 'Online'
-                }
-              ]
-            };
-            this.currentUser.set(dynamicAcc);
-            if (this.isBrowser) {
-              localStorage.setItem('mu_account_session', JSON.stringify(dynamicAcc));
-            }
-            this.isLoginOpen.set(false);
-            this.showToast(`Bem-vindo, ${loginUser}!`);
+          this.showToast(`Login realizado com sucesso! Bem-vindo(a), ${data.loginName}.`);
+          this.loadSession().then(() => {
             this.navigateTo('account');
-          } else {
-            this.loginError.set('Login ou senha inválidos. Utilize testgm / testgm (Conta de Teste GM) ou crie sua conta.');
-          }
+          });
+        } else {
+          this.loginError.set(data.message || 'Login ou senha inválidos');
         }
-      }
-    }, 450);
-  }
-
-  fillTestGM(): void {
-    this.loginForm.patchValue({
-      loginUser: 'testgm',
-      loginPassword: 'testgm'
-    });
-    this.loginError.set(null);
+      })
+      .catch(err => {
+        this.isLoggingIn.set(false);
+        console.error('Erro no login:', err);
+        this.loginError.set('Erro interno do servidor');
+      });
   }
 
   onLogout(): void {
-    this.currentUser.set(null);
-    if (this.isBrowser) {
-      localStorage.removeItem('mu_account_session');
-    }
-    this.showToast('Sessão encerrada com sucesso.');
-    this.navigateTo('home');
+    fetch('/api/logout', {
+      method: 'POST',
+      credentials: 'same-origin'
+    })
+      .then(() => {
+        this.currentUser.set(null);
+        this.showToast('Sessão encerrada com sucesso.');
+        this.navigateTo('home');
+      })
+      .catch(err => {
+        console.error('Erro no logout:', err);
+        this.currentUser.set(null);
+        this.showToast('Sessão encerrada.');
+        this.navigateTo('home');
+      });
   }
 
   onRegisterSubmit(): void {
@@ -1328,45 +1126,28 @@ export class App implements OnInit, OnDestroy {
     this.registerError.set(null);
     this.registerSuccess.set(null);
 
-    setTimeout(() => {
-      this.isRegistering.set(false);
-      const newAcc: AccountData = {
-        loginName,
-        email,
-        securityCode,
-        password,
-        characters: [
-          {
-            id: `c-${Date.now()}`,
-            name: loginName + '_BK',
-            className: 'Blade Knight',
-            classCode: 'BK',
-            guild: 'Recrutas',
-            level: 1,
-            masterLevel: 0,
-            kills: 0,
-            resets: 0,
-            masterResets: 0,
-            strength: 28,
-            agility: 20,
-            vitality: 25,
-            energy: 10,
-            status: 'Offline'
-          }
-        ]
-      };
-
-      const existing = this.getSavedAccounts();
-      existing.push(newAcc);
-      if (this.isBrowser) {
-        localStorage.setItem('mu_registered_accounts', JSON.stringify(existing));
-        localStorage.setItem('mu_account_session', JSON.stringify(newAcc));
-      }
-
-      this.currentUser.set(newAcc);
-      this.registerSuccess.set(loginName);
-      this.showToast('Conta criada com sucesso! Você já está conectado.');
-    }, 600);
+    fetch('/api/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ loginName, password, email, securityCode })
+    })
+      .then(response => response.json())
+      .then(data => {
+        this.isRegistering.set(false);
+        if (data.success) {
+          this.registerSuccess.set(loginName);
+          this.showToast('Conta criada com sucesso! Faça login para acessar o painel.');
+          this.registerForm.reset();
+        } else {
+          this.registerError.set(data.message || 'Erro ao criar conta');
+        }
+      })
+      .catch(err => {
+        this.isRegistering.set(false);
+        console.error('Erro no registro:', err);
+        this.registerError.set('Erro interno do servidor');
+      });
   }
 
   hideRegisterError(): void {
@@ -1393,31 +1174,7 @@ export class App implements OnInit, OnDestroy {
       this.showToast(`O personagem precisa ser Level 350+ para resetar. Atual: Lv ${char.level}`);
       return;
     }
-
-    const currentAcc = this.currentUser();
-    if (!currentAcc) return;
-
-    const updatedChars = currentAcc.characters.map(c => {
-      if (c.id === char.id) {
-        return {
-          ...c,
-          resets: c.resets + 1,
-          level: 1,
-          strength: c.strength + 300,
-          agility: c.agility + 200,
-          vitality: c.vitality + 150,
-          energy: c.energy + 150
-        };
-      }
-      return c;
-    });
-
-    const updatedAcc = { ...currentAcc, characters: updatedChars };
-    this.currentUser.set(updatedAcc);
-    if (this.isBrowser) {
-      localStorage.setItem('mu_account_session', JSON.stringify(updatedAcc));
-    }
-    this.showToast(`Parabéns! ${char.name} resetou com sucesso. Pontos adicionados!`);
+    this.showToast('Operação disponível apenas no cliente do jogo.');
   }
 
   // Change password form
@@ -1439,49 +1196,17 @@ export class App implements OnInit, OnDestroy {
       this.showToast(`${char.name} é um Herói / Neutro e não possui status de PK.`);
       return;
     }
-
-    const updatedChars = currentAcc.characters.map(c => {
-      if (c.id === char.id) {
-        return { ...c, kills: 0 };
-      }
-      return c;
-    });
-
-    const updatedAcc = { ...currentAcc, characters: updatedChars };
-    this.currentUser.set(updatedAcc);
-    if (this.isBrowser) {
-      localStorage.setItem('mu_account_session', JSON.stringify(updatedAcc));
-    }
-    this.showToast(`Status de PK de ${char.name} foi limpo com sucesso!`);
+    this.showToast('Operação disponível apenas no cliente do jogo.');
   }
 
   performUnbug(char: Character): void {
-    this.showToast(`Personagem ${char.name} foi movido com segurança para Lorencia (Bar 125, 125)!`);
+    this.showToast('Operação disponível apenas no cliente do jogo.');
   }
 
   performAddPoints(char: Character, stat: 'str' | 'agi' | 'vit' | 'ene', amount: number): void {
     const currentAcc = this.currentUser();
     if (!currentAcc) return;
-
-    const updatedChars = currentAcc.characters.map(c => {
-      if (c.id === char.id) {
-        return {
-          ...c,
-          strength: stat === 'str' ? c.strength + amount : c.strength,
-          agility: stat === 'agi' ? c.agility + amount : c.agility,
-          vitality: stat === 'vit' ? c.vitality + amount : c.vitality,
-          energy: stat === 'ene' ? c.energy + amount : c.energy,
-        };
-      }
-      return c;
-    });
-
-    const updatedAcc = { ...currentAcc, characters: updatedChars };
-    this.currentUser.set(updatedAcc);
-    if (this.isBrowser) {
-      localStorage.setItem('mu_account_session', JSON.stringify(updatedAcc));
-    }
-    this.showToast(`+${amount} pontos adicionados em ${stat.toUpperCase()} para ${char.name}!`);
+    this.showToast('Operação disponível apenas no cliente do jogo.');
   }
 
   onChangePasswordSubmit(): void {
@@ -1502,36 +1227,7 @@ export class App implements OnInit, OnDestroy {
       return;
     }
 
-    // Validate security code (Personal ID) if configured on user account
-    if (currentAcc.securityCode && currentAcc.securityCode !== securityCode) {
-      this.showToast('Código de Segurança (Personal ID) incorreto! Operação não autorizada.');
-      return;
-    }
-
-    // Validate current password if configured
-    if (currentAcc.password && currentAcc.password !== currentPassword) {
-      this.showToast('Senha atual incorreta. Verifique suas credenciais.');
-      return;
-    }
-
-    // Update account data
-    const updatedAcc: AccountData = {
-      ...currentAcc,
-      password: newPassword,
-      securityCode: currentAcc.securityCode || securityCode
-    };
-
-    this.currentUser.set(updatedAcc);
-    if (this.isBrowser) {
-      localStorage.setItem('mu_account_session', JSON.stringify(updatedAcc));
-      const allAccs = this.getSavedAccounts().map(acc =>
-        acc.loginName.toLowerCase() === updatedAcc.loginName.toLowerCase() ? updatedAcc : acc
-      );
-      localStorage.setItem('mu_registered_accounts', JSON.stringify(allAccs));
-    }
-
-    this.changePasswordForm.reset();
-    this.showToast('Senha alterada com sucesso! Código de Segurança (Personal ID) validado.');
+    this.showToast('Operação disponível apenas no cliente do jogo.');
   }
 
   // ==========================================================
@@ -1655,7 +1351,7 @@ export class App implements OnInit, OnDestroy {
         return item;
       });
 
-      this.saveEventsToStorage(updatedList);
+      this.saveEventsToApi(updatedList);
       this.showToast(`Evento "${raw.name}" atualizado com sucesso!`);
     } else {
       // Create new custom event
@@ -1678,7 +1374,7 @@ export class App implements OnInit, OnDestroy {
       };
 
       const updatedList = [newEvent, ...currentList];
-      this.saveEventsToStorage(updatedList);
+      this.saveEventsToApi(updatedList);
       this.showToast(`Novo evento "${raw.name}" criado e sincronizado!`);
     }
 
@@ -1698,7 +1394,7 @@ export class App implements OnInit, OnDestroy {
       return item;
     });
 
-    this.saveEventsToStorage(updatedList);
+    this.saveEventsToApi(updatedList);
     const target = updatedList.find(e => e.id === eventId);
     if (target) {
       this.showToast(`Evento "${target.name}" ${target.enabled ? 'ativado' : 'desativado'} com sucesso.`);
@@ -1712,12 +1408,12 @@ export class App implements OnInit, OnDestroy {
     const currentList = this.serverEventsList();
     const target = currentList.find(e => e.id === eventId);
     const updatedList = currentList.filter(e => e.id !== eventId);
-    this.saveEventsToStorage(updatedList);
+    this.saveEventsToApi(updatedList);
     this.showToast(`Evento "${target?.name || 'Evento'}" excluído.`);
   }
 
   restoreDefaultEvents(): void {
-    this.saveEventsToStorage(DEFAULT_SERVER_EVENTS);
+    this.saveEventsToApi(DEFAULT_SERVER_EVENTS);
     this.showToast('Eventos padrão do MU FREE restaurados com sucesso!');
   }
 
@@ -1752,7 +1448,7 @@ export class App implements OnInit, OnDestroy {
       return item;
     });
 
-    this.saveEventsToStorage(updatedList);
+    this.saveEventsToApi(updatedList);
     const target = updatedList.find(e => e.id === eventId);
     this.showToast(`Evento "${target?.name}" iniciado agora para teste ao vivo!`);
   }
@@ -1817,11 +1513,16 @@ export class App implements OnInit, OnDestroy {
     this.eventForm.patchValue({ frequency: label });
   }
 
-  private saveEventsToStorage(events: ServerScheduleEvent[]): void {
+  private async saveEventsToApi(events: ServerScheduleEvent[]): Promise<void> {
     this.serverEventsList.set(events);
     if (this.isBrowser) {
       try {
-        localStorage.setItem('mu_server_events_config', JSON.stringify(events));
+        await fetch('/api/events/config', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ events })
+        });
       } catch {
         // ignore
       }
@@ -1833,15 +1534,5 @@ export class App implements OnInit, OnDestroy {
     setTimeout(() => {
       this.showSuccessToast.set(null);
     }, 3500);
-  }
-
-  private getSavedAccounts(): AccountData[] {
-    if (!this.isBrowser) return [];
-    try {
-      const data = localStorage.getItem('mu_registered_accounts');
-      return data ? JSON.parse(data) : [];
-    } catch {
-      return [];
-    }
   }
 }

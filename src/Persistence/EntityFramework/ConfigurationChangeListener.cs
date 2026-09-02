@@ -56,7 +56,7 @@ public class ConfigurationChangeListener : IConfigurationChangeListener
             }
 
             using var context = this._contextProvider.Value.CreateNewContext(gameConfiguration);
-            var cachedParent = await context.GetByIdAsync(parentId, parentCollectionNavigation.DeclaringEntityType.ClrType).ConfigureAwait(false);
+            var cachedParent = await context.GetByIdAsync(parentId, parentCollectionNavigation.DeclaringType.ClrType).ConfigureAwait(false);
 
             if (cachedParent is not null)
             {
@@ -86,7 +86,7 @@ public class ConfigurationChangeListener : IConfigurationChangeListener
 
         if (parentCollectionNavigation?.GetCollectionAccessor() is { } collectionAccessor
             && (parent?.GetId() ?? parent as Guid?) is { } parentId
-            && await context.GetByIdAsync(parentId, parentCollectionNavigation.DeclaringEntityType.ClrType).ConfigureAwait(false) is { } cachedParent
+            && await context.GetByIdAsync(parentId, parentCollectionNavigation.DeclaringType.ClrType).ConfigureAwait(false) is { } cachedParent
             && await context.GetByIdAsync(id, type).ConfigureAwait(false) is { } cachedEntity)
         {
             collectionAccessor.Remove(cachedParent, cachedEntity);

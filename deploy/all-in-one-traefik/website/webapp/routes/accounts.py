@@ -125,6 +125,7 @@ def account_dashboard():
                 SELECT
                     a."LoginName",
                     a."EMail",
+                    a."State",
                     c."Id",
                     c."Name",
                     COALESCE(cc."Name", '-') as class_name,
@@ -169,29 +170,35 @@ def account_dashboard():
 
         characters = []
         for row in rows:
-            if not row[3]:
+            if not row[4]:
                 continue
             characters.append({
-                'id': str(row[2]),
-                'name': row[3],
-                'className': row[4],
-                'classCode': row[4],
-                'guild': row[14],
-                'level': calculate_level_from_experience(row[5] or 0),
-                'masterLevel': calculate_level_from_experience(row[6] or 0),
-                'kills': int(row[7] or 0),
-                'resets': int(row[8] or 0),
-                'masterResets': int(row[9] or 0),
-                'strength': int(row[10] or 0),
-                'agility': int(row[11] or 0),
-                'vitality': int(row[12] or 0),
-                'energy': int(row[13] or 0),
-                'status': 'Online' if row[3] in online_names else 'Offline'
+                'id': str(row[3]),
+                'name': row[4],
+                'className': row[5],
+                'classCode': row[5],
+                'guild': row[15],
+                'level': calculate_level_from_experience(row[6] or 0),
+                'masterLevel': calculate_level_from_experience(row[7] or 0),
+                'kills': int(row[8] or 0),
+                'resets': int(row[9] or 0),
+                'masterResets': int(row[10] or 0),
+                'strength': int(row[11] or 0),
+                'agility': int(row[12] or 0),
+                'vitality': int(row[13] or 0),
+                'energy': int(row[14] or 0),
+                'status': 'Online' if row[4] in online_names else 'Offline'
             })
+
+        account_state = rows[0][2]
+        is_admin = account_state in ADMIN_ACCOUNT_STATES
+        role = 'GM' if is_admin else 'PLAYER'
 
         return jsonify({'success': True, 'account': {
             'loginName': rows[0][0],
             'email': rows[0][1],
+            'role': role,
+            'isAdmin': is_admin,
             'characters': characters
         }}), 200
     except Exception as e:

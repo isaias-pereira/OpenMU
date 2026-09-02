@@ -19,15 +19,15 @@ public class NoticeChatCommandPlugIn : IChatCommandPlugIn
     private const string CommandKey = "/goldnotice";
 
     /// <inheritdoc />
-    public string Key => CommandKey;
+    public virtual string Key => CommandKey;
 
     /// <inheritdoc />
-    public CharacterStatus MinCharacterStatusRequirement => CharacterStatus.GameMaster;
+    public virtual CharacterStatus MinCharacterStatusRequirement => CharacterStatus.GameMaster;
 
     /// <inheritdoc />
     public async ValueTask HandleCommandAsync(Player player, string command)
     {
-        var regex = new Regex(Regex.Escape(CommandKey));
+        var regex = new Regex(Regex.Escape(this.Key));
         var message = regex.Replace(command, string.Empty, 1)?.Trim();
 
         if (string.IsNullOrWhiteSpace(message))

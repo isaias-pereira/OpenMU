@@ -107,6 +107,19 @@ public static class WebApplicationExtensions
             app.UseExceptionHandler("/Error", createScopeForErrors: true);
         }
 
+        // Workaround for Blazor Server generating incorrect script path for ReconnectModal
+        // Blazor generates: <script type="module" src="Components/Layout/ReconnectModal.razor.js" b-xxx></script>
+        // But the file is served at: /_content/MUnique.OpenMU.Web.AdminPanel/Components/Layout/ReconnectModal.razor.js
+        // This middleware must run BEFORE UseStaticFiles to rewrite the path.
+        app.Use(async (context, next) =>
+        {
+            if (context.Request.Path.StartsWithSegments("/Components/Layout/ReconnectModal.razor.js"))
+            {
+                context.Request.Path = "/_content/MUnique.OpenMU.Web.AdminPanel" + context.Request.Path;
+            }
+            await next();
+        });
+
         app.UseStaticFiles();
         app.UseStaticFiles(new StaticFileOptions
         {

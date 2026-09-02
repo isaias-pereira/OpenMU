@@ -29,6 +29,7 @@ _RESETS_SUBQUERY = '''
 EVENT_RANKING_PATTERNS = {
     'blood-castle': '%Blood Castle%',
     'devil-square': '%Devil Square%',
+    'chaos-castle': '%Chaos Castle%',
 }
 
 
@@ -178,4 +179,47 @@ def get_event_ranking(event_name):
         }), 200
     except Exception as error:
         logger.error(f"Error getting {event_name} ranking: {error}")
+        return jsonify({'success': False, 'ranking': []}), 500
+
+
+@bp.route('/api/ranking/guilds', methods=['GET'])
+def get_guild_ranking():
+    """Get top guilds by total resets, then by guild score."""
+    try:
+        rows = _fetch_all(
+            '''
+            SELECT
+                g."Name" AS guild_name,
+                COALESCE((SELECT c."Name" FROM "guild"."GuildMember" gm2
+                    JOIN "data"."Character" c ON c."Id" = gm2."Id"
+                    WHERE gm2."GuildId" = g."Id" AND gm2."Status" = 2 LIMIT 1), '-') AS master_name,
+                COALESCE((SELECT cc."Name" FROM "guild"."GuildMember" gm3
+                    JOIN "data"."Character" c ON c."Id" = gm3."Id"
+                    JOIN "config"."CharacterClass" cc ON cc."Id" = c."CharacterClassId"
+                    WHERE gm3."GuildId" = g."Id" AND gm3."Status" = 2 LIMIT 1), '-') AS master_class,
+                COUNT(gm."Id") AS members_count,
+                COALESCE(SUM((SELECT sa."Value" FROM "data"."StatAttribute" sa
+                    JOIN "config"."AttributeDefinition" ad ON ad."Id" = sa."DefinitionId"
+                    WHERE sa."CharacterId" = gm."Id" AND ad."Designation" = 'Resets' LIMIT 1)), 0) AS total_resets,
+                g."Score" AS score
+            FROM "guild"."Guild" g
+            LEFT JOIN "guild"."GuildMember" gm ON gm."GuildId" = g."Id"
+            GROUP BY g."Id", g."Name", g."Score"
+            ORDER BY total_resets DESC, g."Score" DESC
+            LIMIT %s
+            ''', (RANKING_LIMIT,))
+
+        ranking = [{
+            'position': index,
+            'guildName': row[0],
+            'masterName': row[1],
+            'masterClass': row[2],
+            'membersCount': int(row[3] or 0),
+            'totalResets': int(row[4] or 0),
+            'score': int(row[5] or 0)
+        } for index, row in enumerate(rows, 1)]
+
+        return jsonify({'success': True, 'ranking': ranking}), 200
+    except Exception as error:
+        logger.error(f"Error getting guild ranking: {error}")
         return jsonify({'success': False, 'ranking': []}), 500

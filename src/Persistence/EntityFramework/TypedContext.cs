@@ -105,7 +105,7 @@ internal class TypedContext : EntityDataContext, ITypedContext
 
         if (gameConfigNav is not null)
         {
-            finalEditTypes.Add(gameConfigNav.DeclaringEntityType.ClrType);
+            finalEditTypes.Add(gameConfigNav.DeclaringType.ClrType);
         }
 
         foreach (var type in modelTypes.Where(t => !finalEditTypes.Contains(t.ClrType)))

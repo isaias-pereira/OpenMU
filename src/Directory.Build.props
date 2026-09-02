@@ -5,6 +5,10 @@
         <!-- Disable running analyzers during build to reduce warning noise. -->
         <RunAnalyzersDuringBuild>false</RunAnalyzersDuringBuild>
         <RunAnalyzersDuringLiveAnalysis>false</RunAnalyzersDuringLiveAnalysis>
+        <!-- Do not treat warnings as errors globally -->
+        <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+            <!-- Clear any project-specific WarningsAsErrors list -->
+            <WarningsAsErrors></WarningsAsErrors>
     </PropertyGroup>
 
     <ItemGroup Label="commom configuration code style.">

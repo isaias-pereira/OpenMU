@@ -143,7 +143,7 @@ public class PersistenceContextProvider : IMigratableDatabaseContextProvider
                    SELECT "AutoUpdateSchema" as "Value" FROM config."SystemConfiguration"
                    """).FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             return false;
         }
@@ -240,6 +240,13 @@ public class PersistenceContextProvider : IMigratableDatabaseContextProvider
         return new GuildServerContext(new GuildContext(), this.RepositoryProvider, this._loggerFactory.CreateLogger<GuildServerContext>());
     }
 
+    /// <summary>
+    /// Creates a new typed context for the specified edit type.
+    /// </summary>
+    /// <param name="editType">The type of the edit context.</param>
+    /// <param name="useCache">Whether to use cache.</param>
+    /// <param name="gameConfiguration">The game configuration.</param>
+    /// <returns>A new typed context.</returns>
     public IContext CreateNewTypedContext(Type editType, bool useCache, DataModel.Configuration.GameConfiguration? gameConfiguration = null)
     {
         if (!editType.IsConfigurationType() && gameConfiguration is null)

@@ -63,7 +63,7 @@ internal abstract class GenericRepositoryBase<T> : IRepository<T>, ILoadByProper
     }
 
     /// <inheritdoc/>
-    async ValueTask<IEnumerable> IRepository.GetAllAsync(CancellationToken cancellationToken = default)
+    async ValueTask<IEnumerable> IRepository.GetAllAsync(CancellationToken cancellationToken)
     {
         return await this.GetAllAsync(cancellationToken).ConfigureAwait(false);
     }
@@ -100,7 +100,7 @@ internal abstract class GenericRepositoryBase<T> : IRepository<T>, ILoadByProper
     }
 
     /// <inheritdoc/>
-    async ValueTask<object?> IRepository.GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    async ValueTask<object?> IRepository.GetByIdAsync(Guid id, CancellationToken cancellationToken)
     {
         return await this.GetByIdAsync(id, cancellationToken).ConfigureAwait(false);
     }
@@ -147,7 +147,7 @@ internal abstract class GenericRepositoryBase<T> : IRepository<T>, ILoadByProper
             if (!navigation.IsCollection && navigation.GetClrValue(obj) is null)
             {
                 if (currentContext is ITypedContext editContext
-                    && editContext.RootType != navigation.DeclaringEntityType
+                    && editContext.RootType != navigation.DeclaringType
                     && editContext.IsBackReference(entityEntry.Metadata.ClrType))
                 {
                     // prevents endless loop.
@@ -172,7 +172,7 @@ internal abstract class GenericRepositoryBase<T> : IRepository<T>, ILoadByProper
             if (collection.Metadata is INavigation metadata)
             {
                 if (currentContext is ITypedContext editContext
-                    && editContext.RootType != metadata.DeclaringEntityType
+                    && editContext.RootType != metadata.DeclaringType
                     && editContext.IsBackReference(entityEntry.Metadata.ClrType))
                 {
                     // prevents endless loop.

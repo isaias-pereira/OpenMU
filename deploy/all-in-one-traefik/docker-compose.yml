@@ -1,7 +1,7 @@
 services:
   openmu:
     build:
-      context: ${OPENMU_ROOT:-../..}
+      context: ../../
       dockerfile: "Dockerfile - Copia.openmu"
     image: munique/openmu:latest
     container_name: openmu
@@ -18,7 +18,6 @@ services:
       - "44406:44406"
       - "55980:55980"
     environment:
-      ASPNETCORE_ENVIRONMENT: Development
       DB_HOST: database
       ConnectionStrings__DefaultConnection: Host=database;Port=5432;Database=openmu;Username=postgres;Password=postgres
       RESOLVE_IP: 127.0.0.1
