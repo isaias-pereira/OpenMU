@@ -60,6 +60,7 @@
     <PackageReference Include="Microsoft.AspNetCore.Components.QuickGrid" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Core" />
+    <PackageReference Include="Microsoft.Extensions.Options" />
     <PackageReference Include="Nito.AsyncEx" />
     <PackageReference Include="SixLabors.ImageSharp" />
     <PackageReference Include="SixLabors.ImageSharp.Drawing" />
@@ -91,7 +92,7 @@
 
   <Target Name="CompileSass" BeforeTargets="Build" Condition="'$(ci)'!='true' and '$(OS)'!='Windows_NT'">
     <Exec Command="sass --version" IgnoreExitCode="true">
-      <Output TaskParameter="ExitCode" PropertyName="SassExists"/>
+      <Output TaskParameter="ExitCode" PropertyName="SassExists" />
     </Exec>
     <!-- Disabled error for missing Dart Sass on Windows builds
          The original error aborts the build when Sass is not installed.
