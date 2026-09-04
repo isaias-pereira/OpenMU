@@ -17,6 +17,34 @@ using MUnique.OpenMU.PlugIns;
 [Guid("e294f4ce-f2c6-4a92-8cd0-40d8d5afae66")]
 public class ShowMessagePlugIn : IShowMessagePlugIn
 {
+    /// <summary>
+    /// The prefix which is expected by the game clients of season 1 and later. These clients skip
+    /// the first nine characters of the message text without rendering them, so the text has to be
+    /// padded - otherwise the beginning of every message would be cut off.
+    /// </summary>
+    /// <remarks>
+    /// This is the only place where the prefix is applied. If a modified client renders the prefix
+    /// instead of skipping it (messages would show up as "000000000your text"), just set this
+    /// constant to <see cref="string.Empty"/> - <see cref="MaximumMessageLength"/> adapts itself.
+    /// </remarks>
+    private const string MessagePrefix = "000000000";
+
+    /// <summary>
+    /// The maximum length of the whole packet, because the C1 header has a one byte length field.
+    /// </summary>
+    private const int MaximumPacketLength = 0xFF;
+
+    /// <summary>
+    /// The number of packet bytes which are not part of the message text: three header bytes,
+    /// the message type and the string terminator. See <see cref="ServerMessageRef.GetRequiredSize(string)"/>.
+    /// </summary>
+    private const int PacketOverhead = 5;
+
+    /// <summary>
+    /// The maximum number of message bytes which fit into one packet, prefix included.
+    /// </summary>
+    private static readonly int MaximumMessageLength = MaximumPacketLength - PacketOverhead - MessagePrefix.Length;
+
     private readonly RemotePlayer _player;
 
     /// <summary>
@@ -33,14 +61,12 @@ public class ShowMessagePlugIn : IShowMessagePlugIn
             return;
         }
 
-        const int maxMessageLength = 241;
-
-        if (Encoding.UTF8.GetByteCount(message) > maxMessageLength)
+        if (Encoding.UTF8.GetByteCount(message) > MaximumMessageLength)
         {
             var rest = message;
             while (rest.Length > 0)
             {
-                var partSize = Encoding.UTF8.GetCharacterCountOfMaxByteCount(rest, maxMessageLength);
+                var partSize = Encoding.UTF8.GetCharacterCountOfMaxByteCount(rest, MaximumMessageLength);
                 await this.ShowMessageAsync(rest.Substring(0, partSize), messageType).ConfigureAwait(false);
                 rest = rest.Length > partSize ? rest.Substring(startIndex: partSize) : string.Empty;
             }
@@ -48,8 +74,7 @@ public class ShowMessagePlugIn : IShowMessagePlugIn
             return;
         }
 
-        const string messagePrefix = "000000000";
-        var content = this._player.ClientVersion.Season > 0 ? messagePrefix + message : message;
+        var content = this._player.ClientVersion.Season > 0 ? MessagePrefix + message : message;
         await this._player.Connection.SendServerMessageAsync(ConvertMessageType(messageType), content).ConfigureAwait(false);
     }
 

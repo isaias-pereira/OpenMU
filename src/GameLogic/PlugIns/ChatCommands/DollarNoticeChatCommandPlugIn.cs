@@ -13,11 +13,17 @@ using MUnique.OpenMU.PlugIns;
 /// </summary>
 [Guid("7A3E9C21-4B76-4D76-8CE1-69B712B65E6C")]
 [PlugIn]
-[Display(Name = nameof(PlugInResources.NoticeChatCommandPlugIn_Name), Description = nameof(PlugInResources.NoticeChatCommandPlugIn_Description), ResourceType = typeof(PlugInResources))]
+[Display(Name = nameof(PlugInResources.DollarNoticeChatCommandPlugIn_Name), Description = nameof(PlugInResources.DollarNoticeChatCommandPlugIn_Description), ResourceType = typeof(PlugInResources))]
+[ChatCommandHelp(CommandKey, null, MinimumStatus)]
 public class DollarNoticeChatCommandPlugIn : NoticeChatCommandPlugIn
 {
     private const string CommandKey = "/$";
 
+    private const CharacterStatus MinimumStatus = CharacterStatus.GameMaster;
+
     /// <inheritdoc />
     public override string Key => CommandKey;
+
+    /// <inheritdoc />
+    public override CharacterStatus MinCharacterStatusRequirement => MinimumStatus;
 }
