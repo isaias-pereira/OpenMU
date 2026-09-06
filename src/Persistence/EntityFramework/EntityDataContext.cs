@@ -89,6 +89,8 @@ public class EntityDataContext : ExtendedTypeContext
         modelBuilder.Entity<LetterHeader>().Apply();
         modelBuilder.Entity<QuestDefinition>().Apply();
         modelBuilder.Entity<WarpInfo>().Apply();
+        modelBuilder.Entity<WCoinWallet>().Apply();
+        modelBuilder.Entity<WCoinTransaction>().Apply();
 
         // join entity keys:
         this.AddJoinDefinitions(modelBuilder);

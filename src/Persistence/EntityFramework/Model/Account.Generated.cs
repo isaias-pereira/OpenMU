@@ -28,10 +28,6 @@ internal partial class Account : MUnique.OpenMU.DataModel.Entities.Account, IIde
     }
 
     
-    /// <summary>
-    /// Gets or sets the identifier of this instance.
-    /// </summary>
-    public Guid Id { get; set; }
     
     /// <summary>
     /// Gets the raw collection of <see cref="Characters" />.

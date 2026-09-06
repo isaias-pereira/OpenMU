@@ -185,7 +185,7 @@ internal partial class {propertyInfo.ReflectedType.Name}
         {
             configs
                 .AppendLine($"        Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<{type.FullName}, {type.FullName}>()")
-                .AppendLine($"            .Include<{type.Name}, BasicModel.{type.Name}>();")
+                .AppendLine($"            .Include<{type.FullName}, BasicModel.{type.Name}>();")
                 .AppendLine();
         }
 

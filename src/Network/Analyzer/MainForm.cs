@@ -116,7 +116,7 @@ public partial class MainForm : Form
     }
 
     /// <inheritdoc />
-    protected override void OnClosed(EventArgs e)
+    protected override void OnFormClosed(FormClosedEventArgs e)
     {
         if (this._clientListener != null)
         {
@@ -124,7 +124,7 @@ public partial class MainForm : Form
             this._clientListener = null;
         }
 
-        base.OnClosed(e);
+        base.OnFormClosed(e);
     }
 
     private static string ConvertFilterStringToExpressionString(string filter)
