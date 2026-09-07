@@ -150,12 +150,14 @@ def account_dashboard():
                     COALESCE((SELECT sa."Value" FROM "data"."StatAttribute" sa
                         JOIN "config"."AttributeDefinition" ad ON ad."Id" = sa."DefinitionId"
                         WHERE sa."CharacterId" = c."Id" AND ad."Designation" = 'Energy' LIMIT 1), 0),
-                    COALESCE(g."Name", '-')
+                    COALESCE(g."Name", '-'),
+                    COALESCE(w."Balance", 0) AS wcoin_balance
                 FROM "data"."Account" a
                 LEFT JOIN "data"."Character" c ON c."AccountId" = a."Id"
                 LEFT JOIN "config"."CharacterClass" cc ON cc."Id" = c."CharacterClassId"
                 LEFT JOIN "guild"."GuildMember" gm ON gm."Id" = c."Id"
                 LEFT JOIN "guild"."Guild" g ON g."Id" = gm."GuildId"
+                LEFT JOIN "data"."WCoinWallet" w ON w."Id" = a."Id"
                 WHERE a."Id" = %s
                 ORDER BY c."CharacterSlot"
             ''', (account_id,))
@@ -199,6 +201,7 @@ def account_dashboard():
             'email': rows[0][1],
             'role': role,
             'isAdmin': is_admin,
+            'wcoinBalance': int(rows[0][16] or 0),
             'characters': characters
         }}), 200
     except Exception as e:

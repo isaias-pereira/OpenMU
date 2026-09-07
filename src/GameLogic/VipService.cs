@@ -148,8 +148,16 @@ public static class VipService
         var expiresAt = now.AddDays(durationDays);
 
         // 2. Atualiza/Cria AccountVip (upsert via shared primary key).
-        var accountVip = await context.GetByIdAsync<AccountVip>(accountId).ConfigureAwait(false)
-                         ?? context.CreateNew<AccountVip>(accountId);
+        //    Usa o construtor sem parâmetros + atribuição do Id em vez de CreateNew(accountId):
+        //    o modelo EF gerado nem sempre expõe o ctor (Guid), e um .Generated.cs
+        //    desatualizado faria CreateNew(accountId) lançar MissingMethodException.
+        var accountVip = await context.GetByIdAsync<AccountVip>(accountId).ConfigureAwait(false);
+        if (accountVip is null)
+        {
+            accountVip = context.CreateNew<AccountVip>();
+            accountVip.Id = accountId;
+        }
+
         accountVip.VipPlanId = plan.Id;
         accountVip.ExpiresAt = expiresAt;
 

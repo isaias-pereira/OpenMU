@@ -2352,8 +2352,8 @@
             </div>
             <div>
               <span class="stat-card-label">Moedas WCoins</span>
-              <strong class="stat-card-val text-emerald-300">2.500 WCoins</strong>
-              <span class="text-[11px] text-emerald-400/80 block mt-0.5">+500 Bônus Diário</span>
+              <strong class="stat-card-val text-emerald-300">{{ (currentUser()?.wcoinBalance ?? 0) | number:'1.0-0':'pt-BR' }} WCoins</strong>
+              <span class="text-[11px] text-emerald-400/80 block mt-0.5">Saldo da conta</span>
             </div>
           </div>
 
