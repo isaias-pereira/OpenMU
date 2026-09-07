@@ -667,7 +667,7 @@
     <value>Post chat command</value>
   </data>
   <data name="PostChatCommandPlugIn_Description" xml:space="preserve">
-    <value>Handles the chat command '/post message'. Sends a global blue system message to all players of the game.</value>
+    <value>Handles the chat command '/post message'. Sends a global blue system message to all players of the game, limited by a configurable cooldown and message length.</value>
   </data>
   <data name="RemoveNpcChatCommand_Name" xml:space="preserve">
     <value>Remove npc chat command</value>
@@ -1235,5 +1235,47 @@
   </data>
   <data name="StatResetConfiguration_LogOut_Name" xml:space="preserve">
     <value>Log out</value>
+  </data>
+  <data name="PostShortChatCommandPlugIn_Name" xml:space="preserve">
+    <value>Post chat command (short)</value>
+  </data>
+  <data name="PostShortChatCommandPlugIn_Description" xml:space="preserve">
+    <value>Handles the chat command '/p message'. Short variant of '/post' which shares its cooldown.</value>
+  </data>
+  <data name="DollarNoticeChatCommandPlugIn_Name" xml:space="preserve">
+    <value>Dollar notice chat command</value>
+  </data>
+  <data name="DollarNoticeChatCommandPlugIn_Description" xml:space="preserve">
+    <value>Handles the chat command '/$ message'. Short variant of '/goldnotice' which sends a global golden notice message to all players of the game.</value>
+  </data>
+  <data name="PostConfiguration_CooldownSeconds_Name" xml:space="preserve">
+    <value>Cooldown (seconds)</value>
+  </data>
+  <data name="PostConfiguration_CooldownSeconds_Description" xml:space="preserve">
+    <value>The time in seconds a player has to wait between two posts. Game masters are not affected. 0 disables the cooldown. Default: 30.</value>
+  </data>
+  <data name="PostConfiguration_MaximumMessageLength_Name" xml:space="preserve">
+    <value>Maximum message length</value>
+  </data>
+  <data name="PostConfiguration_MaximumMessageLength_Description" xml:space="preserve">
+    <value>The maximum number of characters of the message itself, without the sender name. Default: 60.</value>
+  </data>
+  <data name="PostConfiguration_MessageFormat_Name" xml:space="preserve">
+    <value>Message format</value>
+  </data>
+  <data name="PostConfiguration_MessageFormat_Description" xml:space="preserve">
+    <value>The format of the global message, where {0} is the character name and {1} is the message. Default: '[POST] {0}: {1}'.</value>
+  </data>
+  <data name="PostConfiguration_CooldownMessage_Name" xml:space="preserve">
+    <value>Cooldown message</value>
+  </data>
+  <data name="PostConfiguration_CooldownMessage_Description" xml:space="preserve">
+    <value>The message which is shown to the player while the cooldown is still running, where {0} is the remaining time in seconds.</value>
+  </data>
+  <data name="PostConfiguration_MessageTooLongMessage_Name" xml:space="preserve">
+    <value>Message too long message</value>
+  </data>
+  <data name="PostConfiguration_MessageTooLongMessage_Description" xml:space="preserve">
+    <value>The message which is shown to the player when his post exceeds the maximum length, where {0} is the maximum length.</value>
   </data>
 </root>

@@ -20,10 +20,7 @@ using MUnique.OpenMU.Persistence.Json;
 public partial class Account : MUnique.OpenMU.DataModel.Entities.Account, IIdentifiable, IConvertibleTo<Account>
 {
     
-    /// <summary>
-    /// Gets or sets the identifier of this instance.
-    /// </summary>
-    public Guid Id { get; set; }
+    
     
     /// <summary>
     /// Gets the raw collection of <see cref="UnlockedCharacterClasses" />.

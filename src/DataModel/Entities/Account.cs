@@ -52,6 +52,11 @@ public enum AccountState
 public class Account
 {
     /// <summary>
+    /// Gets or sets the identifier of this instance.
+    /// </summary>
+    public Guid Id { get; set; }
+
+    /// <summary>
     /// Gets or sets the unique login name.
     /// </summary>
     [Required]

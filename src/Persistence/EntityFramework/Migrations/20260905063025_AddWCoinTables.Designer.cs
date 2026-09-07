@@ -3,6 +3,7 @@ using System;
 using MUnique.OpenMU.Persistence.EntityFramework;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace MUnique.OpenMU.Persistence.EntityFramework.Migrations
 {
     [DbContext(typeof(EntityDataContext))]
-    partial class EntityDataContextModelSnapshot : ModelSnapshot
+    [Migration("20260905063025_AddWCoinTables")]
+    partial class AddWCoinTables
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -101,25 +104,6 @@ namespace MUnique.OpenMU.Persistence.EntityFramework.Migrations
                     b.HasIndex("CharacterClassId");
 
                     b.ToTable("AccountCharacterClass", "data");
-                });
-
-            modelBuilder.Entity("MUnique.OpenMU.Persistence.EntityFramework.Model.AccountVip", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime?>("ExpiresAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid?>("VipPlanId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("VipPlanId");
-
-                    b.ToTable("AccountVip", "data");
                 });
 
             modelBuilder.Entity("MUnique.OpenMU.Persistence.EntityFramework.Model.AppearanceData", b =>
@@ -3434,66 +3418,6 @@ namespace MUnique.OpenMU.Persistence.EntityFramework.Migrations
                     b.ToTable("SystemConfiguration", "config");
                 });
 
-            modelBuilder.Entity("MUnique.OpenMU.Persistence.EntityFramework.Model.VipHistory", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("AccountId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime>("ExpiresAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Source")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("StartedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("VipPlanId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("AccountId");
-
-                    b.HasIndex("CreatedAt");
-
-                    b.ToTable("VipHistory", "data");
-                });
-
-            modelBuilder.Entity("MUnique.OpenMU.Persistence.EntityFramework.Model.VipPlan", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<float>("DropChanceMultiplier")
-                        .HasColumnType("real");
-
-                    b.Property<int>("DurationDays")
-                        .HasColumnType("integer");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("IsActive");
-
-                    b.ToTable("VipPlan", "data");
-                });
-
             modelBuilder.Entity("MUnique.OpenMU.Persistence.EntityFramework.Model.WCoinTransaction", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3609,20 +3533,6 @@ namespace MUnique.OpenMU.Persistence.EntityFramework.Migrations
                     b.Navigation("Account");
 
                     b.Navigation("CharacterClass");
-                });
-
-            modelBuilder.Entity("MUnique.OpenMU.Persistence.EntityFramework.Model.AccountVip", b =>
-                {
-                    b.HasOne("MUnique.OpenMU.Persistence.EntityFramework.Model.Account", null)
-                        .WithOne()
-                        .HasForeignKey("MUnique.OpenMU.Persistence.EntityFramework.Model.AccountVip", "Id")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("MUnique.OpenMU.Persistence.EntityFramework.Model.VipPlan", null)
-                        .WithMany()
-                        .HasForeignKey("VipPlanId")
-                        .OnDelete(DeleteBehavior.SetNull);
                 });
 
             modelBuilder.Entity("MUnique.OpenMU.Persistence.EntityFramework.Model.AppearanceData", b =>
@@ -5089,15 +4999,6 @@ namespace MUnique.OpenMU.Persistence.EntityFramework.Migrations
                         .OnDelete(DeleteBehavior.Cascade);
 
                     b.Navigation("RawAttribute");
-                });
-
-            modelBuilder.Entity("MUnique.OpenMU.Persistence.EntityFramework.Model.VipHistory", b =>
-                {
-                    b.HasOne("MUnique.OpenMU.Persistence.EntityFramework.Model.Account", null)
-                        .WithMany()
-                        .HasForeignKey("AccountId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
                 });
 
             modelBuilder.Entity("MUnique.OpenMU.Persistence.EntityFramework.Model.WCoinTransaction", b =>

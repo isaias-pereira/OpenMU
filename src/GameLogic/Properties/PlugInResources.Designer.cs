@@ -2005,7 +2005,7 @@ namespace MUnique.OpenMU.GameLogic.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Handles the chat command &apos;/post message&apos;. Sends a global blue system message to all players of the game..
+        ///   Looks up a localized string similar to Handles the chat command &apos;/post message&apos;. Sends a global blue system message to all players of the game, limited by a configurable cooldown and message length..
         /// </summary>
         public static string PostChatCommandPlugIn_Description {
             get {
@@ -3416,6 +3416,132 @@ namespace MUnique.OpenMU.GameLogic.Properties {
         public static string StatResetConfiguration_LogOut_Name {
             get {
                 return ResourceManager.GetString("StatResetConfiguration_LogOut_Name", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Post chat command (short).
+        /// </summary>
+        public static string PostShortChatCommandPlugIn_Name {
+            get {
+                return ResourceManager.GetString("PostShortChatCommandPlugIn_Name", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Handles the chat command &apos;/p message&apos;. Short variant of &apos;/post&apos; which shares its cooldown.
+        /// </summary>
+        public static string PostShortChatCommandPlugIn_Description {
+            get {
+                return ResourceManager.GetString("PostShortChatCommandPlugIn_Description", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Dollar notice chat command.
+        /// </summary>
+        public static string DollarNoticeChatCommandPlugIn_Name {
+            get {
+                return ResourceManager.GetString("DollarNoticeChatCommandPlugIn_Name", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Handles the chat command &apos;/$ message&apos;. Short variant of &apos;/goldnotice&apos; which sends a global golden notice message to all players of the game.
+        /// </summary>
+        public static string DollarNoticeChatCommandPlugIn_Description {
+            get {
+                return ResourceManager.GetString("DollarNoticeChatCommandPlugIn_Description", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Cooldown (seconds).
+        /// </summary>
+        public static string PostConfiguration_CooldownSeconds_Name {
+            get {
+                return ResourceManager.GetString("PostConfiguration_CooldownSeconds_Name", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The time in seconds a player has to wait between two posts. Game masters are not affected. 0 disables the cooldown. Default: 30.
+        /// </summary>
+        public static string PostConfiguration_CooldownSeconds_Description {
+            get {
+                return ResourceManager.GetString("PostConfiguration_CooldownSeconds_Description", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Maximum message length.
+        /// </summary>
+        public static string PostConfiguration_MaximumMessageLength_Name {
+            get {
+                return ResourceManager.GetString("PostConfiguration_MaximumMessageLength_Name", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The maximum number of characters of the message itself, without the sender name. Default: 60.
+        /// </summary>
+        public static string PostConfiguration_MaximumMessageLength_Description {
+            get {
+                return ResourceManager.GetString("PostConfiguration_MaximumMessageLength_Description", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Message format.
+        /// </summary>
+        public static string PostConfiguration_MessageFormat_Name {
+            get {
+                return ResourceManager.GetString("PostConfiguration_MessageFormat_Name", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The format of the global message, where {0} is the character name and {1} is the message. Default: &apos;[POST] {0}: {1}&apos;.
+        /// </summary>
+        public static string PostConfiguration_MessageFormat_Description {
+            get {
+                return ResourceManager.GetString("PostConfiguration_MessageFormat_Description", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Cooldown message.
+        /// </summary>
+        public static string PostConfiguration_CooldownMessage_Name {
+            get {
+                return ResourceManager.GetString("PostConfiguration_CooldownMessage_Name", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The message which is shown to the player while the cooldown is still running, where {0} is the remaining time in seconds.
+        /// </summary>
+        public static string PostConfiguration_CooldownMessage_Description {
+            get {
+                return ResourceManager.GetString("PostConfiguration_CooldownMessage_Description", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Message too long message.
+        /// </summary>
+        public static string PostConfiguration_MessageTooLongMessage_Name {
+            get {
+                return ResourceManager.GetString("PostConfiguration_MessageTooLongMessage_Name", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The message which is shown to the player when his post exceeds the maximum length, where {0} is the maximum length.
+        /// </summary>
+        public static string PostConfiguration_MessageTooLongMessage_Description {
+            get {
+                return ResourceManager.GetString("PostConfiguration_MessageTooLongMessage_Description", resourceCulture);
             }
         }
     }

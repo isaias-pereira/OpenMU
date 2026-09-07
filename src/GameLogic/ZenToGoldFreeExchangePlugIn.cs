@@ -95,9 +95,18 @@ public class ZenToGoldFreeExchangePlugIn : ChatCommandPlugInBase<ZenToGoldFreeEx
 
         var totalZenRequired = config.ZenPerGoldFree * arguments.Quantidade;
 
-        if (player.Money < totalZenRequired)
+        // Check for overflow: totalZenRequired must fit in int since player.Money is int
+        if (totalZenRequired > int.MaxValue)
         {
-            await player.ShowBlueMessageAsync($"Not enough Zen. Required: {totalZenRequired:N0}, you have: {player.Money:N0}").ConfigureAwait(false);
+            await player.ShowBlueMessageAsync($"Exchange amount too large. Maximum allowed: {int.MaxValue / config.ZenPerGoldFree} GOLD FREE.").ConfigureAwait(false);
+            return;
+        }
+
+        var totalZenRequiredInt = (int)totalZenRequired;
+
+        if (player.Money < totalZenRequiredInt)
+        {
+            await player.ShowBlueMessageAsync($"Not enough Zen. Required: {totalZenRequiredInt:N0}, you have: {player.Money:N0}").ConfigureAwait(false);
             return;
         }
 
@@ -110,11 +119,18 @@ public class ZenToGoldFreeExchangePlugIn : ChatCommandPlugInBase<ZenToGoldFreeEx
             return;
         }
 
-        // Remove zen do jogador
-        player.Money = checked(player.Money - (int)totalZenRequired);
+        // Remove o zen do jogador (valida saldo internamente; a checagem acima já garante
+        // que há saldo, mas usamos o método idiomático em vez de mexer em Money na mão).
+        if (!player.TryRemoveMoney(totalZenRequiredInt))
+        {
+            await player.ShowBlueMessageAsync($"Not enough Zen. Required: {totalZenRequiredInt:N0}, you have: {player.Money:N0}").ConfigureAwait(false);
+            return;
+        }
 
         var remaining = arguments.Quantidade;
         var itemsAdded = 0;
+        var newItems = new List<Item>();
+        var modifiedStacks = new HashSet<Item>();
 
         while (remaining > 0)
         {
@@ -131,6 +147,7 @@ public class ZenToGoldFreeExchangePlugIn : ChatCommandPlugInBase<ZenToGoldFreeEx
                 stack.Durability += add;
                 remaining -= add;
                 itemsAdded += add;
+                modifiedStacks.Add(stack);
             }
             else
             {
@@ -148,6 +165,7 @@ public class ZenToGoldFreeExchangePlugIn : ChatCommandPlugInBase<ZenToGoldFreeEx
 
                 remaining -= add;
                 itemsAdded += add;
+                newItems.Add(newItem);
             }
         }
 
@@ -155,19 +173,32 @@ public class ZenToGoldFreeExchangePlugIn : ChatCommandPlugInBase<ZenToGoldFreeEx
         var notAdded = arguments.Quantidade - itemsAdded;
         if (notAdded > 0)
         {
-            player.Money = checked(player.Money + (int)(config.ZenPerGoldFree * notAdded));
+            var refundZen = (int)(config.ZenPerGoldFree * notAdded);
+            player.TryAddMoney(refundZen);
         }
 
         if (itemsAdded > 0)
         {
-            // Avisa o cliente pra redesenhar o inventário (sem precisar relogar)
-            await player.InvokeViewPlugInAsync<IUpdateInventoryListPlugIn>(p => p.UpdateInventoryListAsync()).ConfigureAwait(false);
+            // Notifica o cliente em tempo real (sem precisar relogar):
+            // - itens novos aparecem no slot correto via IItemAppearPlugIn;
+            // - pilhas existentes que só tiveram a quantidade (Durability) alterada
+            //   são atualizadas via IItemDurabilityChangedPlugIn.
+            foreach (var newItem in newItems)
+            {
+                await player.InvokeViewPlugInAsync<IItemAppearPlugIn>(p => p.ItemAppearAsync(newItem)).ConfigureAwait(false);
+            }
+
+            foreach (var stack in modifiedStacks)
+            {
+                await player.InvokeViewPlugInAsync<IItemDurabilityChangedPlugIn>(p => p.ItemDurabilityChangedAsync(stack, false)).ConfigureAwait(false);
+            }
+
             var zenSpent = config.ZenPerGoldFree * itemsAdded;
             await player.ShowBlueMessageAsync($"Exchanged {zenSpent:N0} Zen for {itemsAdded} GOLD FREE!").ConfigureAwait(false);
         }
         else
         {
-            player.Money = checked(player.Money + (int)totalZenRequired);
+            player.TryAddMoney(totalZenRequiredInt);
             await player.ShowBlueMessageAsync("Inventory full. Exchange cancelled, Zen refunded.").ConfigureAwait(false);
         }
     }
