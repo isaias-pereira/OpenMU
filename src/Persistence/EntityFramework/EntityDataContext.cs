@@ -91,6 +91,9 @@ public class EntityDataContext : ExtendedTypeContext
         modelBuilder.Entity<WarpInfo>().Apply();
         modelBuilder.Entity<WCoinWallet>().Apply();
         modelBuilder.Entity<WCoinTransaction>().Apply();
+        modelBuilder.Entity<VipPlan>().Apply();
+        modelBuilder.Entity<AccountVip>().Apply();
+        modelBuilder.Entity<VipHistory>().Apply();
 
         // join entity keys:
         this.AddJoinDefinitions(modelBuilder);

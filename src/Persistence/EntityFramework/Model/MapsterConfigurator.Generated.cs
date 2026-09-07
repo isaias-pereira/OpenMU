@@ -41,6 +41,9 @@ public static class MapsterConfigurator
         Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.Account, MUnique.OpenMU.DataModel.Entities.Account>()
             .Include<MUnique.OpenMU.DataModel.Entities.Account, BasicModel.Account>();
 
+        Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.AccountVip, MUnique.OpenMU.DataModel.Entities.AccountVip>()
+            .Include<MUnique.OpenMU.DataModel.Entities.AccountVip, BasicModel.AccountVip>();
+
         Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.AppearanceData, MUnique.OpenMU.DataModel.Entities.AppearanceData>()
             .Include<MUnique.OpenMU.DataModel.Entities.AppearanceData, BasicModel.AppearanceData>();
 
@@ -76,6 +79,12 @@ public static class MapsterConfigurator
 
         Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.SkillEntry, MUnique.OpenMU.DataModel.Entities.SkillEntry>()
             .Include<MUnique.OpenMU.DataModel.Entities.SkillEntry, BasicModel.SkillEntry>();
+
+        Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.VipHistory, MUnique.OpenMU.DataModel.Entities.VipHistory>()
+            .Include<MUnique.OpenMU.DataModel.Entities.VipHistory, BasicModel.VipHistory>();
+
+        Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.VipPlan, MUnique.OpenMU.DataModel.Entities.VipPlan>()
+            .Include<MUnique.OpenMU.DataModel.Entities.VipPlan, BasicModel.VipPlan>();
 
         Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.WCoinTransaction, MUnique.OpenMU.DataModel.Entities.WCoinTransaction>()
             .Include<MUnique.OpenMU.DataModel.Entities.WCoinTransaction, BasicModel.WCoinTransaction>();

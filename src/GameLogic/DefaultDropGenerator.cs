@@ -80,14 +80,14 @@ public class DefaultDropGenerator : IDropGenerator
         }
         else
         {
-            this.PartitionDropGroups(monster.DropItemGroups ?? []);
+            this.PartitionDropGroups(monster.DropItemGroups ?? [], monster);
             this.PartitionDropGroups(character.DropItemGroups ?? [], monster);
             this.PartitionDropGroups(map.DropItemGroups ?? [], monster);
             this.PartitionDropGroups(await GetQuestItemGroupsAsync(player).ConfigureAwait(false) ?? [], monster);
         }
 
         uint money = 0;
-        var (droppedItems, moneyResult) = this.GenerateDrops(monster, gainedExperience);
+        var (droppedItems, moneyResult) = this.GenerateDrops(monster, gainedExperience, player);
         if (moneyResult > 0)
         {
             money = moneyResult;
@@ -270,7 +270,7 @@ public class DefaultDropGenerator : IDropGenerator
         return itemDefinition.MaximumDropLevel is not { } maxDropLevel || monsterLevel <= maxDropLevel;
     }
 
-    private (IList<Item>? Items, uint Money) GenerateDrops(MonsterDefinition monster, int gainedExperience)
+    private (IList<Item>? Items, uint Money) GenerateDrops(MonsterDefinition monster, int gainedExperience, Player player)
     {
         uint money = 0;
         List<Item>? droppedItems = null;
@@ -305,7 +305,7 @@ public class DefaultDropGenerator : IDropGenerator
             double totalChance = 0;
             foreach (var group in this._chanceDropGroups)
             {
-                totalChance += group.Chance;
+                totalChance += this.GetEffectiveChance(player, group);
             }
 
             for (int i = 0; i < remainingDrops; i++)
@@ -342,7 +342,8 @@ public class DefaultDropGenerator : IDropGenerator
                 continue;
             }
 
-            if (group.Chance >= 1.0)
+            // MODIFICADO: Usa GetEffectiveChance para aplicar bônus VIP
+            if (this.GetEffectiveChance(null, group) >= 1.0)
             {
                 this._guaranteedDropGroups.Add(group);
             }
@@ -560,9 +561,11 @@ public class DefaultDropGenerator : IDropGenerator
 
         foreach (var group in groups)
         {
-            if (remainingThreshold > group.Chance)
+            // MODIFICADO: Usa GetEffectiveChance para aplicar bônus VIP
+            var effectiveChance = this.GetEffectiveChance(null, group);
+            if (remainingThreshold > effectiveChance)
             {
-                remainingThreshold -= group.Chance;
+                remainingThreshold -= effectiveChance;
             }
             else
             {
@@ -588,4 +591,35 @@ public class DefaultDropGenerator : IDropGenerator
                        && (!isSocketItem || it.MaximumSockets > 0)
                  select it).ToList();
     }
+
+    #region VIP Integration
+    /// <summary>
+    /// Calcula a chance efetiva aplicando o bônus VIP, com proteção rígida contra 
+    /// transformação de drop probabilístico em garantido (cap em 0.99f).
+    /// </summary>
+    private double GetEffectiveChance(Player? killer, DropItemGroup group)
+    {
+        // Se já for garantido (>= 1.0), não tocamos.
+        if (group.Chance >= 1.0)
+        {
+            return group.Chance;
+        }
+
+        double multiplier = 1.0;
+        if (killer?.Account != null)
+        {
+            multiplier = VipService.GetDropMultiplier(killer.Account.Id);
+        }
+
+        // Se for VIP 0 ou sem VIP, retorna a chance original sem cálculo.
+        if (Math.Abs(multiplier - 1.0) < 0.001)
+        {
+            return group.Chance;
+        }
+
+        // Aplica o multiplicador, mas NUNCA deixa ultrapassar 0.99.
+        // Isso garante que o grupo continue no bucket "_chanceDropGroups" do PartitionDropGroups.
+        return Math.Min(0.99, group.Chance * multiplier);
+    }
+    #endregion
 }
