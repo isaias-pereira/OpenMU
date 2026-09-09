@@ -81,7 +81,16 @@ public class VipChatCommandPlugIn : ChatCommandPlugInBase<VipChatCommandPlugIn.V
             return;
         }
 
-        // 1. Verifica saldo de WCoin
+        // 1. Bloqueia a ativação se já houver um VIP ativo (não acumula nem renova por cima).
+        var currentStatus = await VipService.GetVipStatusAsync(player.PersistenceContext, player.Account.Id).ConfigureAwait(false);
+        if (currentStatus.IsActive)
+        {
+            await ShowMessageAsync(player, $"Voce ja possui um VIP ativo ({currentStatus.PlanName}), que expira em {currentStatus.ExpiresAt:dd/MM/yyyy HH:mm}.").ConfigureAwait(false);
+            await ShowMessageAsync(player, "Aguarde o VIP atual expirar para ativar outro.").ConfigureAwait(false);
+            return;
+        }
+
+        // 2. Verifica saldo de WCoin (pré-checagem amigável antes de tentar debitar).
         var balance = await WCoinService.GetBalanceAsync(player.PersistenceContext, player.Account.Id).ConfigureAwait(false);
         if (balance < price)
         {
@@ -89,7 +98,22 @@ public class VipChatCommandPlugIn : ChatCommandPlugInBase<VipChatCommandPlugIn.V
             return;
         }
 
-        // 2. Tenta ativar o VIP PRIMEIRO (valida o plano antes de debitar)
+        // 3. Debita o WCoin PRIMEIRO. Assim, se algo falhar na ativação, o jogador não fica
+        //    com VIP de graça — e o débito nunca acontece sem saldo (TryDebitAsync é atômico).
+        var debited = await WCoinService.TryDebitAsync(
+            player.PersistenceContext,
+            player.Account.Id,
+            price,
+            WCoinTransactionType.Purchase,
+            $"Ativacao VIP {planName}").ConfigureAwait(false);
+
+        if (!debited)
+        {
+            await ShowMessageAsync(player, $"Nao foi possivel debitar {price} WCoin. Seu saldo pode ter mudado. Tente novamente.").ConfigureAwait(false);
+            return;
+        }
+
+        // 4. Ativa o VIP. Se a ativação falhar, estorna o WCoin debitado (não cobrar sem entregar).
         try
         {
             await VipService.ActivateVipAsync(
@@ -101,25 +125,25 @@ public class VipChatCommandPlugIn : ChatCommandPlugInBase<VipChatCommandPlugIn.V
         }
         catch (Exception ex)
         {
-            await ShowMessageAsync(player, $"Erro ao ativar VIP: {ex.Message}. Fale com um GM.").ConfigureAwait(false);
+            try
+            {
+                await WCoinService.CreditAsync(
+                    player.PersistenceContext,
+                    player.Account.Id,
+                    price,
+                    WCoinTransactionType.AdminAdjust,
+                    $"Estorno ativacao VIP {planName}").ConfigureAwait(false);
+                await ShowMessageAsync(player, $"Nao foi possivel ativar o VIP. Seu WCoin foi estornado. Detalhe: {ex.Message}").ConfigureAwait(false);
+            }
+            catch
+            {
+                await ShowMessageAsync(player, $"Erro ao ativar VIP e ao estornar o WCoin. Fale com um GM. Detalhe: {ex.Message}").ConfigureAwait(false);
+            }
+
             return;
         }
 
-        // 3. Só debita o WCoin se o VIP foi ativado com sucesso
-        var debited = await WCoinService.TryDebitAsync(
-            player.PersistenceContext,
-            player.Account.Id,
-            price,
-            WCoinTransactionType.Purchase,
-            $"Ativacao VIP {planName}").ConfigureAwait(false);
-
-        if (!debited)
-        {
-            await ShowMessageAsync(player, "VIP ativado, mas erro ao debitar WCoin. Fale com um GM.").ConfigureAwait(false);
-            return;
-        }
-
-        // 4. Mensagem de sucesso
+        // 5. Mensagem de sucesso.
         var expiresAt = DateTime.UtcNow.AddDays(config.DurationDays);
         await ShowMessageAsync(player, $"VIP {planName} ativado! Expira: {expiresAt:dd/MM/yyyy HH:mm} (-{price} WCoin).").ConfigureAwait(false);
     }
