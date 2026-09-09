@@ -51,7 +51,7 @@ public static class VipService
         [Platinum.Name] = Platinum,
     };
 
-    private static readonly ConcurrentDictionary<Guid, VipCacheEntry> VipCache = new();
+    private static readonly ConcurrentDictionary<Guid, VipCacheEntry> _vipCache = new();
 
     /// <summary>
     /// Tenta resolver um plano conhecido pelo nome (case-insensitive).
@@ -72,32 +72,134 @@ public static class VipService
 
     /// <summary>
     /// Retorna o multiplicador de drop para a conta. O(1) via cache.
-    /// Se não tiver VIP ou estiver expirado, retorna 1.0f.
     /// </summary>
-    /// <param name="accountId">O Id da conta.</param>
-    /// <returns>O multiplicador de drop.</returns>
     public static float GetDropMultiplier(Guid accountId)
     {
-        if (VipCache.TryGetValue(accountId, out var entry))
+        if (_vipCache.TryGetValue(accountId, out var entry))
         {
             if (entry.ExpiresAt > DateTime.UtcNow)
             {
                 return entry.DropMultiplier;
             }
 
-            // Expirou: remove do cache.
-            VipCache.TryRemove(accountId, out _);
+            // Expirou: remove do cache
+            _vipCache.TryRemove(accountId, out _);
         }
 
         return 1.0f;
     }
 
     /// <summary>
-    /// Carrega o status VIP persistido da conta para o cache em memória. Deve ser chamado
-    /// quando o jogador entra no mundo, pois o cache é volátil (perdido ao reiniciar o servidor).
+    /// Retorna o status completo do VIP da conta (plano, expiração, dias restantes).
     /// </summary>
-    /// <param name="context">O contexto de persistência do jogador.</param>
-    /// <param name="accountId">O Id da conta.</param>
+    public static async ValueTask<VipStatusInfo> GetVipStatusAsync(IContext context, Guid accountId)
+    {
+        // Primeiro tenta o cache
+        if (_vipCache.TryGetValue(accountId, out var cached))
+        {
+            if (cached.ExpiresAt > DateTime.UtcNow)
+            {
+                var remaining = (cached.ExpiresAt - DateTime.UtcNow).TotalDays;
+                return new VipStatusInfo(
+                    IsActive: true,
+                    PlanName: await ResolvePlanNameAsync(context, cached.PlanId).ConfigureAwait(false),
+                    ExpiresAt: cached.ExpiresAt,
+                    DaysRemaining: Math.Max(0, Math.Ceiling(remaining)),
+                    DropMultiplier: cached.DropMultiplier);
+            }
+
+            // Expirou no cache
+            _vipCache.TryRemove(accountId, out _);
+        }
+
+        // Fallback: busca no banco
+        var accountVip = await context.GetByIdAsync<AccountVip>(accountId).ConfigureAwait(false);
+        if (accountVip?.VipPlanId is null || accountVip.ExpiresAt is null)
+        {
+            return new VipStatusInfo(IsActive: false, PlanName: null, ExpiresAt: null, DaysRemaining: 0, DropMultiplier: 1.0f);
+        }
+
+        if (accountVip.ExpiresAt.Value <= DateTime.UtcNow)
+        {
+            return new VipStatusInfo(IsActive: false, PlanName: null, ExpiresAt: accountVip.ExpiresAt.Value, DaysRemaining: 0, DropMultiplier: 1.0f);
+        }
+
+        var multiplier = await ResolveMultiplierAsync(context, accountVip.VipPlanId.Value).ConfigureAwait(false);
+        var remainingDb = (accountVip.ExpiresAt.Value - DateTime.UtcNow).TotalDays;
+
+        // Atualiza o cache
+        _vipCache[accountId] = new VipCacheEntry(accountVip.VipPlanId.Value, accountVip.ExpiresAt.Value, multiplier);
+
+        return new VipStatusInfo(
+            IsActive: true,
+            PlanName: await ResolvePlanNameAsync(context, accountVip.VipPlanId.Value).ConfigureAwait(false),
+            ExpiresAt: accountVip.ExpiresAt.Value,
+            DaysRemaining: Math.Max(0, Math.Ceiling(remainingDb)),
+            DropMultiplier: multiplier);
+    }
+
+    /// <summary>
+    /// Ativa o VIP para a conta: garante o <see cref="VipPlan"/> no banco (auto-seed idempotente),
+    /// faz o upsert do <see cref="AccountVip"/>, grava no histórico, persiste e atualiza o cache.
+    /// </summary>
+    public static async ValueTask ActivateVipAsync(
+        IContext context,
+        Guid accountId,
+        Guid planId,
+        int durationDays,
+        string source)
+    {
+        // 1. Garante que o VipPlan exista no banco (auto-seed idempotente). Sem isso, a FK de
+        //    AccountVip.VipPlanId seria violada. Só semeamos planos que conhecemos no catálogo;
+        //    um planId desconhecido e ausente do banco é de fato inválido.
+        var dbPlan = await context.GetByIdAsync<VipPlan>(planId).ConfigureAwait(false);
+        if (dbPlan is null)
+        {
+            if (!KnownPlansById.TryGetValue(planId, out var known))
+            {
+                throw new InvalidOperationException("Plano VIP inválido ou inativo.");
+            }
+
+            dbPlan = context.CreateNew<VipPlan>();
+            dbPlan.Id = known.Id;
+            dbPlan.Name = known.Name;
+            dbPlan.DurationDays = durationDays;
+            dbPlan.DropChanceMultiplier = known.DropMultiplier;
+            dbPlan.IsActive = true;
+        }
+        else if (!dbPlan.IsActive)
+        {
+            throw new InvalidOperationException("Plano VIP inválido ou inativo.");
+        }
+
+        var multiplier = dbPlan.DropChanceMultiplier;
+        var now = DateTime.UtcNow;
+        var expiresAt = now.AddDays(durationDays);
+
+        // 2. Atualiza/Cria AccountVip (upsert via shared primary key).
+        var accountVip = await context.GetByIdAsync<AccountVip>(accountId).ConfigureAwait(false)
+                         ?? context.CreateNew<AccountVip>(accountId);
+        accountVip.VipPlanId = planId;
+        accountVip.ExpiresAt = expiresAt;
+
+        // 3. Grava no histórico (append-only).
+        var history = context.CreateNew<VipHistory>();
+        history.Id = Guid.NewGuid();
+        history.AccountId = accountId;
+        history.VipPlanId = planId;
+        history.StartedAt = now;
+        history.ExpiresAt = expiresAt;
+        history.Source = source;
+
+        await context.SaveChangesAsync().ConfigureAwait(false);
+
+        // 4. Atualiza o cache em memória só depois de persistir com sucesso.
+        _vipCache[accountId] = new VipCacheEntry(planId, expiresAt, multiplier);
+    }
+
+    /// <summary>
+    /// Carrega o VIP da conta do banco para o cache em memória (usado na entrada do jogador no mundo).
+    /// </summary>
     public static async ValueTask LoadIntoCacheAsync(IContext context, Guid accountId)
     {
         var accountVip = await context.GetByIdAsync<AccountVip>(accountId).ConfigureAwait(false);
@@ -106,68 +208,12 @@ public static class VipService
             && expiresAt > DateTime.UtcNow)
         {
             var multiplier = await ResolveMultiplierAsync(context, planId).ConfigureAwait(false);
-            VipCache[accountId] = new VipCacheEntry(planId, expiresAt, multiplier);
+            _vipCache[accountId] = new VipCacheEntry(planId, expiresAt, multiplier);
         }
         else
         {
-            VipCache.TryRemove(accountId, out _);
+            _vipCache.TryRemove(accountId, out _);
         }
-    }
-
-    /// <summary>
-    /// Ativa o VIP para a conta: garante o <see cref="VipPlan"/> no banco (auto-seed idempotente),
-    /// faz o upsert do <see cref="AccountVip"/>, grava no histórico, persiste e atualiza o cache.
-    /// </summary>
-    /// <param name="context">O contexto de persistência do jogador.</param>
-    /// <param name="accountId">O Id da conta.</param>
-    /// <param name="plan">A definição do plano a ativar.</param>
-    /// <param name="durationDays">A duração da ativação, em dias.</param>
-    /// <param name="source">A origem da ativação (ex.: "ChatCommand").</param>
-    /// <returns>A data de expiração calculada.</returns>
-    public static async ValueTask<DateTime> ActivateVipAsync(
-        IContext context,
-        Guid accountId,
-        VipPlanDefinition plan,
-        int durationDays,
-        string source)
-    {
-        // 1. Garante que o VipPlan exista no banco. Sem isso, a FK de AccountVip.VipPlanId
-        //    seria violada no INSERT/UPDATE. É idempotente: cria só na primeira vez.
-        var dbPlan = await context.GetByIdAsync<VipPlan>(plan.Id).ConfigureAwait(false);
-        if (dbPlan is null)
-        {
-            dbPlan = context.CreateNew<VipPlan>();
-            dbPlan.Id = plan.Id;
-            dbPlan.Name = plan.Name;
-            dbPlan.DurationDays = durationDays;
-            dbPlan.DropChanceMultiplier = plan.DropMultiplier;
-            dbPlan.IsActive = true;
-        }
-
-        var now = DateTime.UtcNow;
-        var expiresAt = now.AddDays(durationDays);
-
-        // 2. Atualiza/Cria AccountVip (upsert via shared primary key).
-        var accountVip = await context.GetByIdAsync<AccountVip>(accountId).ConfigureAwait(false)
-                         ?? context.CreateNew<AccountVip>(accountId);
-        accountVip.VipPlanId = plan.Id;
-        accountVip.ExpiresAt = expiresAt;
-
-        // 3. Grava no histórico (append-only).
-        var history = context.CreateNew<VipHistory>();
-        history.Id = Guid.NewGuid();
-        history.AccountId = accountId;
-        history.VipPlanId = plan.Id;
-        history.StartedAt = now;
-        history.ExpiresAt = expiresAt;
-        history.Source = source;
-
-        await context.SaveChangesAsync().ConfigureAwait(false);
-
-        // 4. Atualiza o cache em memória só depois de persistir com sucesso.
-        VipCache[accountId] = new VipCacheEntry(plan.Id, expiresAt, plan.DropMultiplier);
-
-        return expiresAt;
     }
 
     private static async ValueTask<float> ResolveMultiplierAsync(IContext context, Guid planId)
@@ -181,6 +227,27 @@ public static class VipService
         var dbPlan = await context.GetByIdAsync<VipPlan>(planId).ConfigureAwait(false);
         return dbPlan?.DropChanceMultiplier ?? 1.0f;
     }
+
+    private static async ValueTask<string> ResolvePlanNameAsync(IContext context, Guid planId)
+    {
+        if (KnownPlansById.TryGetValue(planId, out var known))
+        {
+            return known.Name;
+        }
+
+        var dbPlan = await context.GetByIdAsync<VipPlan>(planId).ConfigureAwait(false);
+        return dbPlan?.Name ?? "Desconhecido";
+    }
+
+    /// <summary>
+    /// Status completo do VIP de uma conta.
+    /// </summary>
+    public record VipStatusInfo(
+        bool IsActive,
+        string? PlanName,
+        DateTime? ExpiresAt,
+        double DaysRemaining,
+        float DropMultiplier);
 
     private record VipCacheEntry(Guid PlanId, DateTime ExpiresAt, float DropMultiplier);
 }

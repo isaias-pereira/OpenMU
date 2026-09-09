@@ -187,6 +187,12 @@ async function loadAccount() {
     document.getElementById('accountInitial').textContent = account.loginName.charAt(0).toUpperCase();
     document.getElementById('summaryLogin').textContent = account.loginName.toUpperCase();
     document.getElementById('summaryEmail').textContent = account.email;
+    const wcoinBalance = typeof account.wcoinBalance === 'number' ? account.wcoinBalance : 0;
+    const formattedWcoin = new Intl.NumberFormat('pt-BR').format(wcoinBalance);
+    const wcoinEl = document.getElementById('summaryWcoin');
+    if (wcoinEl) wcoinEl.textContent = `${formattedWcoin} WCOINS`;
+    const wcoinSubEl = document.getElementById('summaryWcoinSub');
+    if (wcoinSubEl) wcoinSubEl.textContent = 'Saldo da conta';
     renderCharacters(account.characters || []);
 }
 

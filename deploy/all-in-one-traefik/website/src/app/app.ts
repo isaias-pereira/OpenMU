@@ -39,6 +39,7 @@ interface AccountData {
   role?: 'PLAYER' | 'GM' | 'ADMIN';
   isAdmin?: boolean;
   characters: Character[];
+  wcoinBalance?: number;
 }
 
 interface RankingPlayer {
@@ -945,7 +946,8 @@ export class App implements OnInit, OnDestroy {
                 email: account.email,
                 role: account.role,
                 isAdmin: account.isAdmin,
-                characters
+                characters,
+                wcoinBalance: typeof account.wcoinBalance === 'number' ? account.wcoinBalance : 0
               });
               return;
             }

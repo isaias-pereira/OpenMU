@@ -21,7 +21,19 @@ using MUnique.OpenMU.Persistence;
 [Table(nameof(AccountVip), Schema = SchemaNames.AccountData)]
 internal partial class AccountVip : MUnique.OpenMU.DataModel.Entities.AccountVip, IIdentifiable
 {
-    
+    /// <inheritdoc />
+    public AccountVip()
+    {
+
+    }
+
+    /// <inheritdoc />
+    public AccountVip(System.Guid id)
+        : base(id)
+    {
+
+    }
+
     
     
 

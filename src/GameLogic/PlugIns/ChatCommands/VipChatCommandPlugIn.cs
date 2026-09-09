@@ -1,60 +1,41 @@
 // <copyright file="VipChatCommandPlugIn.cs" company="MUnique">
 // Licensed under the MIT License. See LICENSE file in the project root for full license information.
 // </copyright>
+
 namespace MUnique.OpenMU.GameLogic.PlugIns.ChatCommands;
 
-using System;
 using System.ComponentModel.DataAnnotations;
-using System.Threading.Tasks;
-using Microsoft.Extensions.Logging;
+using System.Runtime.InteropServices;
 using MUnique.OpenMU.DataModel.Entities;
-using MUnique.OpenMU.GameLogic.Views;
 using MUnique.OpenMU.Interfaces;
 using MUnique.OpenMU.PlugIns;
 
-public class VipCommandConfiguration
-{
-    [Display(Name = "Preço Bronze (WCoin)")]
-    public int BronzePrice { get; set; } = 50;
-
-    [Display(Name = "Preço Silver (WCoin)")]
-    public int SilverPrice { get; set; } = 100;
-
-    [Display(Name = "Preço Gold (WCoin)")]
-    public int GoldPrice { get; set; } = 200;
-
-    [Display(Name = "Preço Platinum (WCoin)")]
-    public int PlatinumPrice { get; set; } = 400;
-
-    [Display(Name = "Duração padrão (dias)")]
-    public int DurationDays { get; set; } = 30;
-
-    [Display(Name = "Comando habilitado")]
-    public bool Enabled { get; set; } = true;
-}
-
-public class VipCommandArguments : ArgumentsBase
-{
-    public string? Action { get; set; }
-
-    public string? Plan { get; set; }
-}
-
-[System.Runtime.InteropServices.Guid("E1F2A3B4-C5D6-7890-ABCD-EF1234567890")]
+/// <summary>
+/// A chat command plugin which handles VIP activation and status.
+/// </summary>
+[Guid("A1B2C3D4-E5F6-7890-ABCD-EF1234567890")]
 [PlugIn]
-[Display(Name = "VIP Command", Description = "Ativa planos VIP usando WCoin")]
-[ChatCommandHelp("/vip", typeof(VipCommandArguments), CharacterStatus.Normal)]
-public class VipChatCommandPlugIn : ChatCommandPlugInBase<VipCommandArguments>,
-    ISupportCustomConfiguration<VipCommandConfiguration>, ISupportDefaultCustomConfiguration
+[Display(Name = nameof(PlugInResources.VipChatCommandPlugIn_Name), Description = nameof(PlugInResources.VipChatCommandPlugIn_Description), ResourceType = typeof(PlugInResources))]
+[ChatCommandHelp(Command, typeof(VipCommandArguments), CharacterStatus.Normal)]
+public class VipChatCommandPlugIn : ChatCommandPlugInBase<VipChatCommandPlugIn.VipCommandArguments>, ISupportCustomConfiguration<VipChatCommandPlugIn.VipCommandConfiguration>, ISupportDefaultCustomConfiguration
 {
+    private const string Command = "/vip";
+
+    /// <summary>
+    /// Gets or sets the configuration.
+    /// </summary>
     public VipCommandConfiguration? Configuration { get; set; }
 
-    public override string Key => "/vip";
+    /// <inheritdoc />
+    public override string Key => Command;
 
+    /// <inheritdoc />
     public override CharacterStatus MinCharacterStatusRequirement => CharacterStatus.Normal;
 
+    /// <inheritdoc />
     public object CreateDefaultConfig() => new VipCommandConfiguration();
 
+    /// <inheritdoc />
     protected override async ValueTask DoHandleCommandAsync(Player player, VipCommandArguments arguments)
     {
         var config = this.Configuration ?? new VipCommandConfiguration();
@@ -64,19 +45,35 @@ public class VipChatCommandPlugIn : ChatCommandPlugInBase<VipCommandArguments>,
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(arguments.Action) || !arguments.Action.Equals("ativar", StringComparison.OrdinalIgnoreCase))
+        // Se não passou argumentos ou passou apenas "status"/"info", mostra o status do VIP
+        if (string.IsNullOrWhiteSpace(arguments.Action)
+            || arguments.Action.Equals("status", StringComparison.OrdinalIgnoreCase)
+            || arguments.Action.Equals("info", StringComparison.OrdinalIgnoreCase))
         {
-            await ShowMessageAsync(player, "Uso: /vip ativar <Bronze|Silver|Gold|Platinum>").ConfigureAwait(false);
+            await ShowVipStatusAsync(player).ConfigureAwait(false);
             return;
         }
 
-        if (!VipService.TryGetPlanByName(arguments.Plan, out var plan))
+        if (!arguments.Action.Equals("ativar", StringComparison.OrdinalIgnoreCase))
         {
-            await ShowMessageAsync(player, "Plano invalido. Use: Bronze, Silver, Gold ou Platinum.").ConfigureAwait(false);
+            await ShowMessageAsync(player, "Uso: /vip [status] | /vip ativar <Bronze|Silver|Gold|Platinum>").ConfigureAwait(false);
             return;
         }
 
-        var price = this.GetPrice(config, plan);
+        var planName = arguments.Plan ?? string.Empty;
+        Guid planId;
+        int price;
+
+        switch (planName.ToLowerInvariant())
+        {
+            case "bronze": planId = VipService.Bronze.Id; price = config.BronzePrice; break;
+            case "silver": planId = VipService.Silver.Id; price = config.SilverPrice; break;
+            case "gold": planId = VipService.Gold.Id; price = config.GoldPrice; break;
+            case "platinum": planId = VipService.Platinum.Id; price = config.PlatinumPrice; break;
+            default:
+                await ShowMessageAsync(player, "Plano invalido. Use: Bronze, Silver, Gold ou Platinum.").ConfigureAwait(false);
+                return;
+        }
 
         if (player.Account is null)
         {
@@ -84,90 +81,163 @@ public class VipChatCommandPlugIn : ChatCommandPlugInBase<VipCommandArguments>,
             return;
         }
 
-        var accountId = player.Account.Id;
-        var context = player.PersistenceContext;
+        // 1. Bloqueia a ativação se já houver um VIP ativo (não acumula nem renova por cima).
+        var currentStatus = await VipService.GetVipStatusAsync(player.PersistenceContext, player.Account.Id).ConfigureAwait(false);
+        if (currentStatus.IsActive)
+        {
+            await ShowMessageAsync(player, $"Voce ja possui um VIP ativo ({currentStatus.PlanName}), que expira em {currentStatus.ExpiresAt:dd/MM/yyyy HH:mm}.").ConfigureAwait(false);
+            await ShowMessageAsync(player, "Aguarde o VIP atual expirar para ativar outro.").ConfigureAwait(false);
+            return;
+        }
 
-        // 1. Verifica saldo de WCoin.
-        var balance = await WCoinService.GetBalanceAsync(context, accountId).ConfigureAwait(false);
+        // 2. Verifica saldo de WCoin (pré-checagem amigável antes de tentar debitar).
+        var balance = await WCoinService.GetBalanceAsync(player.PersistenceContext, player.Account.Id).ConfigureAwait(false);
         if (balance < price)
         {
             await ShowMessageAsync(player, $"Saldo insuficiente. Voce precisa de {price} WCoin. Seu saldo: {balance}.").ConfigureAwait(false);
             return;
         }
 
-        // 2. Debita o WCoin (transação atômica na carteira).
+        // 3. Debita o WCoin PRIMEIRO. Assim, se algo falhar na ativação, o jogador não fica
+        //    com VIP de graça — e o débito nunca acontece sem saldo (TryDebitAsync é atômico).
         var debited = await WCoinService.TryDebitAsync(
-            context,
-            accountId,
+            player.PersistenceContext,
+            player.Account.Id,
             price,
             WCoinTransactionType.Purchase,
-            $"Ativacao VIP {plan.Name}").ConfigureAwait(false);
+            $"Ativacao VIP {planName}").ConfigureAwait(false);
 
         if (!debited)
         {
-            await ShowMessageAsync(player, "Erro ao processar o pagamento. Tente novamente.").ConfigureAwait(false);
+            await ShowMessageAsync(player, $"Nao foi possivel debitar {price} WCoin. Seu saldo pode ter mudado. Tente novamente.").ConfigureAwait(false);
             return;
         }
 
-        // 3. Ativa o VIP. Se falhar por qualquer motivo, ESTORNA o WCoin — o jogador nunca
-        //    pode pagar sem receber o benefício.
+        // 4. Ativa o VIP. Se a ativação falhar, estorna o WCoin debitado (não cobrar sem entregar).
         try
         {
-            var expiresAt = await VipService.ActivateVipAsync(
-                context,
-                accountId,
-                plan,
+            await VipService.ActivateVipAsync(
+                player.PersistenceContext,
+                player.Account.Id,
+                planId,
                 config.DurationDays,
                 "ChatCommand").ConfigureAwait(false);
-
-            await ShowMessageAsync(player, $"VIP {plan.Name} ativado com sucesso! Expira em: {expiresAt:dd/MM/yyyy HH:mm}.").ConfigureAwait(false);
         }
         catch (Exception ex)
         {
-            player.Logger.LogError(ex, "Falha ao ativar o VIP {Plan} para a conta {AccountId}. Estornando {Price} WCoin.", plan.Name, accountId, price);
-
             try
             {
                 await WCoinService.CreditAsync(
-                    context,
-                    accountId,
+                    player.PersistenceContext,
+                    player.Account.Id,
                     price,
                     WCoinTransactionType.AdminAdjust,
-                    $"Estorno VIP {plan.Name} (falha na ativacao)").ConfigureAwait(false);
-
-                await ShowMessageAsync(player, "Nao foi possivel ativar o VIP. Seu WCoin foi estornado. Tente novamente.").ConfigureAwait(false);
+                    $"Estorno ativacao VIP {planName}").ConfigureAwait(false);
+                await ShowMessageAsync(player, $"Nao foi possivel ativar o VIP. Seu WCoin foi estornado. Detalhe: {ex.Message}").ConfigureAwait(false);
             }
-            catch (Exception refundEx)
+            catch
             {
-                player.Logger.LogError(refundEx, "FALHA CRITICA ao estornar {Price} WCoin da conta {AccountId} apos erro na ativacao do VIP.", price, accountId);
-                await ShowMessageAsync(player, "Erro ao ativar o VIP. Contate um GM informando o horario.").ConfigureAwait(false);
+                await ShowMessageAsync(player, $"Erro ao ativar VIP e ao estornar o WCoin. Fale com um GM. Detalhe: {ex.Message}").ConfigureAwait(false);
             }
+
+            return;
         }
+
+        // 5. Mensagem de sucesso.
+        var expiresAt = DateTime.UtcNow.AddDays(config.DurationDays);
+        await ShowMessageAsync(player, $"VIP {planName} ativado! Expira: {expiresAt:dd/MM/yyyy HH:mm} (-{price} WCoin).").ConfigureAwait(false);
     }
 
-    private static async ValueTask ShowMessageAsync(Player player, string message)
+    private async ValueTask ShowVipStatusAsync(Player player)
     {
-        await player.InvokeViewPlugInAsync<IShowMessagePlugIn>(
-            p => p.ShowMessageAsync(message, MessageType.GoldenCenter)).ConfigureAwait(false);
+        if (player.Account is null)
+        {
+            await ShowMessageAsync(player, "Erro de conta. Fale com um GM.").ConfigureAwait(false);
+            return;
+        }
+
+        var status = await VipService.GetVipStatusAsync(player.PersistenceContext, player.Account.Id).ConfigureAwait(false);
+        var balance = await WCoinService.GetBalanceAsync(player.PersistenceContext, player.Account.Id).ConfigureAwait(false);
+
+        if (!status.IsActive)
+        {
+            await ShowMessageAsync(player, "=== SEU STATUS VIP ===").ConfigureAwait(false);
+            await ShowMessageAsync(player, "Voce nao possui VIP ativo.").ConfigureAwait(false);
+            await ShowMessageAsync(player, $"Saldo WCoin: {balance}").ConfigureAwait(false);
+            await ShowMessageAsync(player, "Use /vip ativar <Bronze|Silver|Gold|Platinum> para ativar.").ConfigureAwait(false);
+            return;
+        }
+
+        await ShowMessageAsync(player, "=== SEU STATUS VIP ===").ConfigureAwait(false);
+        await ShowMessageAsync(player, $"Plano: {status.PlanName}").ConfigureAwait(false);
+        await ShowMessageAsync(player, $"Expira em: {status.ExpiresAt:dd/MM/yyyy HH:mm}").ConfigureAwait(false);
+        await ShowMessageAsync(player, $"Dias restantes: {status.DaysRemaining:F0}").ConfigureAwait(false);
+        await ShowMessageAsync(player, $"Bonus de Drop: +{(status.DropMultiplier - 1.0f) * 100:F0}%").ConfigureAwait(false);
+        await ShowMessageAsync(player, $"Saldo WCoin: {balance}").ConfigureAwait(false);
     }
 
-    private int GetPrice(VipCommandConfiguration config, VipPlanDefinition plan)
+    private async ValueTask ShowMessageAsync(Player player, string message)
     {
-        if (plan.Id == VipService.Bronze.Id)
-        {
-            return config.BronzePrice;
-        }
+        await player.ShowBlueMessageAsync(message).ConfigureAwait(false);
+    }
 
-        if (plan.Id == VipService.Silver.Id)
-        {
-            return config.SilverPrice;
-        }
+    /// <summary>
+    /// Arguments for the VIP chat command.
+    /// </summary>
+    public class VipCommandArguments : ArgumentsBase
+    {
+        /// <summary>
+        /// Gets or sets the action (status, info, ativar).
+        /// </summary>
+        [Argument("action", false)]
+        public string? Action { get; set; }
 
-        if (plan.Id == VipService.Gold.Id)
-        {
-            return config.GoldPrice;
-        }
+        /// <summary>
+        /// Gets or sets the plan name (Bronze, Silver, Gold, Platinum).
+        /// </summary>
+        [Argument("plan", false)]
+        public string? Plan { get; set; }
+    }
 
-        return config.PlatinumPrice;
+    /// <summary>
+    /// The configuration of a <see cref="VipChatCommandPlugIn"/>.
+    /// </summary>
+    public class VipCommandConfiguration
+    {
+        /// <summary>
+        /// Gets or sets a value indicating whether the VIP system is enabled.
+        /// </summary>
+        [Display(ResourceType = typeof(PlugInResources), Name = nameof(PlugInResources.VipCommandConfiguration_Enabled_Name), Description = nameof(PlugInResources.VipCommandConfiguration_Enabled_Description))]
+        public bool Enabled { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets the duration in days for VIP plans.
+        /// </summary>
+        [Display(ResourceType = typeof(PlugInResources), Name = nameof(PlugInResources.VipCommandConfiguration_DurationDays_Name), Description = nameof(PlugInResources.VipCommandConfiguration_DurationDays_Description))]
+        public int DurationDays { get; set; } = 30;
+
+        /// <summary>
+        /// Gets or sets the price in WCoin for Bronze plan.
+        /// </summary>
+        [Display(ResourceType = typeof(PlugInResources), Name = nameof(PlugInResources.VipCommandConfiguration_BronzePrice_Name), Description = nameof(PlugInResources.VipCommandConfiguration_BronzePrice_Description))]
+        public int BronzePrice { get; set; } = 1000;
+
+        /// <summary>
+        /// Gets or sets the price in WCoin for Silver plan.
+        /// </summary>
+        [Display(ResourceType = typeof(PlugInResources), Name = nameof(PlugInResources.VipCommandConfiguration_SilverPrice_Name), Description = nameof(PlugInResources.VipCommandConfiguration_SilverPrice_Description))]
+        public int SilverPrice { get; set; } = 2500;
+
+        /// <summary>
+        /// Gets or sets the price in WCoin for Gold plan.
+        /// </summary>
+        [Display(ResourceType = typeof(PlugInResources), Name = nameof(PlugInResources.VipCommandConfiguration_GoldPrice_Name), Description = nameof(PlugInResources.VipCommandConfiguration_GoldPrice_Description))]
+        public int GoldPrice { get; set; } = 5000;
+
+        /// <summary>
+        /// Gets or sets the price in WCoin for Platinum plan.
+        /// </summary>
+        [Display(ResourceType = typeof(PlugInResources), Name = nameof(PlugInResources.VipCommandConfiguration_PlatinumPrice_Name), Description = nameof(PlugInResources.VipCommandConfiguration_PlatinumPrice_Description))]
+        public int PlatinumPrice { get; set; } = 10000;
     }
 }

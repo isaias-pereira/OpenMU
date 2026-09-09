@@ -1278,4 +1278,46 @@
   <data name="PostConfiguration_MessageTooLongMessage_Description" xml:space="preserve">
     <value>The message which is shown to the player when his post exceeds the maximum length, where {0} is the maximum length.</value>
   </data>
+  <data name="VipChatCommandPlugIn_Name" xml:space="preserve">
+    <value>VIP chat command</value>
+  </data>
+  <data name="VipChatCommandPlugIn_Description" xml:space="preserve">
+    <value>Handles the chat command '/vip' for VIP activation and status.</value>
+  </data>
+  <data name="VipCommandConfiguration_Enabled_Name" xml:space="preserve">
+    <value>Enabled</value>
+  </data>
+  <data name="VipCommandConfiguration_Enabled_Description" xml:space="preserve">
+    <value>Enables or disables the VIP system.</value>
+  </data>
+  <data name="VipCommandConfiguration_DurationDays_Name" xml:space="preserve">
+    <value>Duration (days)</value>
+  </data>
+  <data name="VipCommandConfiguration_DurationDays_Description" xml:space="preserve">
+    <value>The duration in days for VIP plans.</value>
+  </data>
+  <data name="VipCommandConfiguration_BronzePrice_Name" xml:space="preserve">
+    <value>Bronze price (WCoin)</value>
+  </data>
+  <data name="VipCommandConfiguration_BronzePrice_Description" xml:space="preserve">
+    <value>The price in WCoin for the Bronze VIP plan.</value>
+  </data>
+  <data name="VipCommandConfiguration_SilverPrice_Name" xml:space="preserve">
+    <value>Silver price (WCoin)</value>
+  </data>
+  <data name="VipCommandConfiguration_SilverPrice_Description" xml:space="preserve">
+    <value>The price in WCoin for the Silver VIP plan.</value>
+  </data>
+  <data name="VipCommandConfiguration_GoldPrice_Name" xml:space="preserve">
+    <value>Gold price (WCoin)</value>
+  </data>
+  <data name="VipCommandConfiguration_GoldPrice_Description" xml:space="preserve">
+    <value>The price in WCoin for the Gold VIP plan.</value>
+  </data>
+  <data name="VipCommandConfiguration_PlatinumPrice_Name" xml:space="preserve">
+    <value>Platinum price (WCoin)</value>
+  </data>
+  <data name="VipCommandConfiguration_PlatinumPrice_Description" xml:space="preserve">
+    <value>The price in WCoin for the Platinum VIP plan.</value>
+  </data>
 </root>
