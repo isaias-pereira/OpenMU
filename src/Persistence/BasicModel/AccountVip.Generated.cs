@@ -19,7 +19,17 @@ using MUnique.OpenMU.Persistence.Json;
 /// </summary>
 public partial class AccountVip : MUnique.OpenMU.DataModel.Entities.AccountVip, IIdentifiable, IConvertibleTo<AccountVip>
 {
-    
+    /// <inheritdoc />
+    public AccountVip()
+    {
+    }
+
+    /// <inheritdoc />
+    public AccountVip(System.Guid id)
+        : base(id)
+    {
+    }
+
     
     
 

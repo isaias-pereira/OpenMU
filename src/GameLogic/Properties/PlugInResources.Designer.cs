@@ -3544,5 +3544,131 @@ namespace MUnique.OpenMU.GameLogic.Properties {
                 return ResourceManager.GetString("PostConfiguration_MessageTooLongMessage_Description", resourceCulture);
             }
         }
+
+        /// <summary>
+        ///   Looks up a localized string similar to VIP chat command.
+        /// </summary>
+        public static string VipChatCommandPlugIn_Name {
+            get {
+                return ResourceManager.GetString("VipChatCommandPlugIn_Name", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Handles the chat command &apos;/vip&apos; for VIP activation and status.
+        /// </summary>
+        public static string VipChatCommandPlugIn_Description {
+            get {
+                return ResourceManager.GetString("VipChatCommandPlugIn_Description", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Enabled.
+        /// </summary>
+        public static string VipCommandConfiguration_Enabled_Name {
+            get {
+                return ResourceManager.GetString("VipCommandConfiguration_Enabled_Name", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Enables or disables the VIP system.
+        /// </summary>
+        public static string VipCommandConfiguration_Enabled_Description {
+            get {
+                return ResourceManager.GetString("VipCommandConfiguration_Enabled_Description", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Duration (days).
+        /// </summary>
+        public static string VipCommandConfiguration_DurationDays_Name {
+            get {
+                return ResourceManager.GetString("VipCommandConfiguration_DurationDays_Name", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The duration in days for VIP plans.
+        /// </summary>
+        public static string VipCommandConfiguration_DurationDays_Description {
+            get {
+                return ResourceManager.GetString("VipCommandConfiguration_DurationDays_Description", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Bronze price (WCoin).
+        /// </summary>
+        public static string VipCommandConfiguration_BronzePrice_Name {
+            get {
+                return ResourceManager.GetString("VipCommandConfiguration_BronzePrice_Name", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The price in WCoin for the Bronze VIP plan.
+        /// </summary>
+        public static string VipCommandConfiguration_BronzePrice_Description {
+            get {
+                return ResourceManager.GetString("VipCommandConfiguration_BronzePrice_Description", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Silver price (WCoin).
+        /// </summary>
+        public static string VipCommandConfiguration_SilverPrice_Name {
+            get {
+                return ResourceManager.GetString("VipCommandConfiguration_SilverPrice_Name", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The price in WCoin for the Silver VIP plan.
+        /// </summary>
+        public static string VipCommandConfiguration_SilverPrice_Description {
+            get {
+                return ResourceManager.GetString("VipCommandConfiguration_SilverPrice_Description", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Gold price (WCoin).
+        /// </summary>
+        public static string VipCommandConfiguration_GoldPrice_Name {
+            get {
+                return ResourceManager.GetString("VipCommandConfiguration_GoldPrice_Name", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The price in WCoin for the Gold VIP plan.
+        /// </summary>
+        public static string VipCommandConfiguration_GoldPrice_Description {
+            get {
+                return ResourceManager.GetString("VipCommandConfiguration_GoldPrice_Description", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Platinum price (WCoin).
+        /// </summary>
+        public static string VipCommandConfiguration_PlatinumPrice_Name {
+            get {
+                return ResourceManager.GetString("VipCommandConfiguration_PlatinumPrice_Name", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to The price in WCoin for the Platinum VIP plan.
+        /// </summary>
+        public static string VipCommandConfiguration_PlatinumPrice_Description {
+            get {
+                return ResourceManager.GetString("VipCommandConfiguration_PlatinumPrice_Description", resourceCulture);
+            }
+        }
     }
 }
