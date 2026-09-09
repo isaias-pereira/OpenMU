@@ -189,13 +189,13 @@ public class VipChatCommandPlugIn : ChatCommandPlugInBase<VipChatCommandPlugIn.V
         /// <summary>
         /// Gets or sets the action (status, info, ativar).
         /// </summary>
-        [Argument("action")]
+        [Argument("action", false)]
         public string? Action { get; set; }
 
         /// <summary>
         /// Gets or sets the plan name (Bronze, Silver, Gold, Platinum).
         /// </summary>
-        [Argument("plan")]
+        [Argument("plan", false)]
         public string? Plan { get; set; }
     }
 
