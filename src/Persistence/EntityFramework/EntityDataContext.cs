@@ -97,6 +97,12 @@ public class EntityDataContext : ExtendedTypeContext
         modelBuilder.Entity<AccountVault>().Apply();
         modelBuilder.Entity<GensEntry>().Apply();
         modelBuilder.Entity<CustomMoveEntry>().Apply();
+        modelBuilder.Entity<QuizConfiguration>().Apply();
+        modelBuilder.Entity<QuizQuestion>().Apply();
+        modelBuilder.Entity<QuizAnswer>().Apply();
+        modelBuilder.Entity<QuizRound>().Apply();
+        modelBuilder.Entity<QuizRoundQuestion>().Apply();
+        modelBuilder.Entity<QuizWinner>().Apply();
 
         // join entity keys:
         this.AddJoinDefinitions(modelBuilder);

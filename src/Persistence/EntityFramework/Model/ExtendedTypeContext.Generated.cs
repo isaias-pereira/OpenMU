@@ -41,6 +41,12 @@ public class ExtendedTypeContext : Microsoft.EntityFrameworkCore.DbContext
         modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.ItemStorage>();
         modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.LetterBody>();
         modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.QuestMonsterKillRequirementState>();
+        modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.QuizAnswer>();
+        modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.QuizConfiguration>();
+        modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.QuizQuestion>();
+        modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.QuizRound>();
+        modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.QuizRoundQuestion>();
+        modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.QuizWinner>();
         modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.SkillEntry>();
         modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.VipHistory>();
         modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.VipPlan>();
@@ -120,6 +126,13 @@ public class ExtendedTypeContext : Microsoft.EntityFrameworkCore.DbContext
         modelBuilder.Ignore<MUnique.OpenMU.Interfaces.Friend>();
         modelBuilder.Ignore<MUnique.OpenMU.PlugIns.PlugInConfiguration>();
         modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.GensEntry>();
+        modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.CustomMoveEntry>();
+        modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.QuizConfiguration>();
+        modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.QuizQuestion>();
+        modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.QuizAnswer>();
+        modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.QuizRound>();
+        modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.QuizRoundQuestion>();
+        modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.QuizWinner>();
 
         // All members which are marked with the MemberOfAggregateAttribute, should be defined with ON DELETE CASCADE.
         modelBuilder.Entity<Account>().HasOne(entity => entity.RawVault).WithOne().OnDelete(DeleteBehavior.Cascade);

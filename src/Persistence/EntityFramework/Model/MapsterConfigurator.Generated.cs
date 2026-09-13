@@ -86,6 +86,24 @@ public static class MapsterConfigurator
         Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.QuestMonsterKillRequirementState, MUnique.OpenMU.DataModel.Entities.QuestMonsterKillRequirementState>()
             .Include<MUnique.OpenMU.DataModel.Entities.QuestMonsterKillRequirementState, BasicModel.QuestMonsterKillRequirementState>();
 
+        Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.QuizAnswer, MUnique.OpenMU.DataModel.Entities.QuizAnswer>()
+            .Include<MUnique.OpenMU.DataModel.Entities.QuizAnswer, BasicModel.QuizAnswer>();
+
+        Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.QuizConfiguration, MUnique.OpenMU.DataModel.Entities.QuizConfiguration>()
+            .Include<MUnique.OpenMU.DataModel.Entities.QuizConfiguration, BasicModel.QuizConfiguration>();
+
+        Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.QuizQuestion, MUnique.OpenMU.DataModel.Entities.QuizQuestion>()
+            .Include<MUnique.OpenMU.DataModel.Entities.QuizQuestion, BasicModel.QuizQuestion>();
+
+        Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.QuizRound, MUnique.OpenMU.DataModel.Entities.QuizRound>()
+            .Include<MUnique.OpenMU.DataModel.Entities.QuizRound, BasicModel.QuizRound>();
+
+        Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.QuizRoundQuestion, MUnique.OpenMU.DataModel.Entities.QuizRoundQuestion>()
+            .Include<MUnique.OpenMU.DataModel.Entities.QuizRoundQuestion, BasicModel.QuizRoundQuestion>();
+
+        Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.QuizWinner, MUnique.OpenMU.DataModel.Entities.QuizWinner>()
+            .Include<MUnique.OpenMU.DataModel.Entities.QuizWinner, BasicModel.QuizWinner>();
+
         Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.SkillEntry, MUnique.OpenMU.DataModel.Entities.SkillEntry>()
             .Include<MUnique.OpenMU.DataModel.Entities.SkillEntry, BasicModel.SkillEntry>();
 
@@ -322,6 +340,27 @@ public static class MapsterConfigurator
 
         Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.GensEntry, MUnique.OpenMU.DataModel.Entities.GensEntry>()
             .Include<MUnique.OpenMU.DataModel.Entities.GensEntry, BasicModel.GensEntry>();
+
+        Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.CustomMoveEntry, MUnique.OpenMU.DataModel.Entities.CustomMoveEntry>()
+            .Include<MUnique.OpenMU.DataModel.Entities.CustomMoveEntry, BasicModel.CustomMoveEntry>();
+
+        Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.QuizConfiguration, MUnique.OpenMU.DataModel.Entities.QuizConfiguration>()
+            .Include<MUnique.OpenMU.DataModel.Entities.QuizConfiguration, BasicModel.QuizConfiguration>();
+
+        Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.QuizQuestion, MUnique.OpenMU.DataModel.Entities.QuizQuestion>()
+            .Include<MUnique.OpenMU.DataModel.Entities.QuizQuestion, BasicModel.QuizQuestion>();
+
+        Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.QuizAnswer, MUnique.OpenMU.DataModel.Entities.QuizAnswer>()
+            .Include<MUnique.OpenMU.DataModel.Entities.QuizAnswer, BasicModel.QuizAnswer>();
+
+        Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.QuizRound, MUnique.OpenMU.DataModel.Entities.QuizRound>()
+            .Include<MUnique.OpenMU.DataModel.Entities.QuizRound, BasicModel.QuizRound>();
+
+        Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.QuizRoundQuestion, MUnique.OpenMU.DataModel.Entities.QuizRoundQuestion>()
+            .Include<MUnique.OpenMU.DataModel.Entities.QuizRoundQuestion, BasicModel.QuizRoundQuestion>();
+
+        Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.QuizWinner, MUnique.OpenMU.DataModel.Entities.QuizWinner>()
+            .Include<MUnique.OpenMU.DataModel.Entities.QuizWinner, BasicModel.QuizWinner>();
 
 
         isConfigured = true;

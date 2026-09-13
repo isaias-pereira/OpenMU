@@ -23,6 +23,11 @@ public enum WCoinTransactionType
     /// Ajuste manual feito por um administrador (bônus, correção, estorno).
     /// </summary>
     AdminAdjust,
+
+    /// <summary>
+    /// Premiação automática (eventos, quiz, etc.) creditada pelo servidor.
+    /// </summary>
+    Reward,
 }
 
 /// <summary>

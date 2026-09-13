@@ -163,6 +163,13 @@ internal static class ModelGeneratorHelper
 
         // custom entity types (in addition to the loaded ones) are added below
         result.Add(typeof(MUnique.OpenMU.DataModel.Entities.GensEntry));
+        result.Add(typeof(MUnique.OpenMU.DataModel.Entities.CustomMoveEntry));
+        result.Add(typeof(MUnique.OpenMU.DataModel.Entities.QuizConfiguration));
+        result.Add(typeof(MUnique.OpenMU.DataModel.Entities.QuizQuestion));
+        result.Add(typeof(MUnique.OpenMU.DataModel.Entities.QuizAnswer));
+        result.Add(typeof(MUnique.OpenMU.DataModel.Entities.QuizRound));
+        result.Add(typeof(MUnique.OpenMU.DataModel.Entities.QuizRoundQuestion));
+        result.Add(typeof(MUnique.OpenMU.DataModel.Entities.QuizWinner));
 
         return result;
     }
