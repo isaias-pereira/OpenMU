@@ -423,6 +423,27 @@
   <data name="TalkingNotImplementedFormat" xml:space="preserve">
     <value>Talking to this NPC ({0}, {1}) is not implemented yet.</value>
   </data>
+  <data name="CustomMoveSystemDisabled" xml:space="preserve">
+    <value>The custom move system is currently disabled.</value>
+  </data>
+  <data name="CustomMoveNameRequired" xml:space="preserve">
+    <value>Please specify a move name. Usage: /move &lt;name&gt;</value>
+  </data>
+  <data name="CustomMoveNotFound" xml:space="preserve">
+    <value>Move '{0}' was not found. Check the available moves.</value>
+  </data>
+  <data name="CustomMoveMapNotConfigured" xml:space="preserve">
+    <value>The target map for this move is not properly configured.</value>
+  </data>
+  <data name="CustomMoveLevelTooLow" xml:space="preserve">
+    <value>You need to be at least level {0} to use this move.</value>
+  </data>
+  <data name="CustomMoveNotEnoughMoney" xml:space="preserve">
+    <value>You need {0} zen to use this move.</value>
+  </data>
+  <data name="CustomMoveSuccess" xml:space="preserve">
+    <value>You have been moved to {1} via '{0}'.</value>
+  </data>
   <data name="BloodCastleCrystalStatusDestroyed" xml:space="preserve">
     <value>{0} has destroyed the Crystal Statue!</value>
   </data>
@@ -683,5 +704,35 @@
   </data>
   <data name="StatsResetSuccessfully" xml:space="preserve">
     <value>Your stats have been reset. You have {0} level-up points available.</value>
+  </data>
+  <data name="GensJoinSuccess" xml:space="preserve">
+    <value>You joined the {0} gens.</value>
+  </data>
+  <data name="GensJoinFailed" xml:space="preserve">
+    <value>You can't join a gens right now.</value>
+  </data>
+  <data name="GensLeaveSuccess" xml:space="preserve">
+    <value>You left the current gens.</value>
+  </data>
+  <data name="GensLeaveFailed" xml:space="preserve">
+    <value>You are not in a gens.</value>
+  </data>
+  <data name="GensNotInGens" xml:space="preserve">
+    <value>You are not a member of a gens.</value>
+  </data>
+  <data name="GensRewardSuccess" xml:space="preserve">
+    <value>You received {0} zen as gens reward.</value>
+  </data>
+  <data name="GensRewardNoPoints" xml:space="preserve">
+    <value>You don't have enough gens contribution points to get a reward.</value>
+  </data>
+  <data name="GensRewardNoSpace" xml:space="preserve">
+    <value>You can't get the gens reward because your inventory is full.</value>
+  </data>
+  <data name="GensContributionGained" xml:space="preserve">
+    <value>You gained {0} gens contribution points.</value>
+  </data>
+  <data name="InvalidChatCommand" xml:space="preserve">
+    <value>The command '{0}' is not available.</value>
   </data>
 </root>

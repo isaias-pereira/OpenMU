@@ -32,6 +32,21 @@ ADMIN_ACCOUNT_STATES = (2, 3)
 # AccountState values that block login: 4 = Banned, 5 = TemporarilyBanned.
 BANNED_ACCOUNT_STATES = (4, 5)
 
+# Preço de cada plano VIP, em WCoin. A tabela data."VipPlan" não guarda preço — ele vive
+# na config do plugin do jogo (VipChatCommandPlugIn.VipCommandConfiguration). Espelhamos os
+# mesmos valores aqui para a compra pelo site; overridável por ambiente (VIP_PRICE_<PLANO>)
+# para ajustar sem rebuild. Mantenha em sincronia com o plugin do jogo.
+VIP_PRICES = {
+    'Bronze': int(os.environ.get('VIP_PRICE_BRONZE', '1000')),
+    'Silver': int(os.environ.get('VIP_PRICE_SILVER', '2500')),
+    'Gold': int(os.environ.get('VIP_PRICE_GOLD', '5000')),
+    'Platinum': int(os.environ.get('VIP_PRICE_PLATINUM', '10000')),
+}
+
+# Valor do enum WCoinTransactionType.Purchase (Exchange=0, Purchase=1, AdminAdjust=2),
+# gravado na coluna inteira data."WCoinTransaction"."Type".
+WCOIN_TX_PURCHASE = 1
+
 
 def resolve_secret_key() -> str:
     """Return the Flask secret key.

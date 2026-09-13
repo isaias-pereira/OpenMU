@@ -194,7 +194,8 @@ public class MoveItemAction
                     (byte)(FirstStoreItemSlotIndex + StoreSize));
                 break;
             case Storages.Vault when player.Vault is not null:
-                var warehouseSize = player.Account!.IsVaultExtended ? WarehouseSize * 2 : WarehouseSize;
+                // The legacy extended-vault flag only applies to vault number 1; additional vaults are standard size.
+                var warehouseSize = player.CurrentVaultNumber == 1 && player.Account!.IsVaultExtended ? WarehouseSize * 2 : WarehouseSize;
                 var warehouseRows = (byte)(WarehouseRows * 2);
                 result = new StorageInfo(player.Vault, warehouseRows, 0, (byte)warehouseSize);
                 break;

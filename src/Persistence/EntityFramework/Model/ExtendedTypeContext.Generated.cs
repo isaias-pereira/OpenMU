@@ -26,10 +26,13 @@ public class ExtendedTypeContext : Microsoft.EntityFrameworkCore.DbContext
     {
         modelBuilder.Ignore<MUnique.OpenMU.DataModel.Statistics.MiniGameRankingEntry>();
         modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.Account>();
+        modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.AccountVault>();
         modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.AccountVip>();
         modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.AppearanceData>();
         modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.Character>();
         modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.CharacterQuestState>();
+        modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.CustomMoveEntry>();
+        modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.GensEntry>();
         modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.Guild>();
         modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.GuildMember>();
         modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.Item>();
@@ -116,11 +119,14 @@ public class ExtendedTypeContext : Microsoft.EntityFrameworkCore.DbContext
         modelBuilder.Ignore<MUnique.OpenMU.Interfaces.LetterHeader>();
         modelBuilder.Ignore<MUnique.OpenMU.Interfaces.Friend>();
         modelBuilder.Ignore<MUnique.OpenMU.PlugIns.PlugInConfiguration>();
+        modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.GensEntry>();
 
         // All members which are marked with the MemberOfAggregateAttribute, should be defined with ON DELETE CASCADE.
         modelBuilder.Entity<Account>().HasOne(entity => entity.RawVault).WithOne().OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<Account>().HasMany(entity => entity.RawVaults).WithOne().OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<Account>().HasMany(entity => entity.RawCharacters).WithOne().OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<Account>().HasMany(entity => entity.RawAttributes).WithOne().OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<AccountVault>().HasOne(entity => entity.RawStorage).WithOne().OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<AppearanceData>().HasMany(entity => entity.RawEquippedItems).WithOne().OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<Character>().HasMany(entity => entity.RawAttributes).WithOne().OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<Character>().HasMany(entity => entity.RawLetters).WithOne().OnDelete(DeleteBehavior.Cascade);

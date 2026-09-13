@@ -194,6 +194,171 @@ async function loadAccount() {
     const wcoinSubEl = document.getElementById('summaryWcoinSub');
     if (wcoinSubEl) wcoinSubEl.textContent = 'Saldo da conta';
     renderCharacters(account.characters || []);
+    refreshVipSummary();
+}
+
+// --- VIP panel ---
+let vipState = { status: null, balance: 0 };
+
+function formatDateTime(iso) {
+    if (!iso) return '--';
+    const parsed = new Date(iso);
+    if (isNaN(parsed.getTime())) return '--';
+    return parsed.toLocaleString('pt-BR', {
+        day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+    });
+}
+
+function updateVipSummary(status) {
+    const planEl = document.getElementById('summaryVipPlan');
+    const subEl = document.getElementById('summaryVipSub');
+    if (!planEl || !subEl) return;
+    if (status && status.isActive) {
+        planEl.textContent = `${status.planName} ativo`;
+        subEl.textContent = `Expira ${formatDateTime(status.expiresAt)} · +${status.dropBonusPercent}% drop`;
+    } else {
+        planEl.textContent = 'Sem VIP';
+        subEl.textContent = 'Ative um plano na aba VIP';
+    }
+}
+
+async function refreshVipSummary() {
+    try {
+        const response = await fetch('/api/vip/status');
+        if (!response.ok) return;
+        const data = await response.json();
+        if (data.success) {
+            vipState.status = data.vip;
+            vipState.balance = data.wcoinBalance;
+            updateVipSummary(data.vip);
+        }
+    } catch (error) {
+        // Silencioso: o card apenas mantém o texto padrão se a chamada falhar.
+    }
+}
+
+function renderVipStatusBox(status, balance) {
+    const box = document.getElementById('vipStatusBox');
+    if (!box) return;
+    if (status && status.isActive) {
+        box.className = 'vip-status-box vip-status-active';
+        box.innerHTML = `
+            <span class="vip-badge">&#10003; ${escapeHtml(status.planName)}</span>
+            <div class="vip-status-lines">
+                <div>Expira em <strong>${formatDateTime(status.expiresAt)}</strong> (${number(status.daysRemaining)} dias restantes)</div>
+                <div>Bônus de drop: <strong>+${number(status.dropBonusPercent)}%</strong></div>
+                <div>Saldo: <strong>${number(balance)} WCoin</strong></div>
+            </div>`;
+    } else {
+        box.className = 'vip-status-box vip-status-inactive';
+        box.innerHTML = `
+            <div>Você não possui VIP ativo.</div>
+            <div>Saldo atual: <strong>${number(balance)} WCoin</strong> — escolha um plano abaixo.</div>`;
+    }
+}
+
+function renderVipPlans(plans, status, balance) {
+    const grid = document.getElementById('vipPlansGrid');
+    if (!grid) return;
+    if (!plans.length) {
+        grid.innerHTML = '<div class="empty-state">Nenhum plano VIP disponível no momento.</div>';
+        return;
+    }
+    const hasActiveVip = !!(status && status.isActive);
+    grid.innerHTML = plans.map(plan => {
+        const affordable = balance >= plan.price;
+        const disabled = hasActiveVip || !affordable;
+        let btnLabel = 'Comprar';
+        let note = '';
+        if (hasActiveVip) {
+            btnLabel = 'VIP ativo';
+            note = 'Aguarde seu VIP expirar.';
+        } else if (!affordable) {
+            btnLabel = 'Saldo insuficiente';
+            note = `Faltam ${number(plan.price - balance)} WCoin.`;
+        }
+        const featured = plan.name.toLowerCase() === 'gold' ? ' featured' : '';
+        return `
+            <article class="vip-plan-card${featured}">
+                <h4 class="vip-plan-name">${escapeHtml(plan.name)}</h4>
+                <div class="vip-plan-bonus">+${number(plan.dropBonusPercent)}% de drop</div>
+                <div class="vip-plan-duration">${number(plan.durationDays)} dias</div>
+                <div class="vip-plan-price">${number(plan.price)} <span>WCoin</span></div>
+                <button class="vip-buy-btn" data-plan="${escapeHtml(plan.name)}" ${disabled ? 'disabled' : ''}>${btnLabel}</button>
+                ${note ? `<small class="vip-plan-note">${escapeHtml(note)}</small>` : ''}
+            </article>`;
+    }).join('');
+    grid.querySelectorAll('.vip-buy-btn:not([disabled])').forEach(btn => {
+        btn.addEventListener('click', () => buyVip(btn.dataset.plan));
+    });
+}
+
+function renderVipHistory(history) {
+    const box = document.getElementById('vipHistoryBox');
+    if (!box) return;
+    if (!history.length) {
+        box.innerHTML = '<div class="empty-state">Nenhuma ativação registrada ainda.</div>';
+        return;
+    }
+    box.innerHTML = `
+        <table class="vip-history-table">
+            <thead><tr><th>Plano</th><th>Início</th><th>Expira</th><th>Origem</th></tr></thead>
+            <tbody>
+                ${history.map(item => `
+                    <tr>
+                        <td>${escapeHtml(item.planName)}</td>
+                        <td>${formatDateTime(item.startedAt)}</td>
+                        <td>${formatDateTime(item.expiresAt)}</td>
+                        <td>${escapeHtml(item.source || '-')}</td>
+                    </tr>`).join('')}
+            </tbody>
+        </table>`;
+}
+
+async function loadVipPanel() {
+    try {
+        const [statusRes, plansRes, historyRes] = await Promise.all([
+            fetch('/api/vip/status'),
+            fetch('/api/vip/plans'),
+            fetch('/api/vip/history')
+        ]);
+        const statusData = await statusRes.json();
+        const plansData = await plansRes.json();
+        const historyData = await historyRes.json();
+
+        const status = statusData.success ? statusData.vip : null;
+        const balance = statusData.success ? statusData.wcoinBalance : 0;
+        vipState.status = status;
+        vipState.balance = balance;
+
+        renderVipStatusBox(status, balance);
+        renderVipPlans(plansData.success ? plansData.plans : [], status, balance);
+        renderVipHistory(historyData.success ? historyData.history : []);
+        updateVipSummary(status);
+    } catch (error) {
+        const box = document.getElementById('vipStatusBox');
+        if (box) box.textContent = 'Erro ao carregar o painel VIP.';
+    }
+}
+
+async function buyVip(planName) {
+    if (!planName) return;
+    if (!window.confirm(`Confirmar a compra do VIP ${planName}? O valor será debitado das suas WCoin.`)) {
+        return;
+    }
+    try {
+        const response = await fetch('/api/vip/purchase', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ plan: planName })
+        });
+        const data = await response.json();
+        window.alert((data && data.message) || (response.ok ? 'VIP ativado com sucesso!' : 'Não foi possível concluir a compra.'));
+    } catch (error) {
+        window.alert('Erro de comunicação ao comprar o VIP.');
+    }
+    // Recarrega status, saldo, planos, histórico e o card do topo.
+    await loadVipPanel();
 }
 
 document.querySelectorAll('.panel-tab').forEach(tab => {
@@ -207,6 +372,10 @@ document.querySelectorAll('.panel-tab').forEach(tab => {
         // Load eventos.html content when Events tab is clicked
         if (tab.dataset.panel === 'events') {
             await loadEventsPanel();
+        }
+
+        if (tab.dataset.panel === 'vip') {
+            await loadVipPanel();
         }
     });
 });

@@ -21,6 +21,7 @@ services:
       DB_HOST: database
       ConnectionStrings__DefaultConnection: Host=database;Port=5432;Database=openmu;Username=postgres;Password=postgres
       RESOLVE_IP: 127.0.0.1
+      ASPNETCORE_ENVIRONMENT: Development
     working_dir: /app/
     command: ["-autostart"]
     volumes:

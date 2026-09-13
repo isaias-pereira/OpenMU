@@ -1393,6 +1393,24 @@ namespace MUnique.OpenMU.GameLogic.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Custom move chat command.
+        /// </summary>
+        public static string CustomMoveChatCommandPlugIn_Name {
+            get {
+                return ResourceManager.GetString("CustomMoveChatCommandPlugIn_Name", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Handles the chat command '/move &lt;name&gt;'. Moves the character to a custom registered move (e.g. /move bar).
+        /// </summary>
+        public static string CustomMoveChatCommandPlugIn_Description {
+            get {
+                return ResourceManager.GetString("CustomMoveChatCommandPlugIn_Description", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to This value is applied per pay interval and multiplied with the total character level..
         /// </summary>
         public static string MuHelperConfiguration_CostPerStage_Description {

@@ -429,6 +429,12 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
     public IStorage? Vault { get; set; }
 
     /// <summary>
+    /// Gets or sets the number of the vault (baú) which this player currently has selected, 1-based.
+    /// This is per character/session state - it is not persisted.
+    /// </summary>
+    public int CurrentVaultNumber { get; set; } = 1;
+
+    /// <summary>
     /// Gets or sets a value indicating whether the vault of the player is currently locked by a pin.
     /// </summary>
     public bool IsVaultLocked { get; set; }
@@ -2569,7 +2575,13 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
 
     private void LogInvalidVaultItems()
     {
-        var invalidItems = this.Account?.Vault?.Items.Where(i => i.Definition is null);
+        var vaultStorages = (this.Account?.Vault is { } legacyVault
+                ? new[] { legacyVault }
+                : Array.Empty<MUnique.OpenMU.DataModel.Entities.ItemStorage>())
+            .Concat(this.Account?.Vaults?.Select(v => v.Storage) ?? Array.Empty<MUnique.OpenMU.DataModel.Entities.ItemStorage>())
+            .Where(s => s is not null)
+            .Distinct();
+        var invalidItems = vaultStorages.SelectMany(s => s!.Items).Where(i => i.Definition is null).ToList();
         if (invalidItems is null)
         {
             return;

@@ -55,6 +55,7 @@ internal class Elvenland : BaseMapInitializer
         yield return this.CreateMonsterSpawn(13, this.NpcDictionary[492], 22, 225, Direction.South); // Moss
         yield return this.CreateMonsterSpawn(14, this.NpcDictionary[579], 20, 214, Direction.SouthEast); // David
         yield return this.CreateMonsterSpawn(15, this.NpcDictionary[568], 55, 199, Direction.South, SpawnTrigger.Wandering); // Wandering Merchant Zyro
+        yield return this.CreateMonsterSpawn(16, this.NpcDictionary[368], 42, 246, Direction.SouthWest); // Elphis (Refinery) - duplicate for easier access
     }
 
     /// <inheritdoc/>

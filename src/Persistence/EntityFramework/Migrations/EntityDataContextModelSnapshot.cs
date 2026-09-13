@@ -103,6 +103,110 @@ namespace MUnique.OpenMU.Persistence.EntityFramework.Migrations
                     b.ToTable("AccountCharacterClass", "data");
                 });
 
+            modelBuilder.Entity("MUnique.OpenMU.Persistence.EntityFramework.Model.AccountVault", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Number")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("StorageId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StorageId")
+                        .IsUnique();
+
+                    b.HasIndex("AccountId", "Number")
+                        .IsUnique();
+
+                    b.ToTable("AccountVault", "data");
+                });
+
+            modelBuilder.Entity("MUnique.OpenMU.Persistence.EntityFramework.Model.GensEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("GensType")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Rank")
+                        .HasColumnType("integer");
+
+                    b.Property<short>("Family")
+                        .HasColumnType("smallint");
+
+                    b.Property<long>("ContributionPoints")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("JoinDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GensType");
+
+                    b.HasIndex("ContributionPoints");
+
+                    b.ToTable("GensEntry", "data");
+                });
+
+            modelBuilder.Entity("MUnique.OpenMU.Persistence.EntityFramework.Model.CustomMoveEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Command")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Cost")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("MinLevel")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("MapId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<short>("X")
+                        .HasColumnType("smallint");
+
+                    b.Property<short>("Y")
+                        .HasColumnType("smallint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MapId");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("CustomMoveEntry", "data");
+                });
+
+            modelBuilder.Entity("MUnique.OpenMU.Persistence.EntityFramework.Model.CustomMoveEntry", b =>
+                {
+                    b.HasOne("MUnique.OpenMU.Persistence.EntityFramework.Model.GameMapDefinition", "Map")
+                        .WithMany()
+                        .HasForeignKey("MapId")
+                        .OnDelete(DeleteBehavior.SetNull);
+                });
+
+
+
             modelBuilder.Entity("MUnique.OpenMU.Persistence.EntityFramework.Model.AccountVip", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3611,6 +3715,40 @@ namespace MUnique.OpenMU.Persistence.EntityFramework.Migrations
                     b.Navigation("CharacterClass");
                 });
 
+            modelBuilder.Entity("MUnique.OpenMU.Persistence.EntityFramework.Model.AccountVault", b =>
+                {
+                    b.HasOne("MUnique.OpenMU.Persistence.EntityFramework.Model.Account", null)
+                        .WithMany("RawVaults")
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("MUnique.OpenMU.Persistence.EntityFramework.Model.ItemStorage", "RawStorage")
+                        .WithOne()
+                        .HasForeignKey("MUnique.OpenMU.Persistence.EntityFramework.Model.AccountVault", "StorageId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("RawStorage");
+                });
+
+            modelBuilder.Entity("MUnique.OpenMU.Persistence.EntityFramework.Model.GensEntry", b =>
+                {
+                    b.HasOne("MUnique.OpenMU.Persistence.EntityFramework.Model.Character", null)
+                        .WithOne()
+                        .HasForeignKey("MUnique.OpenMU.Persistence.EntityFramework.Model.GensEntry", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("MUnique.OpenMU.Persistence.EntityFramework.Model.CustomMoveEntry", b =>
+                {
+                    b.HasOne("MUnique.OpenMU.Persistence.EntityFramework.Model.GameMapDefinition", "Map")
+                        .WithMany()
+                        .HasForeignKey("MapId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Map");
+                });
+
             modelBuilder.Entity("MUnique.OpenMU.Persistence.EntityFramework.Model.AccountVip", b =>
                 {
                     b.HasOne("MUnique.OpenMU.Persistence.EntityFramework.Model.Account", null)
@@ -5139,6 +5277,8 @@ namespace MUnique.OpenMU.Persistence.EntityFramework.Migrations
                     b.Navigation("RawAttributes");
 
                     b.Navigation("RawCharacters");
+
+                    b.Navigation("RawVaults");
                 });
 
             modelBuilder.Entity("MUnique.OpenMU.Persistence.EntityFramework.Model.AppearanceData", b =>

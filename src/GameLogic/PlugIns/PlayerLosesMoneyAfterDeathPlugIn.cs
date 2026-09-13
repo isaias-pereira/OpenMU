@@ -43,12 +43,45 @@ public class PlayerLosesMoneyAfterDeathPlugIn : IAttackableGotKilledPlugIn, ISup
         this.Configuration ??= CreateDefaultConfiguration();
         var losses = this.GetLossPercentage((int)attributes[Stats.Level], characterClass.IsMasterClass);
         var inventoryLoss = (int)(player.Money * losses.InventoryLoss / 100.0);
-        var vaultLoss = (int)((player.Account?.Vault?.Money ?? 0) * losses.VaultLoss / 100.0);
 
         inventoryLoss = Math.Min(inventoryLoss, player.Money);
-        vaultLoss = Math.Min(vaultLoss, player.Account?.Vault?.Money ?? 0);
         player.TryRemoveMoney(inventoryLoss);
-        player.TryTakeVaultMoney(vaultLoss);
+
+        // Multi-vault: the vault money loss applies to every vault of the account with the same
+        // percentage. The currently open vault uses the regular take-money path (it refreshes the
+        // client view); closed vaults are reduced directly on their persistent storage.
+        var vaultStorages = (player.Account?.Vaults ?? Enumerable.Empty<MUnique.OpenMU.DataModel.Entities.AccountVault>())
+            .Select(v => v.Storage)
+            .Where(s => s is not null)
+            .ToList();
+        if (vaultStorages.Count == 0 && player.Account?.Vault is { } legacyVault)
+        {
+            vaultStorages.Add(legacyVault);
+        }
+
+        var openVaultStorage = player.Vault?.ItemStorage;
+        foreach (var storage in vaultStorages)
+        {
+            var vaultLoss = Math.Min((int)(storage!.Money * losses.VaultLoss / 100.0), storage.Money);
+
+            // The returned money must fit into the players inventory money, like TryTakeVaultMoney does.
+            var inventoryMoneyCap = (player.GameContext?.Configuration?.MaximumInventoryMoney ?? int.MaxValue) - player.Money;
+            vaultLoss = Math.Min(vaultLoss, Math.Max(0, inventoryMoneyCap));
+            if (vaultLoss <= 0)
+            {
+                continue;
+            }
+
+            if (ReferenceEquals(storage, openVaultStorage))
+            {
+                player.TryTakeVaultMoney(vaultLoss);
+            }
+            else
+            {
+                storage.Money -= vaultLoss;
+                player.TryAddMoney(vaultLoss);
+            }
+        }
     }
 
     /// <inheritdoc/>

@@ -41,6 +41,9 @@ public static class MapsterConfigurator
         Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.Account, MUnique.OpenMU.DataModel.Entities.Account>()
             .Include<MUnique.OpenMU.DataModel.Entities.Account, BasicModel.Account>();
 
+        Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.AccountVault, MUnique.OpenMU.DataModel.Entities.AccountVault>()
+            .Include<MUnique.OpenMU.DataModel.Entities.AccountVault, BasicModel.AccountVault>();
+
         Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.AccountVip, MUnique.OpenMU.DataModel.Entities.AccountVip>()
             .Include<MUnique.OpenMU.DataModel.Entities.AccountVip, BasicModel.AccountVip>();
 
@@ -52,6 +55,12 @@ public static class MapsterConfigurator
 
         Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.CharacterQuestState, MUnique.OpenMU.DataModel.Entities.CharacterQuestState>()
             .Include<MUnique.OpenMU.DataModel.Entities.CharacterQuestState, BasicModel.CharacterQuestState>();
+
+        Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.CustomMoveEntry, MUnique.OpenMU.DataModel.Entities.CustomMoveEntry>()
+            .Include<MUnique.OpenMU.DataModel.Entities.CustomMoveEntry, BasicModel.CustomMoveEntry>();
+
+        Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.GensEntry, MUnique.OpenMU.DataModel.Entities.GensEntry>()
+            .Include<MUnique.OpenMU.DataModel.Entities.GensEntry, BasicModel.GensEntry>();
 
         Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.Guild, MUnique.OpenMU.DataModel.Entities.Guild>()
             .Include<MUnique.OpenMU.DataModel.Entities.Guild, BasicModel.Guild>();
@@ -310,6 +319,9 @@ public static class MapsterConfigurator
 
         Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.PlugIns.PlugInConfiguration, MUnique.OpenMU.PlugIns.PlugInConfiguration>()
             .Include<MUnique.OpenMU.PlugIns.PlugInConfiguration, BasicModel.PlugInConfiguration>();
+
+        Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.GensEntry, MUnique.OpenMU.DataModel.Entities.GensEntry>()
+            .Include<MUnique.OpenMU.DataModel.Entities.GensEntry, BasicModel.GensEntry>();
 
 
         isConfigured = true;

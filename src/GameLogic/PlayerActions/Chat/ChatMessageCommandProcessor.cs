@@ -5,6 +5,7 @@
 namespace MUnique.OpenMU.GameLogic.PlayerActions.Chat;
 
 using MUnique.OpenMU.GameLogic.PlugIns.ChatCommands;
+using MUnique.OpenMU.PlugIns;
 
 /// <summary>
 /// A chat message processor which handles chat commands.
@@ -15,9 +16,25 @@ public class ChatMessageCommandProcessor : IChatMessageProcessor
     public async ValueTask ProcessMessageAsync(Player sender, (string Message, string PlayerName) content)
     {
         var commandKey = content.Message.Split(' ').First();
+
+        // Check custom move commands first (e.g. "/bar")
+        var movePlugIn = sender.GameContext.PlugInManager.GetStrategy<IChatCommandPlugIn>("/move");
+        if (movePlugIn is ISupportCustomConfiguration<CustomMoveConfiguration> moveConfig && moveConfig.Configuration is { } moveConfiguration)
+        {
+            var move = CustomMoveService.GetMove(commandKey, moveConfiguration);
+            if (move is not null)
+            {
+                var newName = move.Command ?? move.Name;
+                var newContent = $"/move {newName}" + content.Message[commandKey.Length..];
+                await movePlugIn.HandleCommandAsync(sender, newContent).ConfigureAwait(false);
+                return;
+            }
+        }
+
         var commandHandler = sender.GameContext.PlugInManager.GetStrategy<IChatCommandPlugIn>(commandKey);
         if (commandHandler is null)
         {
+            await sender.ShowLocalizedBlueMessageAsync(nameof(PlayerMessage.InvalidChatCommand), commandKey).ConfigureAwait(false);
             return;
         }
 

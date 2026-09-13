@@ -346,7 +346,7 @@ internal sealed class Program : IDisposable
         var pluginManager = new PlugInManager(null, serviceProvider.GetService<ILoggerFactory>()!, serviceProvider, referenceHandler);
         pluginManager.DiscoverAndRegisterPlugIns();
 
-        var typesWithCustomConfig = pluginManager.KnownPlugInTypes.Where(t => t.GetInterfaces().Contains(typeof(ISupportDefaultCustomConfiguration))).ToDictionary(t => t.GUID, t => t);
+        var typesWithCustomConfig = pluginManager.KnownPlugInTypes.Where(t => t.GetInterfaces().Contains(typeof(ISupportDefaultCustomConfiguration))).GroupBy(t => t.GUID).ToDictionary(g => g.Key, g => g.First());
 
         using var notificationSuspension = context.SuspendChangeNotifications();
         var typesWithMissingCustomConfigs = configs.Where(c => string.IsNullOrWhiteSpace(c.CustomConfiguration) && typesWithCustomConfig.ContainsKey(c.TypeId)).ToList();

@@ -621,6 +621,12 @@
   <data name="MoveChatCommandPlugIn_Description" xml:space="preserve">
     <value>Handles the chat command '/move &lt;target&gt; &lt;mapIdOrName?&gt; &lt;x?&gt; &lt;y?&gt;'. Moves the character to the specified destination.</value>
   </data>
+  <data name="CustomMoveChatCommandPlugIn_Name" xml:space="preserve">
+    <value>Custom move chat command</value>
+  </data>
+  <data name="CustomMoveChatCommandPlugIn_Description" xml:space="preserve">
+    <value>Handles the chat command '/move &lt;name&gt;'. Moves the character to a custom registered move (e.g. /move bar).</value>
+  </data>
   <data name="MoveMonsterChatCommand_Name" xml:space="preserve">
     <value>Move remote monster chat command</value>
   </data>

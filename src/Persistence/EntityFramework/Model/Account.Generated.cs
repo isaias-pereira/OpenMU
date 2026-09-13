@@ -30,6 +30,15 @@ internal partial class Account : MUnique.OpenMU.DataModel.Entities.Account, IIde
     
     
     /// <summary>
+    /// Gets the raw collection of <see cref="Vaults" />.
+    /// </summary>
+    public ICollection<AccountVault> RawVaults { get; } = new EntityFramework.List<AccountVault>();
+    
+    /// <inheritdoc/>
+    [NotMapped]
+    public override ICollection<MUnique.OpenMU.DataModel.Entities.AccountVault> Vaults => base.Vaults ??= new CollectionAdapter<MUnique.OpenMU.DataModel.Entities.AccountVault, AccountVault>(this.RawVaults);
+
+    /// <summary>
     /// Gets the raw collection of <see cref="Characters" />.
     /// </summary>
     public ICollection<Character> RawCharacters { get; } = new EntityFramework.List<Character>();

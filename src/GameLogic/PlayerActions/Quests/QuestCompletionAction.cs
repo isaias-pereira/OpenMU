@@ -6,8 +6,10 @@ namespace MUnique.OpenMU.GameLogic.PlayerActions.Quests;
 
 using MUnique.OpenMU.AttributeSystem;
 using MUnique.OpenMU.DataModel.Configuration.Quests;
+using MUnique.OpenMU.GameLogic;
 using MUnique.OpenMU.GameLogic.Attributes;
 using MUnique.OpenMU.GameLogic.Views.Character;
+using MUnique.OpenMU.GameLogic.Views.Gens;
 using MUnique.OpenMU.GameLogic.Views.Inventory;
 using MUnique.OpenMU.GameLogic.Views.Quest;
 using MUnique.OpenMU.Persistence;
@@ -164,7 +166,23 @@ public class QuestCompletionAction
                 await player.InvokeViewPlugInAsync<IUpdateMoneyPlugIn>(p => p.UpdateMoneyAsync()).ConfigureAwait(false);
                 break;
             case QuestRewardType.GensAttribution:
-                // not yet implemented.
+                if (player.SelectedCharacter is not { } gensCharacter)
+                {
+                    break;
+                }
+
+                var newContribution = await GensService.AddContributionAsync(player.PersistenceContext, gensCharacter.Id, reward.Value).ConfigureAwait(false);
+                if (newContribution >= 0)
+                {
+                    var gensStatus = GensService.GetGensStatus(gensCharacter.Id);
+                    if (gensStatus is not null)
+                    {
+                        await player.InvokeViewPlugInAsync<IGensViewPlugIn>(p => p.UpdateGensInfoAsync(gensStatus)).ConfigureAwait(false);
+                    }
+
+                    await player.ShowLocalizedBlueMessageAsync(nameof(PlayerMessage.GensContributionGained), reward.Value).ConfigureAwait(false);
+                }
+
                 break;
             case QuestRewardType.Skill:
                 if (reward.SkillReward is not { } skill)

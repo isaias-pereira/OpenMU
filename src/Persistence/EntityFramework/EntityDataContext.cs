@@ -94,6 +94,9 @@ public class EntityDataContext : ExtendedTypeContext
         modelBuilder.Entity<VipPlan>().Apply();
         modelBuilder.Entity<AccountVip>().Apply();
         modelBuilder.Entity<VipHistory>().Apply();
+        modelBuilder.Entity<AccountVault>().Apply();
+        modelBuilder.Entity<GensEntry>().Apply();
+        modelBuilder.Entity<CustomMoveEntry>().Apply();
 
         // join entity keys:
         this.AddJoinDefinitions(modelBuilder);

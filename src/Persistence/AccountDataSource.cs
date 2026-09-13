@@ -20,8 +20,8 @@ public sealed class AccountDataSource : DataSourceBase<Account>
     {
         { typeof(Account), a => Enumerable.Repeat(a, 1) },
         { typeof(Character), a => a.Characters },
-        { typeof(ItemStorage), a => a.Characters.Select(c => c.Inventory).Concat(Enumerable.Repeat(a.Vault, 1)).Where(i => i is not null) },
-        { typeof(Item), a => a.Characters.SelectMany(c => c.Inventory?.Items ?? Enumerable.Empty<Item>()).Concat(a.Vault?.Items ?? Enumerable.Empty<Item>()) },
+        { typeof(ItemStorage), a => a.Characters.Select(c => c.Inventory).Concat(Enumerable.Repeat(a.Vault, 1)).Concat(a.Vaults?.Select(v => v.Storage) ?? Enumerable.Empty<ItemStorage>()).Where(i => i is not null).Distinct() },
+        { typeof(Item), a => a.Characters.SelectMany(c => c.Inventory?.Items ?? Enumerable.Empty<Item>()).Concat(a.Vault?.Items ?? Enumerable.Empty<Item>()).Concat(a.Vaults?.SelectMany(v => v.Storage?.Items ?? Enumerable.Empty<Item>()) ?? Enumerable.Empty<Item>()).Distinct() },
         { typeof(StatAttribute), a => a.Characters.SelectMany(c => c.Attributes) },
         { typeof(LetterHeader), a => a.Characters.SelectMany(c => c.Letters) },
         { typeof(SkillEntry), a => a.Characters.SelectMany(c => c.LearnedSkills) },

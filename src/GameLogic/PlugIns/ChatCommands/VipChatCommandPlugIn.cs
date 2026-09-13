@@ -13,7 +13,7 @@ using MUnique.OpenMU.PlugIns;
 /// <summary>
 /// A chat command plugin which handles VIP activation and status.
 /// </summary>
-[Guid("A1B2C3D4-E5F6-7890-ABCD-EF1234567890")]
+[Guid("57D5E3B6-F833-4DF8-83EE-075D7FD8D9F6")]
 [PlugIn]
 [Display(Name = nameof(PlugInResources.VipChatCommandPlugIn_Name), Description = nameof(PlugInResources.VipChatCommandPlugIn_Description), ResourceType = typeof(PlugInResources))]
 [ChatCommandHelp(Command, typeof(VipCommandArguments), CharacterStatus.Normal)]

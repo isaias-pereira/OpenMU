@@ -121,9 +121,22 @@ public class Account
     /// <summary>
     /// Gets or sets the vault.
     /// </summary>
+    /// <remarks>
+    /// Legacy single vault. Kept for backward compatibility; the numbered vaults in
+    /// <see cref="Vaults"/> are the source of truth at runtime (the legacy vault is copied
+    /// to vault number 1 by the AddAccountVaults migration).
+    /// </remarks>
     [MemberOfAggregate]
     [HiddenAtCreation]
     public virtual ItemStorage? Vault { get; set; }
+
+    /// <summary>
+    /// Gets the numbered vaults (multi-vault support). Vault number 1 corresponds to the
+    /// legacy <see cref="Vault"/> after the data migration.
+    /// </summary>
+    [MemberOfAggregate]
+    [HiddenAtCreation]
+    public virtual ICollection<AccountVault> Vaults { get; protected set; } = null!;
 
     /// <summary>
     /// Gets or sets a value indicating whether this instance is vault extended.

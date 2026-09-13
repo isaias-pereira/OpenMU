@@ -44,6 +44,27 @@ public partial class Account : MUnique.OpenMU.DataModel.Entities.Account, IIdent
     }
 
     /// <summary>
+    /// Gets the raw collection of <see cref="Vaults" />.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonPropertyName("vaults")]
+    public ICollection<AccountVault> RawVaults { get; } = new List<AccountVault>();
+    
+    /// <inheritdoc/>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public override ICollection<MUnique.OpenMU.DataModel.Entities.AccountVault> Vaults
+    {
+        get => base.Vaults ??= new CollectionAdapter<MUnique.OpenMU.DataModel.Entities.AccountVault, AccountVault>(this.RawVaults);
+        protected set
+        {
+            this.Vaults.Clear();
+            foreach (var item in value)
+            {
+                this.Vaults.Add(item);
+            }
+        }
+    }
+
+    /// <summary>
     /// Gets the raw collection of <see cref="Characters" />.
     /// </summary>
     [System.Text.Json.Serialization.JsonPropertyName("characters")]

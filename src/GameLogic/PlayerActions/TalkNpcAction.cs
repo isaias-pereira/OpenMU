@@ -97,9 +97,10 @@ public class TalkNpcAction
 
                 break;
             case NpcWindow.VaultStorage:
-                player.Account!.Vault ??= player.PersistenceContext.CreateNew<ItemStorage>();
-                var warehouseSize = player.Account.IsVaultExtended ? InventoryConstants.WarehouseSize * 2 : InventoryConstants.WarehouseSize;
-                player.Vault = new Storage(warehouseSize, player.Account.Vault);
+                // Multi-vault: resolve the storage of the vault the player currently selected,
+                // lazily creating it and clamping the number to the VIP-tier access (anti-bypass).
+                var vaultStorage = await VaultAccess.GetOrCreateVaultStorageAsync(player).ConfigureAwait(false);
+                player.Vault = VaultAccess.CreateRuntimeStorage(player, vaultStorage);
                 await player.InvokeViewPlugInAsync<IShowVaultPlugIn>(p => p.ShowVaultAsync()).ConfigureAwait(false);
                 break;
             case NpcWindow.GuildMaster:

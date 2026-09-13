@@ -161,6 +161,9 @@ internal static class ModelGeneratorHelper
         result.Add(typeof(MUnique.OpenMU.Interfaces.Friend));
         result.Add(typeof(MUnique.OpenMU.PlugIns.PlugInConfiguration));
 
+        // custom entity types (in addition to the loaded ones) are added below
+        result.Add(typeof(MUnique.OpenMU.DataModel.Entities.GensEntry));
+
         return result;
     }
 }

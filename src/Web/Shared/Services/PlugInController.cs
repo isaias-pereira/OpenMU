@@ -131,7 +131,14 @@ public class PlugInController : IDataService<PlugInConfigurationViewItem>, ISupp
         try
         {
             var gameConfiguration = await this._dataSource.GetOwnerAsync(Guid.Empty);
-            var allPlugIns = GetPluginTypes().ToDictionary(t => t.GUID, t => t);
+            // Types are keyed by their GUID (COM GuidAttribute / Type.GUID).
+            // Be defensive against duplicate GUIDs (e.g. copy-pasted placeholder GUIDs or the same
+            // assembly loaded twice): keep the first type per GUID instead of throwing
+            // "An item with the same key has already been added".
+            var allPlugIns = GetPluginTypes()
+                .Where(t => t.GUID != Guid.Empty)
+                .GroupBy(t => t.GUID)
+                .ToDictionary(g => g.Key, g => g.First());
 
             var rest = count - result.Count;
 

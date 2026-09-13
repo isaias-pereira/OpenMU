@@ -439,6 +439,87 @@ namespace MUnique.OpenMU.GameLogic.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to You gained {0} gens contribution points..
+        /// </summary>
+        public static string GensContributionGained {
+            get {
+                return ResourceManager.GetString("GensContributionGained", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to You can&apos;t join a gens right now..
+        /// </summary>
+        public static string GensJoinFailed {
+            get {
+                return ResourceManager.GetString("GensJoinFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to You joined the {0} gens..
+        /// </summary>
+        public static string GensJoinSuccess {
+            get {
+                return ResourceManager.GetString("GensJoinSuccess", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to You are not in a gens..
+        /// </summary>
+        public static string GensLeaveFailed {
+            get {
+                return ResourceManager.GetString("GensLeaveFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to You left the current gens..
+        /// </summary>
+        public static string GensLeaveSuccess {
+            get {
+                return ResourceManager.GetString("GensLeaveSuccess", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to You are not a member of a gens..
+        /// </summary>
+        public static string GensNotInGens {
+            get {
+                return ResourceManager.GetString("GensNotInGens", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to You don&apos;t have enough gens contribution points to get a reward..
+        /// </summary>
+        public static string GensRewardNoPoints {
+            get {
+                return ResourceManager.GetString("GensRewardNoPoints", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to You can&apos;t get the gens reward because your inventory is full..
+        /// </summary>
+        public static string GensRewardNoSpace {
+            get {
+                return ResourceManager.GetString("GensRewardNoSpace", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to You received {0} zen as gens reward..
+        /// </summary>
+        public static string GensRewardSuccess {
+            get {
+                return ResourceManager.GetString("GensRewardSuccess", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to [{0}] {1} has been disconnected..
         /// </summary>
         public static string GuildDisconnectResult {
@@ -1456,6 +1537,69 @@ namespace MUnique.OpenMU.GameLogic.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The custom move system is currently disabled..
+        /// </summary>
+        public static string CustomMoveSystemDisabled {
+            get {
+                return ResourceManager.GetString("CustomMoveSystemDisabled", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Please specify a move name. Usage: /move &lt;name&gt;.
+        /// </summary>
+        public static string CustomMoveNameRequired {
+            get {
+                return ResourceManager.GetString("CustomMoveNameRequired", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Move '{0}' was not found. Check the available moves..
+        /// </summary>
+        public static string CustomMoveNotFound {
+            get {
+                return ResourceManager.GetString("CustomMoveNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The target map for this move is not properly configured..
+        /// </summary>
+        public static string CustomMoveMapNotConfigured {
+            get {
+                return ResourceManager.GetString("CustomMoveMapNotConfigured", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to You need to be at least level {0} to use this move..
+        /// </summary>
+        public static string CustomMoveLevelTooLow {
+            get {
+                return ResourceManager.GetString("CustomMoveLevelTooLow", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to You need {0} zen to use this move..
+        /// </summary>
+        public static string CustomMoveNotEnoughMoney {
+            get {
+                return ResourceManager.GetString("CustomMoveNotEnoughMoney", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to You have been moved to {1} via '{0}'..
+        /// </summary>
+        public static string CustomMoveSuccess {
+            get {
+                return ResourceManager.GetString("CustomMoveSuccess", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Your account has been temporarily banned by a game master..
         /// </summary>
         public static string TemporaryBanByGameMaster {
@@ -1470,6 +1614,15 @@ namespace MUnique.OpenMU.GameLogic.Properties {
         public static string TheVaultIsLocked {
             get {
                 return ResourceManager.GetString("TheVaultIsLocked", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The command '{0}' is not available..
+        /// </summary>
+        public static string InvalidChatCommand {
+            get {
+                return ResourceManager.GetString("InvalidChatCommand", resourceCulture);
             }
         }
         

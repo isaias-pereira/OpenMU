@@ -34,6 +34,7 @@ public class ChatMessageAction
             { ChatMessageType.Command, new ChatMessageCommandProcessor() },
             { ChatMessageType.Whisper, new ChatMessageWhisperProcessor() },
             { ChatMessageType.Party, new ChatMessagePartyProcessor() },
+            { ChatMessageType.Gens, new ChatMessageGensProcessor() },
             { ChatMessageType.Alliance, new ChatMessageAllianceProcessor() },
             { ChatMessageType.Guild, new ChatMessageGuildProcessor() },
             { ChatMessageType.GlobalNotification, new ChatMessageGlobalNotificationProcessor() },
