@@ -19,6 +19,10 @@
 
   <ItemGroup>
     <None Remove="PlugIns\InvasionEvents\" />
+    <!-- Quiz está incompleto neste branch: QuizSession.cs nunca foi commitado e
+         QuizRewardService.cs usa `static const` inválido. Excluído da compilação
+         até a peça faltante ser restaurada (os .cs permanecem no disco). -->
+    <Compile Remove="Quiz\**" />
   </ItemGroup>
 
   <ItemGroup>
