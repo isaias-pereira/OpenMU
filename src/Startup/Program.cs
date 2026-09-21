@@ -20,6 +20,7 @@ using MUnique.OpenMU.ConnectServer;
 using MUnique.OpenMU.DataModel.Configuration;
 using MUnique.OpenMU.FriendServer;
 using MUnique.OpenMU.GameLogic;
+using MUnique.OpenMU.GameLogic.CashShop;
 using MUnique.OpenMU.GuildServer;
 using MUnique.OpenMU.Interfaces;
 using MUnique.OpenMU.LoginServer;
@@ -279,6 +280,8 @@ internal sealed class Program : IDisposable
             .AddSingleton<IEnumerable<IConnectServer>>(provider => provider.GetService<ConnectServerContainer>() ?? throw new Exception($"{nameof(ConnectServerContainer)} not registered."))
             .AddSingleton<IGuildChangePublisher, GuildChangeToGameServerPublisher>()
             .AddSingleton<IFriendNotifier, FriendNotifierToGameServer>()
+            .AddMemoryCache()
+            .AddSingleton<ICashShopCatalogService, CashShopCatalogService>()
             .AddSingleton<PlugInManager>()
             .AddSingleton<IServerProvider, LocalServerProvider>()
             .AddSingleton<ICollection<PlugInConfiguration>>(this.PlugInConfigurationsFactory)

@@ -170,6 +170,10 @@ internal static class ModelGeneratorHelper
         result.Add(typeof(MUnique.OpenMU.DataModel.Entities.QuizRound));
         result.Add(typeof(MUnique.OpenMU.DataModel.Entities.QuizRoundQuestion));
         result.Add(typeof(MUnique.OpenMU.DataModel.Entities.QuizWinner));
+        result.Add(typeof(MUnique.OpenMU.DataModel.Entities.CashShopCategory));
+        result.Add(typeof(MUnique.OpenMU.DataModel.Entities.CashShopPackage));
+        result.Add(typeof(MUnique.OpenMU.DataModel.Entities.CashShopProduct));
+        result.Add(typeof(MUnique.OpenMU.DataModel.Entities.CashShopPackageProduct));
 
         return result;
     }

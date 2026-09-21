@@ -50,6 +50,18 @@ public static class MapsterConfigurator
         Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.AppearanceData, MUnique.OpenMU.DataModel.Entities.AppearanceData>()
             .Include<MUnique.OpenMU.DataModel.Entities.AppearanceData, BasicModel.AppearanceData>();
 
+        Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.CashShopCategory, MUnique.OpenMU.DataModel.Entities.CashShopCategory>()
+            .Include<MUnique.OpenMU.DataModel.Entities.CashShopCategory, BasicModel.CashShopCategory>();
+
+        Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.CashShopPackage, MUnique.OpenMU.DataModel.Entities.CashShopPackage>()
+            .Include<MUnique.OpenMU.DataModel.Entities.CashShopPackage, BasicModel.CashShopPackage>();
+
+        Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.CashShopPackageProduct, MUnique.OpenMU.DataModel.Entities.CashShopPackageProduct>()
+            .Include<MUnique.OpenMU.DataModel.Entities.CashShopPackageProduct, BasicModel.CashShopPackageProduct>();
+
+        Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.CashShopProduct, MUnique.OpenMU.DataModel.Entities.CashShopProduct>()
+            .Include<MUnique.OpenMU.DataModel.Entities.CashShopProduct, BasicModel.CashShopProduct>();
+
         Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.Character, MUnique.OpenMU.DataModel.Entities.Character>()
             .Include<MUnique.OpenMU.DataModel.Entities.Character, BasicModel.Character>();
 
@@ -361,6 +373,18 @@ public static class MapsterConfigurator
 
         Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.QuizWinner, MUnique.OpenMU.DataModel.Entities.QuizWinner>()
             .Include<MUnique.OpenMU.DataModel.Entities.QuizWinner, BasicModel.QuizWinner>();
+
+        Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.CashShopCategory, MUnique.OpenMU.DataModel.Entities.CashShopCategory>()
+            .Include<MUnique.OpenMU.DataModel.Entities.CashShopCategory, BasicModel.CashShopCategory>();
+
+        Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.CashShopPackage, MUnique.OpenMU.DataModel.Entities.CashShopPackage>()
+            .Include<MUnique.OpenMU.DataModel.Entities.CashShopPackage, BasicModel.CashShopPackage>();
+
+        Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.CashShopProduct, MUnique.OpenMU.DataModel.Entities.CashShopProduct>()
+            .Include<MUnique.OpenMU.DataModel.Entities.CashShopProduct, BasicModel.CashShopProduct>();
+
+        Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.CashShopPackageProduct, MUnique.OpenMU.DataModel.Entities.CashShopPackageProduct>()
+            .Include<MUnique.OpenMU.DataModel.Entities.CashShopPackageProduct, BasicModel.CashShopPackageProduct>();
 
 
         isConfigured = true;

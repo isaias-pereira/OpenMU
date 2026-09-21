@@ -29,6 +29,10 @@ public class ExtendedTypeContext : Microsoft.EntityFrameworkCore.DbContext
         modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.AccountVault>();
         modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.AccountVip>();
         modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.AppearanceData>();
+        modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.CashShopCategory>();
+        modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.CashShopPackage>();
+        modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.CashShopPackageProduct>();
+        modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.CashShopProduct>();
         modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.Character>();
         modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.CharacterQuestState>();
         modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.CustomMoveEntry>();
@@ -133,6 +137,10 @@ public class ExtendedTypeContext : Microsoft.EntityFrameworkCore.DbContext
         modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.QuizRound>();
         modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.QuizRoundQuestion>();
         modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.QuizWinner>();
+        modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.CashShopCategory>();
+        modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.CashShopPackage>();
+        modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.CashShopProduct>();
+        modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.CashShopPackageProduct>();
 
         // All members which are marked with the MemberOfAggregateAttribute, should be defined with ON DELETE CASCADE.
         modelBuilder.Entity<Account>().HasOne(entity => entity.RawVault).WithOne().OnDelete(DeleteBehavior.Cascade);
@@ -141,6 +149,10 @@ public class ExtendedTypeContext : Microsoft.EntityFrameworkCore.DbContext
         modelBuilder.Entity<Account>().HasMany(entity => entity.RawAttributes).WithOne().OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<AccountVault>().HasOne(entity => entity.RawStorage).WithOne().OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<AppearanceData>().HasMany(entity => entity.RawEquippedItems).WithOne().OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<CashShopCategory>().HasMany(entity => entity.RawSubCategories).WithOne().OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<CashShopCategory>().HasMany(entity => entity.RawPackages).WithOne().OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<CashShopPackage>().HasMany(entity => entity.RawPackageProducts).WithOne().OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<CashShopProduct>().HasMany(entity => entity.RawPackageProducts).WithOne().OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<Character>().HasMany(entity => entity.RawAttributes).WithOne().OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<Character>().HasMany(entity => entity.RawLetters).WithOne().OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<Character>().HasMany(entity => entity.RawLearnedSkills).WithOne().OnDelete(DeleteBehavior.Cascade);
@@ -230,6 +242,10 @@ public class ExtendedTypeContext : Microsoft.EntityFrameworkCore.DbContext
         modelBuilder.Entity<SimpleCraftingSettings>().HasMany(entity => entity.RawResultItems).WithOne().OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<PowerUpDefinition>().HasOne(entity => entity.RawBoost).WithOne().OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<PowerUpDefinitionValue>().HasMany(entity => entity.RawRelatedValues).WithOne().OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<CashShopCategory>().HasMany(entity => entity.RawSubCategories).WithOne().OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<CashShopCategory>().HasMany(entity => entity.RawPackages).WithOne().OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<CashShopPackage>().HasMany(entity => entity.RawPackageProducts).WithOne().OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<CashShopProduct>().HasMany(entity => entity.RawPackageProducts).WithOne().OnDelete(DeleteBehavior.Cascade);
 
     }
 

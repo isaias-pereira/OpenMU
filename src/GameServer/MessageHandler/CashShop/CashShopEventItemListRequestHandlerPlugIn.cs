@@ -13,17 +13,24 @@ using MUnique.OpenMU.PlugIns;
 /// <summary>
 /// Handler for the cash shop event item list request (C1 D2 13). The client requests the number
 /// of event items of a category, and afterwards the item list itself (D2 14).
+/// Integrado com CashShopCatalogService (Fase 6) para retornar pacotes ativos.
 /// </summary>
-/// <remarks>
-/// The event shop is not implemented yet (FASE 10), so this always answers with a zero count.
-/// </remarks>
 [PlugIn]
 [Display(Name = "Cash Shop Event List Handler", Description = "Answers the cash shop event item list request (D2 13).")]
 [Guid("B00C92E4-54F4-4D8E-BFDA-5F5E295E26C0")]
 [BelongsToGroup(CashShopGroupHandlerPlugIn.GroupKey)]
 internal class CashShopEventItemListRequestHandlerPlugIn : ISubPacketHandlerPlugIn
 {
-    private readonly CashShopEventItemListAction _action = new();
+    private readonly CashShopEventItemListAction _action;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="CashShopEventItemListRequestHandlerPlugIn"/> class.
+    /// </summary>
+    /// <param name="action">The cash shop event item list action.</param>
+    public CashShopEventItemListRequestHandlerPlugIn(CashShopEventItemListAction action)
+    {
+        this._action = action ?? throw new ArgumentNullException(nameof(action));
+    }
 
     /// <inheritdoc/>
     public bool IsEncryptionExpected => false;

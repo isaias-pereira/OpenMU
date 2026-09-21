@@ -97,6 +97,10 @@ public class EntityDataContext : ExtendedTypeContext
         modelBuilder.Entity<AccountVault>().Apply();
         modelBuilder.Entity<GensEntry>().Apply();
         modelBuilder.Entity<CustomMoveEntry>().Apply();
+        modelBuilder.Entity<CashShopCategory>().Apply();
+        modelBuilder.Entity<CashShopPackage>().Apply();
+        modelBuilder.Entity<CashShopProduct>().Apply();
+        modelBuilder.Entity<CashShopPackageProduct>().Apply();
         modelBuilder.Entity<QuizConfiguration>().Apply();
         modelBuilder.Entity<QuizQuestion>().Apply();
         modelBuilder.Entity<QuizAnswer>().Apply();

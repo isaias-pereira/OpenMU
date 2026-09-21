@@ -4,22 +4,31 @@
 
 namespace MUnique.OpenMU.GameLogic.PlayerActions.CashShop;
 
+using MUnique.OpenMU.GameLogic.CashShop;
 using MUnique.OpenMU.GameLogic.Views.CashShop;
 
 /// <summary>
 /// Action to handle the cash shop event item list request (D2 13).
+/// Integrado com o CashShopCatalogService (Fase 6) para retornar pacotes ativos por categoria.
 /// </summary>
-/// <remarks>
-/// The event shop is not implemented yet (FASE 10), so this always answers with a count of
-/// zero items, which the client renders as an empty event list.
-/// </remarks>
 public class CashShopEventItemListAction
 {
+    private readonly ICashShopCatalogService _catalogService;
+
     /// <summary>
-    /// Handles the event item list request by answering a zero item count (D2 13).
+    /// Initializes a new instance of the <see cref="CashShopEventItemListAction"/> class.
+    /// </summary>
+    /// <param name="catalogService">The cash shop catalog service.</param>
+    public CashShopEventItemListAction(ICashShopCatalogService catalogService)
+    {
+        this._catalogService = catalogService ?? throw new ArgumentNullException(nameof(catalogService));
+    }
+
+    /// <summary>
+    /// Handles the event item list request by returning active packages for the requested category.
     /// </summary>
     /// <param name="player">The player.</param>
-    /// <param name="categoryIndex">The requested event category index.</param>
+    /// <param name="categoryIndex">The requested event category index (ProductDisplaySeq).</param>
     public async ValueTask RequestListAsync(Player player, uint categoryIndex)
     {
         if (player.SelectedCharacter is null)
@@ -27,6 +36,10 @@ public class CashShopEventItemListAction
             return;
         }
 
-        await player.InvokeViewPlugInAsync<ICashShopViewPlugIn>(p => p.ShowEventItemCountAsync(0)).ConfigureAwait(false);
+        // Buscar pacotes ativos da categoria solicitada
+        var packages = await this._catalogService.GetPackagesByCategoryAsync((int)categoryIndex).ConfigureAwait(false);
+        var activePackageCount = packages.Count;
+
+        await player.InvokeViewPlugInAsync<ICashShopViewPlugIn>(p => p.ShowEventItemCountAsync((ushort)activePackageCount)).ConfigureAwait(false);
     }
 }
