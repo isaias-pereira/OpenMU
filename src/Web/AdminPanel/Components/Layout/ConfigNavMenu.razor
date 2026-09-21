@@ -1,5 +1,6 @@
 ﻿@using MUnique.OpenMU.DataModel.Configuration
 @using MUnique.OpenMU.DataModel.Configuration.Items
+@using MUnique.OpenMU.DataModel.Entities
 @using MUnique.OpenMU.Web.AdminPanel.Properties
 
 <li class="dropdown">
@@ -23,6 +24,10 @@
             <NavLink href="@($"edit-config-grid/{typeof(MiniGameDefinition).FullName}/")" @onclick="() => NavigationHistory.Clear()">@Resources.MiniGames</NavLink>
             <NavLink href="@($"edit-config-grid/{typeof(WarpInfo).FullName}/")" @onclick="() => NavigationHistory.Clear()">@Resources.WarpList</NavLink>
             <NavLink href="@($"edit-config-grid/{typeof(JewelMix).FullName}/")" @onclick="() => NavigationHistory.Clear()">@Resources.JewelMixes</NavLink>
+            <hr/>
+            <NavLink href="@($"edit-config-grid/{typeof(CashShopCategory).FullName}/")" @onclick="() => NavigationHistory.Clear()">@Resources.CashShopCategories</NavLink>
+            <NavLink href="@($"edit-config-grid/{typeof(CashShopPackage).FullName}/")" @onclick="() => NavigationHistory.Clear()">@Resources.CashShopPackages</NavLink>
+            <NavLink href="@($"edit-config-grid/{typeof(CashShopProduct).FullName}/")" @onclick="() => NavigationHistory.Clear()">@Resources.CashShopProducts</NavLink>
             <hr/>
             <NavLink href="plugins" @onclick="() => NavigationHistory.Clear()">
                 <span class="oi oi-puzzle-piece" aria-hidden="true"></span> @Resources.Plugins

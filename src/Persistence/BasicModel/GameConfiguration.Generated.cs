@@ -467,6 +467,69 @@ public partial class GameConfiguration : MUnique.OpenMU.DataModel.Configuration.
     }
 
     /// <summary>
+    /// Gets the raw collection of <see cref="CashShopCategories" />.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonPropertyName("cashShopCategories")]
+    public ICollection<CashShopCategory> RawCashShopCategories { get; } = new List<CashShopCategory>();
+    
+    /// <inheritdoc/>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public override ICollection<MUnique.OpenMU.DataModel.Entities.CashShopCategory> CashShopCategories
+    {
+        get => base.CashShopCategories ??= new CollectionAdapter<MUnique.OpenMU.DataModel.Entities.CashShopCategory, CashShopCategory>(this.RawCashShopCategories);
+        protected set
+        {
+            this.CashShopCategories.Clear();
+            foreach (var item in value)
+            {
+                this.CashShopCategories.Add(item);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Gets the raw collection of <see cref="CashShopPackages" />.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonPropertyName("cashShopPackages")]
+    public ICollection<CashShopPackage> RawCashShopPackages { get; } = new List<CashShopPackage>();
+    
+    /// <inheritdoc/>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public override ICollection<MUnique.OpenMU.DataModel.Entities.CashShopPackage> CashShopPackages
+    {
+        get => base.CashShopPackages ??= new CollectionAdapter<MUnique.OpenMU.DataModel.Entities.CashShopPackage, CashShopPackage>(this.RawCashShopPackages);
+        protected set
+        {
+            this.CashShopPackages.Clear();
+            foreach (var item in value)
+            {
+                this.CashShopPackages.Add(item);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Gets the raw collection of <see cref="CashShopProducts" />.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonPropertyName("cashShopProducts")]
+    public ICollection<CashShopProduct> RawCashShopProducts { get; } = new List<CashShopProduct>();
+    
+    /// <inheritdoc/>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public override ICollection<MUnique.OpenMU.DataModel.Entities.CashShopProduct> CashShopProducts
+    {
+        get => base.CashShopProducts ??= new CollectionAdapter<MUnique.OpenMU.DataModel.Entities.CashShopProduct, CashShopProduct>(this.RawCashShopProducts);
+        protected set
+        {
+            this.CashShopProducts.Clear();
+            foreach (var item in value)
+            {
+                this.CashShopProducts.Add(item);
+            }
+        }
+    }
+
+    /// <summary>
     /// Gets the raw object of <see cref="DuelConfiguration" />.
     /// </summary>
     [System.Text.Json.Serialization.JsonPropertyName("duelConfiguration")]

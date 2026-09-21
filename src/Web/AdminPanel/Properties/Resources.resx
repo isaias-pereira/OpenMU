@@ -432,6 +432,15 @@
   <data name="JewelMixes" xml:space="preserve">
     <value>Jewel mixes</value>
   </data>
+  <data name="CashShopCategories" xml:space="preserve">
+    <value>Cash Shop Categories</value>
+  </data>
+  <data name="CashShopPackages" xml:space="preserve">
+    <value>Cash Shop Packages</value>
+  </data>
+  <data name="CashShopProducts" xml:space="preserve">
+    <value>Cash Shop Products</value>
+  </data>
   <data name="General" xml:space="preserve">
     <value>General</value>
   </data>

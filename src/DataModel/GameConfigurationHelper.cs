@@ -13,6 +13,7 @@ using MUnique.OpenMU.DataModel.Attributes;
 using MUnique.OpenMU.DataModel.Configuration;
 using MUnique.OpenMU.DataModel.Configuration.ItemCrafting;
 using MUnique.OpenMU.DataModel.Configuration.Items;
+using MUnique.OpenMU.DataModel.Entities;
 using MUnique.OpenMU.DataModel.Configuration.Quests;
 using MUnique.OpenMU.DataModel.Entities;
 using MUnique.OpenMU.PlugIns;
@@ -105,6 +106,9 @@ public static class GameConfigurationHelper
         { typeof(MiniGameSpawnWave), c => c.MiniGameDefinitions.SelectMany(m => m.SpawnWaves) },
         { typeof(MiniGameChangeEvent), c => c.MiniGameDefinitions.SelectMany(m => m.ChangeEvents) },
         { typeof(MiniGameTerrainChange), c => c.MiniGameDefinitions.SelectMany(m => m.ChangeEvents).SelectMany(e => e.TerrainChanges) },
+    { typeof(CashShopCategory), c => c.CashShopCategories },
+    { typeof(CashShopPackage), c => c.CashShopPackages },
+    { typeof(CashShopProduct), c => c.CashShopProducts },
     }.AsReadOnly();
 
     /// <summary>

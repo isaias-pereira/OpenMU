@@ -218,6 +218,33 @@ internal partial class GameConfiguration : MUnique.OpenMU.DataModel.Configuratio
     public override ICollection<MUnique.OpenMU.DataModel.Configuration.MiniGameDefinition> MiniGameDefinitions => base.MiniGameDefinitions ??= new CollectionAdapter<MUnique.OpenMU.DataModel.Configuration.MiniGameDefinition, MiniGameDefinition>(this.RawMiniGameDefinitions);
 
     /// <summary>
+    /// Gets the raw collection of <see cref="CashShopCategories" />.
+    /// </summary>
+    public ICollection<CashShopCategory> RawCashShopCategories { get; } = new EntityFramework.List<CashShopCategory>();
+    
+    /// <inheritdoc/>
+    [NotMapped]
+    public override ICollection<MUnique.OpenMU.DataModel.Entities.CashShopCategory> CashShopCategories => base.CashShopCategories ??= new CollectionAdapter<MUnique.OpenMU.DataModel.Entities.CashShopCategory, CashShopCategory>(this.RawCashShopCategories);
+
+    /// <summary>
+    /// Gets the raw collection of <see cref="CashShopPackages" />.
+    /// </summary>
+    public ICollection<CashShopPackage> RawCashShopPackages { get; } = new EntityFramework.List<CashShopPackage>();
+    
+    /// <inheritdoc/>
+    [NotMapped]
+    public override ICollection<MUnique.OpenMU.DataModel.Entities.CashShopPackage> CashShopPackages => base.CashShopPackages ??= new CollectionAdapter<MUnique.OpenMU.DataModel.Entities.CashShopPackage, CashShopPackage>(this.RawCashShopPackages);
+
+    /// <summary>
+    /// Gets the raw collection of <see cref="CashShopProducts" />.
+    /// </summary>
+    public ICollection<CashShopProduct> RawCashShopProducts { get; } = new EntityFramework.List<CashShopProduct>();
+    
+    /// <inheritdoc/>
+    [NotMapped]
+    public override ICollection<MUnique.OpenMU.DataModel.Entities.CashShopProduct> CashShopProducts => base.CashShopProducts ??= new CollectionAdapter<MUnique.OpenMU.DataModel.Entities.CashShopProduct, CashShopProduct>(this.RawCashShopProducts);
+
+    /// <summary>
     /// Gets or sets the identifier of <see cref="DuelConfiguration"/>.
     /// </summary>
     public Guid? DuelConfigurationId { get; set; }
