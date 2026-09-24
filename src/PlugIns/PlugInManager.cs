@@ -9,7 +9,6 @@ using System.ComponentModel.Design;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text.Json.Serialization;
-using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Nito.Disposables.Internals;
@@ -25,7 +24,23 @@ public class PlugInManager
     private readonly IDictionary<Guid, Type> _knownPlugIns = new ConcurrentDictionary<Guid, Type>();
     private readonly ConcurrentDictionary<Type, ISet<Type>> _knownPlugInsPerInterfaceType = new ();
     private readonly ConcurrentDictionary<Guid, Type> _activePlugIns = new ();
-    private object? _lastCreatedPlugIn;
+
+    // Cache for generic RegisterPlugIn method to avoid reflection overhead
+    private static readonly System.Reflection.MethodInfo? s_registerPlugInMethod =
+        typeof(PlugInManager).GetMethods()
+            .FirstOrDefault(mi => mi.IsGenericMethodDefinition && mi.Name == nameof(RegisterPlugIn) && mi.GetGenericArguments().Length == 2);
+
+    /// <summary>
+    /// Gets or sets the assembly name prefixes to exclude from plugin discovery.
+    /// Default excludes System, Microsoft, Nito, and Blazor assemblies.
+    /// </summary>
+    public static IReadOnlyList<string> ExcludedAssemblyPrefixes { get; set; } = new[]
+    {
+        "System",
+        "Microsoft",
+        "Nito",
+        "Blazor"
+    };
 
     /// <summary>
     /// Initializes a new instance of the <see cref="PlugInManager" /> class.
@@ -36,8 +51,6 @@ public class PlugInManager
     /// <param name="customConfigReferenceHandler">The reference handler used when deserializing custom plug-in configurations.</param>
     public PlugInManager(ICollection<PlugInConfiguration>? configurations, ILoggerFactory loggerFactory, IServiceProvider? serviceProvider, ReferenceHandler? customConfigReferenceHandler)
     {
-        _ = typeof(Nito.AsyncEx.AsyncReaderWriterLock); // Ensure Nito.AsyncEx.Coordination is loaded so it will be available in proxy generation.
-
         this._logger = loggerFactory.CreateLogger<PlugInManager>();
         this._serviceContainer = new ServiceContainer(serviceProvider);
         this._serviceContainer.AddService(typeof(PlugInManager), this);
@@ -83,6 +96,15 @@ public class PlugInManager
     /// Gets the reference handler for references in custom plugin configurations.
     /// </summary>
     public ReferenceHandler? CustomConfigReferenceHandler { get; }
+
+    /// <summary>
+    /// Gets the service provider used to resolve plug-in dependencies.
+    /// </summary>
+    /// <remarks>
+    /// The provider includes the application services and the services registered by this manager.
+    /// It is used by containers that create plug-in instances outside of the manager itself.
+    /// </remarks>
+    public IServiceProvider ServiceProvider => this._serviceContainer;
 
     /// <summary>
     /// Discovers and registers all plug ins of all loaded assemblies.
@@ -287,8 +309,7 @@ public class PlugInManager
         this.RegisterPlugInType(typeof(TPlugInClass));
         if (typeof(TPlugInInterface).GetCustomAttribute(typeof(PlugInPointAttribute)) != null)
         {
-            var plugIn = this._lastCreatedPlugIn as TPlugInClass ?? this.CreatePlugInInstance<TPlugInClass>();
-            this._lastCreatedPlugIn = plugIn;
+            var plugIn = this.CreatePlugInInstance<TPlugInClass>();
             this.RegisterPlugInAtPlugInPoint<TPlugInInterface>(plugIn);
         }
         else if (this.GetCustomPlugInPointType(typeof(TPlugInInterface)) is { } customPlugInPointType)
@@ -415,16 +436,13 @@ public class PlugInManager
                 }
                 catch (Exception e)
                 {
-                    this._logger.LogError($"Error while loading external plugin assembly {configuration.ExternalAssemblyName} for plugin {configuration.TypeId}.", e);
+                    this._logger.LogError(e, "Error while loading external plugin assembly {AssemblyName} for plugin {PluginId}", configuration.ExternalAssemblyName, configuration.TypeId);
                     return;
                 }
             }
             else if (!string.IsNullOrEmpty(configuration.CustomPlugInSource))
             {
-                this._logger.LogWarning($"Custom plugin source found at plugin configuration: {configuration}");
-                /* TODO: Implement code signing, if we really need this feature.
-                Assembly customPlugInAssembly = this.CompileCustomPlugInAssembly(configuration);
-                this.DiscoverAndRegisterPlugIns(customPlugInAssembly);*/
+                this._logger.LogWarning("Custom plugin source compilation is disabled for security reasons. Plugin {PluginId} will not be loaded.", configuration.TypeId);
             }
             else
             {
@@ -447,7 +465,7 @@ public class PlugInManager
         }
         else
         {
-            this._logger.LogWarning($"Unknown plugin type for id {configuration.TypeId}");
+            this._logger.LogWarning("Unknown plugin type for id {PluginId}", configuration.TypeId);
         }
     }
 
@@ -477,17 +495,6 @@ public class PlugInManager
         this.PlugInConfigurationChanged?.Invoke(this, new PlugInConfigurationChangedEventArgs(plugInType, configuration));
     }
 
-    private Assembly CompileCustomPlugInAssembly(PlugInConfiguration configuration)
-    {
-        if (string.IsNullOrEmpty(configuration.CustomPlugInSource))
-        {
-            throw new ArgumentNullException(nameof(configuration));
-        }
-
-        var syntaxTree = SyntaxFactory.ParseSyntaxTree(configuration.CustomPlugInSource!);
-        return syntaxTree.CompileAndLoad($"CustomPlugIn_{configuration.TypeId}");
-    }
-
     private IEnumerable<Type> DiscoverNewPlugIns()
     {
         return this.DiscoverNewPlugIns(this.DiscoverAllPlugIns());
@@ -501,12 +508,10 @@ public class PlugInManager
 
     private IEnumerable<Type> DiscoverAllPlugIns()
     {
+        var excludedPrefixes = ExcludedAssemblyPrefixes;
         return AppDomain.CurrentDomain.GetAssemblies()
             .Where(assembly => assembly.FullName is not null)
-            .Where(assembly => !assembly.FullName!.StartsWith("System"))
-            .Where(assembly => !assembly.FullName!.StartsWith("Microsoft"))
-            .Where(assembly => !assembly.FullName!.StartsWith("Nito"))
-            .Where(assembly => !assembly.FullName!.StartsWith("Blazor"))
+            .Where(assembly => !excludedPrefixes.Any(prefix => assembly.FullName!.StartsWith(prefix)))
             .SelectMany(assembly =>
                 {
                     try
@@ -517,8 +522,9 @@ public class PlugInManager
                     {
                         return ex.Types.WhereNotNull();
                     }
-                    catch (Exception)
+                    catch (Exception ex)
                     {
+                        this._logger.LogWarning(ex, "Error loading types from assembly {AssemblyName}", assembly.FullName);
                         return Enumerable.Empty<Type>();
                     }
                 }
@@ -541,17 +547,21 @@ public class PlugInManager
                 var plugInInterfaces = plugIn.GetInterfaces().Where(t => t.IsInterface && (t.GetCustomAttribute<PlugInPointAttribute>() != null || t.GetCustomAttribute<CustomPlugInContainerAttribute>() != null));
                 foreach (var plugInInterface in plugInInterfaces)
                 {
-                    var genericMethod = this.GetType().GetMethods().FirstOrDefault(mi => mi.IsGenericMethod && mi.Name == nameof(this.RegisterPlugIn))?.MakeGenericMethod(plugInInterface, plugIn);
-                    genericMethod?.Invoke(this, []);
+                    if (s_registerPlugInMethod != null)
+                    {
+                        var genericMethod = s_registerPlugInMethod.MakeGenericMethod(plugInInterface, plugIn);
+                        genericMethod.Invoke(this, null);
+                    }
+                    else
+                    {
+                        this._logger.LogError("RegisterPlugIn generic method not found. This should not happen.");
+                    }
                 }
             }
             catch (Exception e)
             {
-                this._logger.LogError(e, $"Couldn't register plugin type {plugIn}");
-                this._logger.LogError("TODO: Use ServiceContainer");
+                this._logger.LogError(e, "Couldn't register plugin type {PluginType}", plugIn);
             }
-
-            this._lastCreatedPlugIn = null;
         }
     }
 

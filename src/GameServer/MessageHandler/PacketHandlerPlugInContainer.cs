@@ -43,7 +43,7 @@ public class PacketHandlerPlugInContainer<THandler> : StrategyPlugInProvider<byt
     {
         this._clientVersionProvider = clientVersionProvider;
         this._clientVersionProvider.ClientVersionChanged += this.OnClientVersionChanged;
-        this._serviceContainer = new ServiceContainer();
+        this._serviceContainer = new ServiceContainer(manager.ServiceProvider);
         this._serviceContainer.AddService(typeof(IClientVersionProvider), clientVersionProvider);
         this._serviceContainer.AddService(typeof(PlugInManager), manager);
         this._serviceContainer.AddService(typeof(ILoggerFactory), loggerFactory);

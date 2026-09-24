@@ -3,7 +3,7 @@
 # ------------------------------
 
 # ---- Build stage (compila tudo) -------------------------------------------------
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 # --- 1️⃣  Restaurar pacotes -----------------------------------------
@@ -15,8 +15,8 @@ COPY src/Directory.Build.props .
 COPY src/Startup/*.csproj  Startup/
 COPY src/Persistence/**/*.csproj Persistence/
 
-# Restaurar pacotes
-RUN dotnet restore Startup/*.csproj Persistence/**/*.csproj
+# Restaurar pacotes (Startup project will pull all its project references)
+RUN dotnet restore Startup/MUnique.OpenMU.Startup.csproj
 
 # --- 2️⃣  Copie o restante do código -----------------------------
 COPY src/ .
@@ -24,21 +24,21 @@ COPY src/ .
 # --- 3️⃣  Compilar -----------------------------------------------------------
 # Ajuste os nomes dos projetos de acordo com sua solução
 # aqui assumimos que o projeto que abre o servidor está em
-# src/Startup/Server/Server.csproj
-RUN dotnet build Startup/Server/Server.csproj \
+# src/Startup/MUnique.OpenMU.Startup.csproj
+RUN dotnet build Startup/MUnique.OpenMU.Startup.csproj \
     -c Release \
     -o /app/build \
     -p:ci=true
 
 # ---- Publish stage (gera o artefacto final) ----------------------------
 FROM build AS publish
-RUN dotnet publish Startup/Server/Server.csproj \
+RUN dotnet publish Startup/MUnique.OpenMU.Startup.csproj \
     -c Release \
     -o /app/publish \
     -p:ci=true
 
 # ---- Final stage (runtime) -----------------------------------------------
-FROM mcr.microsoft.com/dotnet/runtime:8.0 AS final
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
 
 # Copie apenas os artefatos produzidos, incluindo as DLLs de plugins
@@ -55,4 +55,4 @@ USER ${APP_UID}
 EXPOSE 8080 55901 55902 55903 55904 55905 55906 44405 55980
 
 # Starto o servidor
-ENTRYPOINT ["dotnet", "Server.dll", "-autostart"]
+ENTRYPOINT ["dotnet", "MUnique.OpenMU.Startup.dll", "-autostart"]

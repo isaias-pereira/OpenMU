@@ -59,4 +59,12 @@ public interface ICashShopViewPlugIn : IViewPlugIn
     /// </summary>
     /// <param name="itemCount">The number of event items; 0 leaves the event list empty.</param>
     ValueTask ShowEventItemCountAsync(ushort itemCount);
+
+    /// <summary>
+    /// Sends the result of an item buy request (D2 03 response).
+    /// </summary>
+    /// <param name="success">If set to <c>true</c>, the purchase succeeded.</param>
+    /// <param name="errorCode">The error code if purchase failed.</param>
+    /// <param name="deliveredItem">The name of the delivered item on success.</param>
+    ValueTask ShowBuyResultAsync(bool success, int errorCode, string? deliveredItem);
 }

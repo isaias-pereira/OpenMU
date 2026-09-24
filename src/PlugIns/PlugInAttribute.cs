@@ -9,4 +9,11 @@ namespace MUnique.OpenMU.PlugIns;
 /// May be helpful for debugging and the user interface.
 /// </summary>
 [AttributeUsage(AttributeTargets.Class)]
-public class PlugInAttribute : Attribute;
+public class PlugInAttribute : Attribute
+{
+    /// <summary>
+    /// Gets or sets the priority of the plugin. Higher values are executed first.
+    /// Default is 0.
+    /// </summary>
+    public int Priority { get; set; } = 0;
+}

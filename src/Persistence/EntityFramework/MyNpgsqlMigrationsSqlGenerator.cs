@@ -25,6 +25,10 @@ internal class MyNpgsqlMigrationsSqlGenerator : NpgsqlMigrationsSqlGenerator
         nameof(ItemOptionLink),
         nameof(ItemItemOfItemSet),
         nameof(ItemStorage),
+        nameof(CashShopCategory),
+        nameof(CashShopPackage),
+        nameof(CashShopPackageProduct),
+        nameof(CashShopProduct),
     };
 
     /// <summary>

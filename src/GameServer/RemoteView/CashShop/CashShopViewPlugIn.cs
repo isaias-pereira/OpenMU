@@ -61,4 +61,11 @@ public class CashShopViewPlugIn : ICashShopViewPlugIn
     {
         await this._player.Connection.SendCashShopEventItemCountAsync(itemCount).ConfigureAwait(false);
     }
+
+    /// <inheritdoc/>
+    public async ValueTask ShowBuyResultAsync(bool success, int errorCode, string? deliveredItem)
+    {
+        var resultCode = success ? (byte)0 : (byte)errorCode;
+        await this._player.Connection.SendCashShopBuyResultAsync(resultCode, 0).ConfigureAwait(false);
+    }
 }

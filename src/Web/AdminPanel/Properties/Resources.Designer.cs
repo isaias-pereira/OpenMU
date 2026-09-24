@@ -205,6 +205,33 @@ namespace MUnique.OpenMU.Web.AdminPanel.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Cash Shop Categories.
+        /// </summary>
+        public static string CashShopCategories {
+            get {
+                return ResourceManager.GetString("CashShopCategories", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Cash Shop Packages.
+        /// </summary>
+        public static string CashShopPackages {
+            get {
+                return ResourceManager.GetString("CashShopPackages", resourceCulture);
+            }
+        }
+
+        /// <summary>
+        ///   Looks up a localized string similar to Cash Shop Products.
+        /// </summary>
+        public static string CashShopProducts {
+            get {
+                return ResourceManager.GetString("CashShopProducts", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   Looks up a localized string similar to Change password.
         /// </summary>
         public static string ChangePassword {

@@ -191,6 +191,36 @@ public static class CashShopConnectionExtensions
     }
 
     /// <summary>
+    /// Sends the cash shop item purchase result (C1 D2 03) to the client.
+    /// </summary>
+    /// <param name="connection">The connection.</param>
+    /// <param name="resultCode">The result code; zero indicates success.</param>
+    /// <param name="itemLeftCount">The remaining item count.</param>
+    public static async ValueTask SendCashShopBuyResultAsync(this IConnection? connection, byte resultCode, int itemLeftCount)
+    {
+        if (connection is null)
+        {
+            return;
+        }
+
+        int WritePacket()
+        {
+            const byte length = 9;
+            var span = connection.Output.GetSpan(length)[..length];
+            span[0] = 0xC1;
+            span[1] = length;
+            span[2] = PacketCode;
+            span[3] = 0x03;
+            span[4] = resultCode;
+            BinaryPrimitives.WriteInt32LittleEndian(span[5..9], itemLeftCount);
+            return length;
+        }
+
+        await connection.SendAsync(WritePacket).ConfigureAwait(false);
+    }
+
+
+    /// <summary>
     /// Sends the cash shop banner version (C1 D2 15) to the client. Layout is identical to the
     /// script version (0C); with KJH_MOD_SHOP_SCRIPT_DOWNLOAD it just records the version.
     /// </summary>

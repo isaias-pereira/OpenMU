@@ -11,7 +11,7 @@ services:
       - openmu-startup
 
   openmu-startup:
-    image: munique/openmu
+    image: openmu:local
     container_name: openmu-startup
     ports:
       - "8080"
@@ -41,10 +41,11 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: openmu
       POSTGRES_USER: postgres
+      POSTGRES_HOST_AUTH_METHOD: trust
     ports:
       - "5432"
     volumes:
-      - dbdata:/var/lib/postgresql/data #store data on volume
+      - dbdata:/var/lib/postgresql #store data on volume
 
 volumes:
   dbdata:

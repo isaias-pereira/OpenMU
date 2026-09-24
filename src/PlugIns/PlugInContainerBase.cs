@@ -4,6 +4,8 @@
 
 namespace MUnique.OpenMU.PlugIns;
 
+using System.Linq;
+using System.Reflection;
 using Nito.AsyncEx;
 
 /// <summary>
@@ -45,12 +47,12 @@ public class PlugInContainerBase<TPlugIn> : IPlugInContainer<TPlugIn>
     protected AsyncReaderWriterLock Lock { get; } = new ();
 
     /// <summary>
-    /// Gets the currently active plug ins.
+    /// Gets the currently active plug ins, ordered by priority (highest first).
     /// </summary>
     /// <value>
     /// The currently active plug ins.
     /// </value>
-    protected IList<TPlugIn> ActivePlugIns { get; } = new List<TPlugIn>();
+    protected List<TPlugIn> ActivePlugIns { get; } = new List<TPlugIn>();
 
     /// <summary>
     /// Gets the known plug ins.
@@ -88,12 +90,32 @@ public class PlugInContainerBase<TPlugIn> : IPlugInContainer<TPlugIn>
     }
 
     /// <summary>
-    /// Activates the plug in.
+    /// Gets the priority of a plugin from its PlugInAttribute.
+    /// </summary>
+    /// <param name="plugIn">The plugin instance.</param>
+    /// <returns>The priority value, or 0 if not specified.</returns>
+    protected static int GetPluginPriority(TPlugIn plugIn)
+    {
+        var attribute = plugIn.GetType().GetCustomAttribute<PlugInAttribute>();
+        return attribute?.Priority ?? 0;
+    }
+
+    /// <summary>
+    /// Activates the plug in, inserting it in priority order (highest priority first).
     /// </summary>
     /// <param name="plugIn">The plug in.</param>
     protected virtual void ActivatePlugIn(TPlugIn plugIn)
     {
-        this.ActivePlugIns.Add(plugIn);
+        var priority = GetPluginPriority(plugIn);
+        var insertIndex = this.ActivePlugIns.FindIndex(p => GetPluginPriority(p) < priority);
+        if (insertIndex < 0)
+        {
+            this.ActivePlugIns.Add(plugIn);
+        }
+        else
+        {
+            this.ActivePlugIns.Insert(insertIndex, plugIn);
+        }
     }
 
     /// <summary>

@@ -1,0 +1,130 @@
+@* <copyright file="CustomMoveConfigurationEditor.razor" company="MUnique">
+   Licensed under the MIT License. See LICENSE file in the project root for full license information.
+   </copyright> *@
+
+@using MUnique.OpenMU.DataModel.Configuration
+@using MUnique.OpenMU.DataModel.Entities
+@using MUnique.OpenMU.GameLogic.PlugIns.ChatCommands
+@using MUnique.OpenMU.Persistence
+@using MUnique.OpenMU.Web.Shared.Services
+
+@inject ILookupController LookupController
+
+<div class="custom-move-editor">
+    <div class="form-group form-check mb-3">
+        <InputCheckbox id="customMoveEnabled" @bind-Value="this.Configuration.Enabled" class="form-check-input" />
+        <label for="customMoveEnabled" class="form-check-label">Enabled</label>
+        <small class="form-text text-muted d-block">Enables or disables the custom move system.</small>
+    </div>
+
+    <h5>Moves</h5>
+    <small class="form-text text-muted d-block mb-2">List of registered custom moves. Each move can be triggered in the chat with its command, e.g. <code>/bar</code>.</small>
+
+    <table class="table table-sm table-striped">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Command</th>
+                <th>Map</th>
+                <th style="width: 70px;">X</th>
+                <th style="width: 70px;">Y</th>
+                <th style="width: 100px;">Cost</th>
+                <th style="width: 90px;">Min Level</th>
+                <th style="width: 60px;"></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var move in this.Configuration.Moves)
+            {
+                <tr>
+                    <td>
+                        <input type="text" class="form-control form-control-sm" @bind="move.Name" placeholder="bar" title="Name shown in the success message" />
+                    </td>
+                    <td>
+                        <input type="text" class="form-control form-control-sm" @bind="move.Command" placeholder="bar" title="Chat command without slash. /bar triggers this move." />
+                    </td>
+                    <td>
+                        <BlazoredTypeahead TItem="GameMapDefinition" TValue="GameMapDefinition"
+                                           Value="move.Map"
+                                           ValueChanged="@(map => this.OnMapChanged(move, map))"
+                                           ValueExpression="@(() => move.Map)"
+                                           SearchMethod="@(text => this.LookupController.GetSuggestionsAsync<GameMapDefinition>(text, this.PersistenceContext))"
+                                           EnableDropDown="true"
+                                           MaximumSuggestions="20"
+                                           placeholder="Search map ..."
+                                           class="form-control-sm">
+                            <SelectedTemplate Context="map">
+                                @(map?.Name ?? string.Empty)
+                            </SelectedTemplate>
+                            <ResultTemplate Context="map">
+                                @map.Name
+                            </ResultTemplate>
+                        </BlazoredTypeahead>
+                    </td>
+                    <td>
+                        <InputNumber class="form-control form-control-sm" @bind-Value="move.X" />
+                    </td>
+                    <td>
+                        <InputNumber class="form-control form-control-sm" @bind-Value="move.Y" />
+                    </td>
+                    <td>
+                        <InputNumber class="form-control form-control-sm" @bind-Value="move.Cost" title="Zen cost. 0 = free" />
+                    </td>
+                    <td>
+                        <InputNumber class="form-control form-control-sm" @bind-Value="move.MinLevel" />
+                    </td>
+                    <td>
+                        <button type="button" class="btn btn-danger btn-sm" title="Remove this move" @onclick="() => this.OnRemoveMove(move)">
+                            <span class="oi oi-trash" aria-hidden="true"></span>
+                        </button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="8">
+                    <button type="button" class="btn btn-primary btn-sm" @onclick="this.OnAddMove">
+                        <span class="oi oi-plus" aria-hidden="true"></span> Add Move
+                    </button>
+                </td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+
+@code {
+    /// <summary>
+    /// Gets or sets the configuration which is being edited.
+    /// </summary>
+    [Parameter]
+    public CustomMoveConfiguration Configuration { get; set; } = null!;
+
+    /// <summary>
+    /// Gets or sets the persistence context which is required for the map lookup.
+    /// </summary>
+    [CascadingParameter]
+    public IContext PersistenceContext { get; set; } = null!;
+
+    /// <inheritdoc />
+    protected override void OnParametersSet()
+    {
+        base.OnParametersSet();
+        this.Configuration.Moves ??= new List<CustomMoveEntry>();
+    }
+
+    private void OnAddMove()
+    {
+        this.Configuration.Moves.Add(new CustomMoveEntry(Guid.NewGuid()));
+    }
+
+    private void OnRemoveMove(CustomMoveEntry move)
+    {
+        this.Configuration.Moves.Remove(move);
+    }
+
+    private void OnMapChanged(CustomMoveEntry move, GameMapDefinition? map)
+    {
+        move.Map = map;
+    }
+}

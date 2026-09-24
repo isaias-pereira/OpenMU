@@ -4,11 +4,15 @@
 
 namespace MUnique.OpenMU.Tests;
 
+using System.ComponentModel.Design;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using MUnique.OpenMU.GameLogic;
+using MUnique.OpenMU.GameLogic.CashShop;
+using MUnique.OpenMU.GameLogic.PlayerActions.CashShop;
 using MUnique.OpenMU.GameServer;
 using MUnique.OpenMU.GameServer.MessageHandler;
+using MUnique.OpenMU.GameServer.MessageHandler.CashShop;
 using MUnique.OpenMU.Network.PlugIns;
 using MUnique.OpenMU.PlugIns;
 
@@ -128,6 +132,28 @@ public class PacketHandlerPlugInContainerTest
         containerForSeason6.Initialize();
         var handler = containerForSeason6[HandlerKey];
         Assert.That(handler!.GetType(), Is.EqualTo(typeof(PacketHandlerSeason6English)));
+    }
+
+    /// <summary>
+    /// Tests that a packet handler group can resolve application services required by its sub-handlers.
+    /// </summary>
+    [Test]
+    public void CashShopGroupResolvesApplicationServicesForSubHandler()
+    {
+        var catalogService = new Mock<ICashShopCatalogService>();
+        var serviceContainer = new ServiceContainer();
+        serviceContainer.AddService(typeof(ICashShopCatalogService), catalogService.Object);
+        serviceContainer.AddService(typeof(CashShopEventItemListAction), new CashShopEventItemListAction(catalogService.Object));
+        var manager = new PlugInManager(null, new NullLoggerFactory(), serviceContainer, null);
+        manager.RegisterPlugIn<IPacketHandlerPlugIn, CashShopGroupHandlerPlugIn>();
+        manager.RegisterPlugIn<ISubPacketHandlerPlugIn, CashShopEventItemListRequestHandlerPlugIn>();
+        var clientVersionProvider = new Mock<IClientVersionProvider>();
+        clientVersionProvider.Setup(p => p.ClientVersion).Returns(Season6E3English);
+
+        using var container = new MainPacketHandlerPlugInContainer(clientVersionProvider.Object, manager, new NullLoggerFactory());
+        container.Initialize();
+
+        Assert.That(container[CashShopGroupHandlerPlugIn.GroupKey], Is.TypeOf<CashShopGroupHandlerPlugIn>());
     }
 
     /// <summary>
