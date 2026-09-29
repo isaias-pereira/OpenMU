@@ -24,8 +24,9 @@ public class ChatMessageCommandProcessor : IChatMessageProcessor
             var move = CustomMoveService.GetMove(commandKey, moveConfiguration);
             if (move is not null)
             {
-                var newName = move.Command ?? move.Name;
-                var newContent = $"/move {newName}" + content.Message[commandKey.Length..];
+                // The /move plugin resolves moves by their name, so the rewritten command must
+                // use the name, even when the player typed the configured alias (e.g. "/bar").
+                var newContent = $"/move {move.Name}" + content.Message[commandKey.Length..];
                 await movePlugIn.HandleCommandAsync(sender, newContent).ConfigureAwait(false);
                 return;
             }

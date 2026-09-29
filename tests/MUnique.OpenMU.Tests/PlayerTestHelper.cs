@@ -26,7 +26,7 @@ public static class PlayerTestHelper
     /// Gets a test player with a new in-memory game context.
     /// </summary>
     /// <returns>The test player.</returns>
-    public static async ValueTask<Player> CreatePlayerAsync()
+    public static async ValueTask<Player> CreatePlayerAsync(Func<ICustomPlugInContainer<IViewPlugIn>>? viewContainerFactory = null)
     {
         var gameConfig = new Mock<GameConfiguration>();
         gameConfig.SetupAllProperties();
@@ -52,7 +52,7 @@ public static class PlayerTestHelper
         var gameContext = new GameContext(gameConfig.Object, new InMemoryPersistenceContextProvider(), mapInitializer, new NullLoggerFactory(), new PlugInManager(null, new NullLoggerFactory(), null, null), NullDropGenerator.Instance, new ConfigurationChangeMediator());
         mapInitializer.PlugInManager = gameContext.PlugInManager;
         mapInitializer.PathFinderPool = gameContext.PathFinderPool;
-        return await CreatePlayerAsync(gameContext).ConfigureAwait(false);
+        return await CreatePlayerAsync(gameContext, viewContainerFactory).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -60,7 +60,7 @@ public static class PlayerTestHelper
     /// </summary>
     /// <param name="gameContext">The game context.</param>
     /// <returns>The test player.</returns>
-    public static async ValueTask<Player> CreatePlayerAsync(IGameContext gameContext)
+    public static async ValueTask<Player> CreatePlayerAsync(IGameContext gameContext, Func<ICustomPlugInContainer<IViewPlugIn>>? viewContainerFactory = null)
     {
         var characterMock = new Mock<Character>();
         characterMock.SetupAllProperties();
@@ -132,7 +132,7 @@ public static class PlayerTestHelper
         var accountMock = new Mock<Account>();
         accountMock.Setup(mock => mock.Attributes).Returns(new List<StatAttribute>());
         accountMock.Setup(mock => mock.UnlockedCharacterClasses).Returns(new List<CharacterClass>());
-        var player = new TestPlayer(gameContext) { Account = accountMock.Object };
+        var player = new TestPlayer(gameContext, viewContainerFactory) { Account = accountMock.Object };
         await player.PlayerState.TryAdvanceToAsync(PlayerState.LoginScreen).ConfigureAwait(false);
         await player.PlayerState.TryAdvanceToAsync(PlayerState.Authenticated).ConfigureAwait(false);
         await player.PlayerState.TryAdvanceToAsync(PlayerState.CharacterSelection).ConfigureAwait(false);
@@ -159,14 +159,17 @@ public static class PlayerTestHelper
 
     private class TestPlayer : Player
     {
-        public TestPlayer(IGameContext gameContext)
+        private readonly Func<ICustomPlugInContainer<IViewPlugIn>>? viewContainerFactory;
+
+        public TestPlayer(IGameContext gameContext, Func<ICustomPlugInContainer<IViewPlugIn>>? viewContainerFactory = null)
             : base(gameContext)
         {
+            this.viewContainerFactory = viewContainerFactory;
         }
 
         protected override ICustomPlugInContainer<IViewPlugIn> CreateViewPlugInContainer()
         {
-            return new MockViewPlugInContainer();
+            return this.viewContainerFactory?.Invoke() ?? new MockViewPlugInContainer();
         }
     }
 }

@@ -44,16 +44,25 @@ public class CustomMoveEntry
     public virtual GameMapDefinition? Map { get; set; }
 
     /// <summary>
-    /// Gets or sets the chat command to trigger this move (e.g. "/bar").
+    /// Gets or sets the chat command to trigger this move (e.g. "bar" or "/bar").
     /// If not set, defaults to "/{Name}".
     /// </summary>
-    [Display(Name = "Command", Description = "Chat command to trigger this move (e.g. /bar). Leave empty to use /{Name}.")]
+    [Display(Name = "Command", Description = "Chat command to trigger this move (e.g. bar or /bar). Leave empty to use /{Name}.")]
     public string? Command { get; set; }
 
     /// <summary>
-    /// Gets the effective command for this move.
+    /// Gets the effective command for this move, always with a single leading slash
+    /// (e.g. "/bar"). The configured <see cref="Command"/> is tolerated with or
+    /// without a leading slash and with surrounding whitespace.
     /// </summary>
-    public string EffectiveCommand => $"/{this.Command ?? this.Name}";
+    public string EffectiveCommand
+    {
+        get
+        {
+            var command = this.Command?.Trim().TrimStart('/');
+            return $"/{(string.IsNullOrEmpty(command) ? this.Name : command)}";
+        }
+    }
 
     /// <summary>
     /// Gets or sets the X coordinate.

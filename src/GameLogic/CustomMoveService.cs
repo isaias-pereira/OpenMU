@@ -22,7 +22,7 @@ public static class CustomMoveService
     /// <returns>The move entry; null if not found.</returns>
     public static CustomMoveEntry? GetMove(string command, CustomMoveConfiguration configuration)
     {
-        if (configuration.Moves is null)
+        if (configuration?.Moves is null)
         {
             return null;
         }
