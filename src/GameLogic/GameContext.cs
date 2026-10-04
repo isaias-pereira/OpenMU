@@ -349,16 +349,29 @@ public class GameContext : AsyncDisposable, IGameContext
             this.PlayersByCharacterName.TryRemove(player.SelectedCharacter.Name, out _);
         }
 
-        player.CurrentMap?.RemoveAsync(player);
-
-        using (await this._playerListLock.WriterLockAsync())
+        try
         {
-            this._playerList.Remove(player);
+            if (player.CurrentMap is { } map)
+            {
+                await map.RemoveAsync(player).ConfigureAwait(false);
+            }
         }
-
-        player.PlayerDisconnected -= this.RemovePlayerAsync;
-        player.PlayerEnteredWorld -= this.PlayerEnteredWorldAsync;
-        player.PlayerLeftWorld -= this.PlayerLeftWorldAsync;
+        finally
+        {
+            try
+            {
+                using (await this._playerListLock.WriterLockAsync())
+                {
+                    this._playerList.Remove(player);
+                }
+            }
+            finally
+            {
+                player.PlayerDisconnected -= this.RemovePlayerAsync;
+                player.PlayerEnteredWorld -= this.PlayerEnteredWorldAsync;
+                player.PlayerLeftWorld -= this.PlayerLeftWorldAsync;
+            }
+        }
     }
 
     /// <summary>

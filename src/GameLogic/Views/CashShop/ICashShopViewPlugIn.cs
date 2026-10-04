@@ -37,6 +37,21 @@ public interface ICashShopViewPlugIn : IViewPlugIn
     ValueTask ShowStorageCountAsync(ushort totalItemCount, ushort currentPageItemCount, ushort pageIndex, ushort totalPage);
 
     /// <summary>
+    /// Sends one storage item of the requested page (D2 0D). The client expects exactly
+    /// <c>currentPageItemCount</c> of these after <see cref="ShowStorageCountAsync"/> and
+    /// resolves the displayed item through its own local catalog, using the product and
+    /// price sequences sent here.
+    /// </summary>
+    /// <param name="storageIndex">The index of the line in the storage.</param>
+    /// <param name="itemSeq">The item sequence within the storage.</param>
+    /// <param name="storageGroupCode">The storage group code of the product.</param>
+    /// <param name="productSeq">The product sequence the item was bought from.</param>
+    /// <param name="priceSeq">The price sequence the item was bought with; zero resolves by product only.</param>
+    /// <param name="cashPoint">The cash points which were paid for the item.</param>
+    /// <param name="itemType">The item type: <c>'P'</c> for a product, <c>'C'</c> for currency.</param>
+    ValueTask ShowStorageItemAsync(int storageIndex, int itemSeq, int storageGroupCode, int productSeq, int priceSeq, double cashPoint, char itemType);
+
+    /// <summary>
     /// Sends the script catalog version (D2 0C). This is the message which unlocks the shop
     /// client-side (SetScriptVersion + ShopOpenUnLock). The client then loads the local
     /// catalog folder data\InGameShopScript\{saleZone:000}.{year:0000}.{yearIdentify:000}\.

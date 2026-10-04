@@ -26,7 +26,10 @@ services:
       - "55980:55980"
     environment:
       DB_HOST: database
-      ConnectionStrings__DefaultConnection: Host=database;Port=5432;Database=openmu;Username=postgres;Password=postgres
+      # The server reads DB_HOST/DB_NAME/DB_ADMIN_USER/DB_ADMIN_PW (see
+      # ConfigFileDatabaseConnectionStringProvider). A ConnectionStrings__DefaultConnection entry here
+      # would be ignored, because the connection strings come from ConnectionSettings.xml.
+      DB_NAME: openmu
       ASPNETCORE_URLS: http://+:8080
     working_dir: /app/
     volumes:

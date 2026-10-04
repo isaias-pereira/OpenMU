@@ -6,6 +6,7 @@ namespace MUnique.OpenMU.GameLogic;
 
 using System;
 using System.Globalization;
+using System.Runtime.ExceptionServices;
 using System.Threading;
 using MUnique.OpenMU.AttributeSystem;
 using MUnique.OpenMU.DataModel.Attributes;
@@ -1509,17 +1510,98 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
             try
             {
                 await this.InternalDisconnectAsync().ConfigureAwait(false);
-                if (this.PlayerDisconnected is { } disconnectedEventHandler)
-                {
-                    this.PlayerDisconnected = null;
-                    await disconnectedEventHandler(this).ConfigureAwait(false);
-                }
+                await this.InvokeDisconnectedHandlersAsync().ConfigureAwait(false);
             }
             finally
             {
                 await this.PlayerState.TryAdvanceToAsync(GameLogic.PlayerState.Finished).ConfigureAwait(false);
             }
         }
+    }
+
+    /// <summary>
+    /// Disconnects the player from the game without saving the progress.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is the safe counterpart of <see cref="DisconnectAsync"/> for a session whose
+    /// <see cref="IPlayerContext"/> is known to be dirty. It runs the <b>same</b> disconnect
+    /// pipeline — the state transition to <see cref="GameLogic.PlayerState.Disconnected"/>, the
+    /// internal disconnect hook (which closes the network connection in
+    /// <c>RemotePlayer</c>), the <see cref="PlayerDisconnected"/> handlers (which remove the
+    /// player from the <c>GameContext</c> lists, the character name dictionary, the map and the
+    /// online records, and which set the player offline at the login server), and the final
+    /// transition to <see cref="GameLogic.PlayerState.Finished"/> — but it never saves.
+    /// </para>
+    /// <para>
+    /// Nothing here suppresses <see cref="PlayerDisconnected"/>: those handlers are the ones
+    /// performing the removal and the presence update, so dropping them would leave the player
+    /// registered in the player list and on the map. The dirty state is kept from being
+    /// persisted by skipping the save and by disposing the context afterwards, see
+    /// <see cref="InvalidatePersistenceContext"/>.
+    /// </para>
+    /// </remarks>
+    /// <returns>
+    /// <c>true</c> when all disconnect steps completed and the final state was reached;
+    /// <c>false</c> when the state machine refused a required transition.
+    /// </returns>
+    /// <exception cref="Exception">One or more cleanup steps failed. Independent cleanup
+    /// steps are attempted before the failure is reported, and the player is not marked finished.</exception>
+    public async ValueTask<bool> DisconnectWithoutSavingAsync()
+    {
+        var failures = new List<Exception>();
+        await RunDisconnectStepAsync(this.CloseTradeIfNeededAsync, failures).ConfigureAwait(false);
+        if (!await this.PlayerState.TryAdvanceToAsync(GameLogic.PlayerState.Disconnected).ConfigureAwait(false))
+        {
+            ThrowDisconnectFailures(failures);
+            return false;
+        }
+
+        await RunDisconnectStepAsync(this.InternalDisconnectWithoutSavingAsync, failures).ConfigureAwait(false);
+        await RunDisconnectStepAsync(this.InvokeDisconnectedHandlersAsync, failures).ConfigureAwait(false);
+        ThrowDisconnectFailures(failures);
+
+        return await this.PlayerState.TryAdvanceToAsync(GameLogic.PlayerState.Finished).ConfigureAwait(false);
+    }
+
+    private async ValueTask InvokeDisconnectedHandlersAsync()
+    {
+        var handlers = this.PlayerDisconnected;
+        this.PlayerDisconnected = null;
+        if (handlers is null)
+        {
+            return;
+        }
+
+        var failures = new List<Exception>();
+        foreach (AsyncEventHandler<Player> handler in handlers.GetInvocationList())
+        {
+            await RunDisconnectStepAsync(() => handler(this), failures).ConfigureAwait(false);
+        }
+
+        ThrowDisconnectFailures(failures);
+    }
+
+    /// <summary>
+    /// Disposes the persistence context of this player, so that no later
+    /// <see cref="SaveProgressAsync"/> can write the state the context still holds.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is the containment step for a dirty context: <see cref="IContext"/> offers no way to
+    /// discard pending changes, but disposing the context makes every subsequent
+    /// <see cref="IContext.SaveChangesAsync"/> fail instead of committing leftovers. Disposing
+    /// more than once is safe.
+    /// </para>
+    /// <para>
+    /// The method is <c>virtual</c> on purpose: a derived player can override it, and the
+    /// retirement relies on this call being the one that runs, so a test double has to be able to
+    /// observe it.
+    /// </para>
+    /// </remarks>
+    public virtual void InvalidatePersistenceContext()
+    {
+        this.PersistenceContext.Dispose();
     }
 
     /// <inheritdoc/>
@@ -1862,21 +1944,55 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
     /// </summary>
     public async ValueTask RemoveFromGameAsync()
     {
+        await this.RemoveFromGameInternalAsync(saveProgress: true).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Removes the player from the game <b>without</b> saving its state.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is the counterpart of <see cref="RemoveFromGameAsync"/> for a session whose
+    /// <see cref="IPlayerContext"/> is known to be dirty: every world cleanup step still runs
+    /// (party, safezone, map, temporary storage, NPC, selected character, magic effects), but
+    /// <see cref="SaveProgressAsync"/> is skipped so the dirty state is never persisted.
+    /// </para>
+    /// <para>
+    /// The in-memory side effects of those steps (for example the position change of
+    /// <see cref="HandleMoveToNextSafezoneAsync"/> or the items moved back by
+    /// <see cref="RestoreTemporaryStorageItemsAsync"/>) stay in the discarded context and are
+    /// therefore never written to the database.
+    /// </para>
+    /// </remarks>
+    public async ValueTask RemoveFromGameWithoutSavingAsync()
+    {
+        await this.RemoveFromGameInternalAsync(saveProgress: false).ConfigureAwait(false);
+    }
+
+    private async ValueTask RemoveFromGameInternalAsync(bool saveProgress)
+    {
+        var failures = new List<Exception>();
         if (this.Party is { } party)
         {
-            await party.LeaveTemporarilyAsync(this).ConfigureAwait(false);
+            await CleanUpAsync(() => party.LeaveTemporarilyAsync(this)).ConfigureAwait(false);
         }
 
-        await this.HandleMoveToNextSafezoneAsync().ConfigureAwait(false);
+        await CleanUpAsync(this.HandleMoveToNextSafezoneAsync).ConfigureAwait(false);
 
-        await this.RemoveFromCurrentMapAsync().ConfigureAwait(false);
+        await CleanUpAsync(this.RemoveFromCurrentMapAsync).ConfigureAwait(false);
 
-        await this.RestoreTemporaryStorageItemsAsync().ConfigureAwait(false);
+        await CleanUpAsync(this.RestoreTemporaryStorageItemsAsync).ConfigureAwait(false);
 
         this.OpenedNpc = null;
 
-        await this.SetSelectedCharacterAsync(null).ConfigureAwait(false);
-        await this.MagicEffectList.ClearAllEffectsAsync().ConfigureAwait(false);
+        await CleanUpAsync(() => this.SetSelectedCharacterAsync(null)).ConfigureAwait(false);
+        await CleanUpAsync(this.MagicEffectList.ClearAllEffectsAsync).ConfigureAwait(false);
+
+        if (!saveProgress)
+        {
+            ThrowDisconnectFailures(failures);
+            return;
+        }
 
         try
         {
@@ -1885,6 +2001,18 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
         catch (Exception ex)
         {
             this.Logger.LogError(ex, "Couldn't save when leaving the game. Player: {player}", this);
+        }
+
+        async ValueTask CleanUpAsync(Func<ValueTask> action)
+        {
+            if (saveProgress)
+            {
+                await action().ConfigureAwait(false);
+            }
+            else
+            {
+                await RunDisconnectStepAsync(action, failures).ConfigureAwait(false);
+            }
         }
     }
 
@@ -1935,6 +2063,66 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
     protected virtual async ValueTask InternalDisconnectAsync()
     {
         await this.RemoveFromGameAsync().ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Is called, when <see cref="DisconnectWithoutSavingAsync"/> is called. Disposes the
+    /// persistence context instead of saving it.
+    /// </summary>
+    /// <remarks>
+    /// The order matters: the world cleanup runs first, because it may still read from the
+    /// context (for example <see cref="RestoreTemporaryStorageItemsAsync"/> moves items back into
+    /// the inventory). Only after that is the context disposed, so those reads are not made
+    /// against a disposed context.
+    /// </remarks>
+    protected virtual async ValueTask InternalDisconnectWithoutSavingAsync()
+    {
+        var failures = new List<Exception>();
+        await RunDisconnectStepAsync(this.RemoveFromGameWithoutSavingAsync, failures).ConfigureAwait(false);
+        try
+        {
+            this.InvalidatePersistenceContext();
+        }
+        catch (Exception exception)
+        {
+            failures.Add(exception);
+        }
+
+        ThrowDisconnectFailures(failures);
+    }
+
+    /// <summary>
+    /// Attempts a disconnect step without preventing the remaining cleanup after a failure.
+    /// </summary>
+    /// <param name="step">The cleanup step.</param>
+    /// <param name="failures">The collected failures.</param>
+    protected static async ValueTask RunDisconnectStepAsync(Func<ValueTask> step, ICollection<Exception> failures)
+    {
+        try
+        {
+            await step().ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            failures.Add(exception);
+        }
+    }
+
+    /// <summary>
+    /// Reports cleanup failures after all independent steps have been attempted.
+    /// </summary>
+    /// <param name="failures">The collected failures.</param>
+    protected static void ThrowDisconnectFailures(IReadOnlyList<Exception> failures)
+    {
+        if (failures.Count == 1)
+        {
+            ExceptionDispatchInfo.Capture(failures[0]).Throw();
+        }
+
+        if (failures.Count > 1)
+        {
+            throw new AggregateException("Multiple disconnect cleanup steps failed.", failures);
+        }
     }
 
     /// <summary>

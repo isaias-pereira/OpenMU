@@ -13,11 +13,12 @@ using MUnique.OpenMU.GameLogic.Views.Vault;
 using MUnique.OpenMU.PlugIns;
 
 /// <summary>
-/// Lets the player select which of the (VIP-tier-limited) numbered vaults (báus) to use.
+/// Lets the player select which of the numbered vaults (báus) to use. Vault 1 is free;
+/// vaults 2-7 must be purchased in the shop (/loja). VIP status does not grant vaults.
 /// </summary>
 [Guid("1E99D7D5-0413-46B0-9A8C-4FB1C371F652")]
 [PlugIn]
-[Display(Name = "Select Warehouse (Baus)", Description = "Permite escolher qual bau numerado do jogador usara, limitado pelo tier VIP. Uso: /bau [numero]")]
+[Display(Name = "Select Warehouse (Baus)", Description = "Permite escolher qual bau numerado do jogador usara. Baus 2-7 sao comprados na loja (/loja). Uso: /bau [numero]")]
 [ChatCommandHelp(Command, "Selecciona ou lista os baus da conta. Uso: /bau [numero]", null)]
 public class SelectWarehouseChatCommandPlugIn : ChatCommandPlugInBase<SelectWarehouseChatCommandPlugIn.Arguments>
 {
@@ -63,7 +64,17 @@ public class SelectWarehouseChatCommandPlugIn : ChatCommandPlugInBase<SelectWare
         if (requested > maxVaults)
         {
             await player.ShowBlueMessageAsync(
-                $"Voce so tem acesso a {maxVaults} bau(s). Melhore seu VIP para liberar mais (Bronze=2, Silver=3, Gold=4, Platinum=5).")
+                $"Voce so tem acesso a {maxVaults} bau(s). Compre mais baus na loja (/loja) para liberar acesso.")
+                .ConfigureAwait(false);
+            return;
+        }
+
+        // Check if the player actually has access to this specific vault (not just the max count)
+        var hasAccess = await VaultAccess.HasVaultAccessAsync(player.PersistenceContext, account.Id, requested);
+        if (!hasAccess)
+        {
+            await player.ShowBlueMessageAsync(
+                $"Voce nao tem acesso ao bau {requested}. Compre este bau na loja (/loja) para liberar acesso.")
                 .ConfigureAwait(false);
             return;
         }

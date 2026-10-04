@@ -33,6 +33,7 @@ public class ExtendedTypeContext : Microsoft.EntityFrameworkCore.DbContext
         modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.CashShopPackage>();
         modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.CashShopPackageProduct>();
         modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.CashShopProduct>();
+        modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.CashShopStorageItem>();
         modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.Character>();
         modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.CharacterQuestState>();
         modelBuilder.Ignore<MUnique.OpenMU.DataModel.Entities.CustomMoveEntry>();
@@ -153,6 +154,7 @@ public class ExtendedTypeContext : Microsoft.EntityFrameworkCore.DbContext
         modelBuilder.Entity<CashShopCategory>().HasMany(entity => entity.RawPackages).WithOne().OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<CashShopPackage>().HasMany(entity => entity.RawPackageProducts).WithOne().OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<CashShopProduct>().HasMany(entity => entity.RawPackageProducts).WithOne().OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<CashShopStorageItem>().HasOne(entity => entity.RawItem).WithOne().OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<Character>().HasMany(entity => entity.RawAttributes).WithOne().OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<Character>().HasMany(entity => entity.RawLetters).WithOne().OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<Character>().HasMany(entity => entity.RawLearnedSkills).WithOne().OnDelete(DeleteBehavior.Cascade);

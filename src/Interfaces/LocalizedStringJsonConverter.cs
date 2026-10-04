@@ -25,7 +25,22 @@ public class LocalizedStringJsonConverter : JsonConverter<LocalizedString>
             return new LocalizedString(reader.GetString());
         }
 
-        throw new Exception($"Unexpected token parsing binary. Expected String, got {reader.TokenType}.");
+        if (reader.TokenType == JsonTokenType.StartObject)
+        {
+            using var document = JsonDocument.ParseValue(ref reader);
+            if (document.RootElement.TryGetProperty(nameof(LocalizedString.Value), out var value)
+                && value.ValueKind is JsonValueKind.String or JsonValueKind.Null)
+            {
+                return new LocalizedString(value.GetString());
+            }
+
+            throw new JsonException(
+                $"Unable to parse the legacy {nameof(LocalizedString)} object. "
+                + $"Expected a string or null property named '{nameof(LocalizedString.Value)}'.");
+        }
+
+        throw new JsonException(
+            $"Unexpected token parsing {nameof(LocalizedString)}. Expected String, Object or Null, got {reader.TokenType}.");
     }
 
     /// <inheritdoc />

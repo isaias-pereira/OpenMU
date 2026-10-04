@@ -14,6 +14,7 @@ using MUnique.OpenMU.GameLogic.Resets;
 using MUnique.OpenMU.GameServer.MessageHandler;
 using MUnique.OpenMU.Network;
 using MUnique.OpenMU.Network.PlugIns;
+using MUnique.OpenMU.Persistence.Initialization.DataInitialization;
 using MUnique.OpenMU.Persistence.Initialization.Updates;
 using MUnique.OpenMU.PlugIns;
 
@@ -177,7 +178,17 @@ public abstract class DataInitializationBase : IDataInitializationPlugIn
 
         this.AddAllUpdateEntries(plugInManager);
 
+        // The base game data is saved first and the optional CashShop catalog seed runs afterwards.
+        // The seed attaches the categories, packages, products and junctions to the navigation
+        // collections of this.GameConfiguration, which is tracked by this.Context. Saving the base
+        // data first therefore persists the configuration and releases this unit of work; the seed
+        // then opens its own context and saves the catalog on its own. Doing it the other way round
+        // made this.Context track the catalog entities as well, and the SaveChangesAsync below tried
+        // to insert rows that the seed had already written, failing with
+        // "duplicate key value violates unique constraint PK_CashShopPackageProduct".
         await this.Context.SaveChangesAsync().ConfigureAwait(false);
+
+        await this.InitializeCashShopCatalogAsync().ConfigureAwait(false);
     }
 
     /// <summary>
@@ -197,6 +208,14 @@ public abstract class DataInitializationBase : IDataInitializationPlugIn
         {
             this._loggerFactory.CreateLogger(this.GetType()).LogWarning(ex, "Could not create custom default configuration for plugin type {plugInType}", plugInType);
         }
+    }
+
+    private Task InitializeCashShopCatalogAsync()
+    {
+        return CashShopCatalogStartupInitializer.InitializeIfConfiguredAsync(
+            this._persistenceContextProvider,
+            this._loggerFactory,
+            this.GameConfiguration);
     }
 
     private void AddAllUpdateEntries(PlugInManager plugInManager)

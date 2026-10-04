@@ -55,6 +55,64 @@ public class GoldFreeShopConfiguration
     /// </summary>
     [Display(Name = "Shop enabled")]
     public bool Enabled { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets the price of vault 2 in GOLD FREE coins (0 = not for sale).
+    /// </summary>
+    [Display(Name = "Preco do bau 2 (0 = nao vende)")]
+    public int Vault2Price { get; set; } = 200;
+
+    /// <summary>
+    /// Gets or sets the price of vault 3 in GOLD FREE coins (0 = not for sale).
+    /// </summary>
+    [Display(Name = "Preco do bau 3 (0 = nao vende)")]
+    public int Vault3Price { get; set; } = 300;
+
+    /// <summary>
+    /// Gets or sets the price of vault 4 in GOLD FREE coins (0 = not for sale).
+    /// </summary>
+    [Display(Name = "Preco do bau 4 (0 = nao vende)")]
+    public int Vault4Price { get; set; } = 400;
+
+    /// <summary>
+    /// Gets or sets the price of vault 5 in GOLD FREE coins (0 = not for sale).
+    /// </summary>
+    [Display(Name = "Preco do bau 5 (0 = nao vende)")]
+    public int Vault5Price { get; set; } = 500;
+
+    /// <summary>
+    /// Gets or sets the price of vault 6 in GOLD FREE coins (0 = not for sale).
+    /// </summary>
+    [Display(Name = "Preco do bau 6 (0 = nao vende)")]
+    public int Vault6Price { get; set; } = 600;
+
+    /// <summary>
+    /// Gets or sets the price of vault 7 in GOLD FREE coins (0 = not for sale).
+    /// </summary>
+    [Display(Name = "Preco do bau 7 (0 = nao vende)")]
+    public int Vault7Price { get; set; } = 700;
+
+    /// <summary>
+    /// Gets the configured price of an additional vault (2-7). Returns 0 when the vault
+    /// number is out of the purchasable range or the vault is not for sale.
+    /// </summary>
+    /// <param name="vaultNumber">The vault number.</param>
+    /// <returns>The configured price, or 0.</returns>
+    public int GetVaultPrice(int vaultNumber) => vaultNumber switch
+    {
+        2 => this.Vault2Price,
+        3 => this.Vault3Price,
+        4 => this.Vault4Price,
+        5 => this.Vault5Price,
+        6 => this.Vault6Price,
+        7 => this.Vault7Price,
+        _ => 0,
+    };
+
+    /// <summary>
+    /// Gets a value indicating whether at least one additional vault is for sale.
+    /// </summary>
+    public bool SellsVaults => Enumerable.Range(2, VaultAccess.MaximumVaultCount - 1).Any(n => this.GetVaultPrice(n) > 0);
 }
 
 /// <summary>
@@ -127,6 +185,13 @@ public class GoldFreeShopPlugIn : ChatCommandPlugInBase<GoldFreeShopArguments>,
             return;
         }
 
+        // Handle vault purchase commands
+        if (code.StartsWith("vault", StringComparison.OrdinalIgnoreCase) || code.StartsWith("bau", StringComparison.OrdinalIgnoreCase))
+        {
+            await HandleVaultPurchaseAsync(player, config, arguments).ConfigureAwait(false);
+            return;
+        }
+
         var entries = BuildCatalog(config);
         var balance = CountCoins(player);
 
@@ -137,6 +202,12 @@ public class GoldFreeShopPlugIn : ChatCommandPlugInBase<GoldFreeShopArguments>,
             foreach (var e in entries)
             {
                 await ShowMessageAsync(player, $"{e.Code} = {e.Name} +{e.Level} | {e.Price} GOLD FREE").ConfigureAwait(false);
+            }
+
+            // Show vault availability if vault sales are enabled
+            if (config.SellsVaults && player.Account is not null)
+            {
+                await ShowVaultAvailabilityAsync(player, config).ConfigureAwait(false);
             }
 
             if (config.GoldFreePerWcoin > 0)
@@ -192,6 +263,131 @@ public class GoldFreeShopPlugIn : ChatCommandPlugInBase<GoldFreeShopArguments>,
         // Faz o item aparecer no inventario do cliente em tempo real (sem relogar).
         await player.InvokeViewPlugInAsync<IItemAppearPlugIn>(p => p.ItemAppearAsync(item)).ConfigureAwait(false);
         await ShowMessageAsync(player, $"Compra efetuada: {entry.Name} (-{entry.Price} GOLD FREE).").ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Handles vault purchase commands.
+    /// </summary>
+    private async ValueTask HandleVaultPurchaseAsync(Player player, GoldFreeShopConfiguration config, GoldFreeShopArguments arguments)
+    {
+        if (player.Account is null)
+        {
+            await ShowMessageAsync(player, "Conta invalida.").ConfigureAwait(false);
+            return;
+        }
+
+        // Check if vault sales are enabled
+        if (!config.SellsVaults)
+        {
+            await ShowMessageAsync(player, "Venda de baus esta desligada.").ConfigureAwait(false);
+            return;
+        }
+
+        // Determine which vault number to purchase
+        int vaultNumber = 1; // Default to vault 1
+        var rawAmount = arguments.Amount?.Trim();
+
+        if (!string.IsNullOrEmpty(rawAmount))
+        {
+            if (!int.TryParse(rawAmount, out vaultNumber) || vaultNumber < 2 || vaultNumber > VaultAccess.MaximumVaultCount)
+            {
+                await ShowMessageAsync(player, $"Numero de bau invalido. Use /loja bau <numero> onde numero esta entre 2 e {VaultAccess.MaximumVaultCount}.").ConfigureAwait(false);
+                return;
+            }
+        }
+        else
+        {
+            // If no amount specified, show help
+            await ShowMessageAsync(player, "Especifique o numero do bau que deseja comprar. Ex.: /loja bau 2").ConfigureAwait(false);
+            await ShowVaultAvailabilityAsync(player, config).ConfigureAwait(false);
+            return;
+        }
+
+        // Check if the vault already exists
+        var hasAccess = await VaultAccess.HasVaultAccessAsync(player.PersistenceContext, player.Account.Id, vaultNumber);
+        if (hasAccess)
+        {
+            await ShowMessageAsync(player, $"Voce ja possui acesso ao bau {vaultNumber}.").ConfigureAwait(false);
+            return;
+        }
+
+        // Check if trying to purchase vault 1 (should be free)
+        if (vaultNumber == 1)
+        {
+            await ShowMessageAsync(player, "O bau 1 e gratuito e ja esta disponivel para todos os jogadores.").ConfigureAwait(false);
+            return;
+        }
+
+        // The price comes from the server-side configuration, never from the client.
+        int price = config.GetVaultPrice(vaultNumber);
+        if (price <= 0)
+        {
+            await ShowMessageAsync(player, $"O bau {vaultNumber} nao esta a venda no momento.").ConfigureAwait(false);
+            return;
+        }
+
+        // Check if player has enough gold free coins
+        var balance = CountCoins(player);
+        if (balance < price)
+        {
+            await ShowMessageAsync(player, $"Voce precisa de {price} GOLD FREE para comprar o bau {vaultNumber} (voce tem {balance}).").ConfigureAwait(false);
+            return;
+        }
+
+        // Purchase the vault
+        await ConsumeCoinsAsync(player, price).ConfigureAwait(false);
+
+        // Create the AccountVault entity
+        var vault = player.PersistenceContext.CreateNew<AccountVault>();
+        vault.Number = vaultNumber;
+        vault.Storage = player.PersistenceContext.CreateNew<ItemStorage>();
+        player.Account.Vaults!.Add(vault);
+
+        await ShowMessageAsync(player, $"Parabens! Voce comprou o bau {vaultNumber} por {price} GOLD FREE.").ConfigureAwait(false);
+
+        // Show updated vault availability
+        await ShowVaultAvailabilityAsync(player, config).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Shows the player's vault availability and prices.
+    /// </summary>
+    private async ValueTask ShowVaultAvailabilityAsync(Player player, GoldFreeShopConfiguration config)
+    {
+        if (player.Account is null)
+        {
+            return;
+        }
+
+        await ShowMessageAsync(player, $"=== BAUS DISPONIVEIS ===").ConfigureAwait(false);
+
+        for (int vaultNumber = 1; vaultNumber <= VaultAccess.MaximumVaultCount; vaultNumber++)
+        {
+            var hasAccess = await VaultAccess.HasVaultAccessAsync(player.PersistenceContext, player.Account.Id, vaultNumber);
+
+            if (vaultNumber == 1)
+            {
+                await ShowMessageAsync(player, $"Bau {vaultNumber}: GRATIS (incluso) {(hasAccess ? "[ATIVO]" : "")}").ConfigureAwait(false);
+            }
+            else if (hasAccess)
+            {
+                await ShowMessageAsync(player, $"Bau {vaultNumber}: COMPRADO [ATIVO]").ConfigureAwait(false);
+            }
+            else
+            {
+                int price = config.GetVaultPrice(vaultNumber);
+                if (price > 0)
+                {
+                    await ShowMessageAsync(player, $"Bau {vaultNumber}: {price} GOLD FREE [DISPONIVEL]").ConfigureAwait(false);
+                }
+                else
+                {
+                    await ShowMessageAsync(player, $"Bau {vaultNumber}: INDISPONIVEL").ConfigureAwait(false);
+                }
+            }
+        }
+
+        await ShowMessageAsync(player, "Use /loja bau <numero> para comprar um bau (ex: /loja bau 2)").ConfigureAwait(false);
     }
 
     private async ValueTask HandleWcoinAsync(Player player, GoldFreeShopConfiguration config, GoldFreeShopArguments arguments)
@@ -310,6 +506,10 @@ public class GoldFreeShopPlugIn : ChatCommandPlugInBase<GoldFreeShopArguments>,
         Add("soul", "Jewel of Soul", 14, 14, c.SoulPrice);
         Add("chaos", "Jewel of Chaos", 12, 15, c.ChaosPrice);
         Add("life", "Jewel of Life", 14, 16, c.LifePrice);
+
+        // Vaults are not catalog entries: their availability depends on the account,
+        // so they are listed separately by ShowVaultAvailabilityAsync.
+
         return list;
     }
 

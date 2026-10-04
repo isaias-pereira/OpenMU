@@ -11,6 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
+using MUnique.OpenMU.DataModel.Configuration;
 using MUnique.OpenMU.DataModel.Entities;
 using MUnique.OpenMU.Persistence;
 
@@ -23,6 +24,7 @@ public class CashShopCatalogService : ICashShopCatalogService, IDisposable
     private const string CacheKeyAllCategories = "CashShop_AllCategories";
     private const string CacheKeyAllPackages = "CashShop_AllPackages";
     private const string CacheKeyAllProducts = "CashShop_AllProducts";
+    private const int ActivePackageDeleteFlag = 181;
 
     private static readonly TimeSpan DefaultCacheDuration = TimeSpan.FromHours(1);
 
@@ -49,9 +51,9 @@ public class CashShopCatalogService : ICashShopCatalogService, IDisposable
     }
 
     /// <inheritdoc />
-    public async ValueTask<IReadOnlyList<CashShopCategory>> GetRootCategoriesAsync(CancellationToken cancellationToken = default)
+    public async ValueTask<IReadOnlyList<CashShopCategory>> GetRootCategoriesAsync(GameConfiguration gameConfiguration, CancellationToken cancellationToken = default)
     {
-        var allCategories = await this.GetAllCategoriesCachedAsync(cancellationToken).ConfigureAwait(false);
+        var allCategories = await this.GetAllCategoriesCachedAsync(gameConfiguration, cancellationToken).ConfigureAwait(false);
         return allCategories
             .Where(c => c.IsRoot)
             .OrderBy(c => c.DisplayOrder)
@@ -59,9 +61,9 @@ public class CashShopCatalogService : ICashShopCatalogService, IDisposable
     }
 
     /// <inheritdoc />
-    public async ValueTask<IReadOnlyList<CashShopCategory>> GetSubCategoriesAsync(int parentProductDisplaySeq, CancellationToken cancellationToken = default)
+    public async ValueTask<IReadOnlyList<CashShopCategory>> GetSubCategoriesAsync(int parentProductDisplaySeq, GameConfiguration gameConfiguration, CancellationToken cancellationToken = default)
     {
-        var allCategories = await this.GetAllCategoriesCachedAsync(cancellationToken).ConfigureAwait(false);
+        var allCategories = await this.GetAllCategoriesCachedAsync(gameConfiguration, cancellationToken).ConfigureAwait(false);
         return allCategories
             .Where(c => !c.IsRoot && c.ParentProductDisplaySeq == parentProductDisplaySeq)
             .OrderBy(c => c.DisplayOrder)
@@ -69,20 +71,20 @@ public class CashShopCatalogService : ICashShopCatalogService, IDisposable
     }
 
     /// <inheritdoc />
-    public async ValueTask<CashShopCategory?> GetCategoryByDisplaySeqAsync(int productDisplaySeq, CancellationToken cancellationToken = default)
+    public async ValueTask<CashShopCategory?> GetCategoryByDisplaySeqAsync(int productDisplaySeq, GameConfiguration gameConfiguration, CancellationToken cancellationToken = default)
     {
-        var allCategories = await this.GetAllCategoriesCachedAsync(cancellationToken).ConfigureAwait(false);
+        var allCategories = await this.GetAllCategoriesCachedAsync(gameConfiguration, cancellationToken).ConfigureAwait(false);
         return allCategories.FirstOrDefault(c => c.ProductDisplaySeq == productDisplaySeq);
     }
 
     /// <inheritdoc />
-    public async ValueTask<IReadOnlyList<CashShopPackage>> GetPackagesByCategoryAsync(int productDisplaySeq, CancellationToken cancellationToken = default)
+    public async ValueTask<IReadOnlyList<CashShopPackage>> GetPackagesByCategoryAsync(int productDisplaySeq, GameConfiguration gameConfiguration, CancellationToken cancellationToken = default)
     {
-        var allPackages = await this.GetAllPackagesCachedAsync(cancellationToken).ConfigureAwait(false);
+        var allPackages = await this.GetAllPackagesCachedAsync(gameConfiguration, cancellationToken).ConfigureAwait(false);
         var now = DateTime.UtcNow;
         return allPackages
             .Where(p => p.ProductDisplaySeq == productDisplaySeq &&
-                        p.DeleteFlag == 0 &&
+                        p.DeleteFlag == ActivePackageDeleteFlag &&
                         (p.StartDate == default || p.StartDate <= now) &&
                         (p.EndDate == default || p.EndDate >= now))
             .OrderBy(p => p.ViewOrder)
@@ -90,32 +92,66 @@ public class CashShopCatalogService : ICashShopCatalogService, IDisposable
     }
 
     /// <inheritdoc />
-    public async ValueTask<CashShopPackage?> GetPackageBySeqAsync(int packageProductSeq, CancellationToken cancellationToken = default)
+    public async ValueTask<CashShopPackage?> GetPackageBySeqAsync(int productDisplaySeq, int packageProductSeq, GameConfiguration gameConfiguration, CancellationToken cancellationToken = default)
     {
-        var allPackages = await this.GetAllPackagesCachedAsync(cancellationToken).ConfigureAwait(false);
+        var allPackages = await this.GetAllPackagesCachedAsync(gameConfiguration, cancellationToken).ConfigureAwait(false);
+        return allPackages.FirstOrDefault(p => p.ProductDisplaySeq == productDisplaySeq && p.PackageProductSeq == packageProductSeq);
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<CashShopPackage?> GetPackageBySeqAsync(int packageProductSeq, GameConfiguration gameConfiguration, CancellationToken cancellationToken = default)
+    {
+        var allPackages = await this.GetAllPackagesCachedAsync(gameConfiguration, cancellationToken).ConfigureAwait(false);
         return allPackages.FirstOrDefault(p => p.PackageProductSeq == packageProductSeq);
     }
 
     /// <inheritdoc />
-    public async ValueTask<CashShopProduct?> GetProductByPriceSeqAsync(int priceSeq, CancellationToken cancellationToken = default)
+    public async ValueTask<CashShopProduct?> GetProductByPriceSeqAsync(int productSeq, int priceSeq, int propertySeq, GameConfiguration gameConfiguration, CancellationToken cancellationToken = default)
     {
-        var allProducts = await this.GetAllProductsCachedAsync(cancellationToken).ConfigureAwait(false);
-        return allProducts.FirstOrDefault(p => p.PriceSeq == priceSeq);
+        var allProducts = await this.GetAllProductsCachedAsync(gameConfiguration, cancellationToken).ConfigureAwait(false);
+        return allProducts.FirstOrDefault(p => p.ProductSeq == productSeq && p.PriceSeq == priceSeq && p.PropertySeq == propertySeq);
     }
 
     /// <inheritdoc />
-    public async Task InvalidateAndReloadCacheAsync(CancellationToken cancellationToken = default)
+    public async ValueTask<IReadOnlyList<CashShopProduct>> GetProductsByPriceSeqAsync(int priceSeq, GameConfiguration gameConfiguration, CancellationToken cancellationToken = default)
     {
+        var allProducts = await this.GetAllProductsCachedAsync(gameConfiguration, cancellationToken).ConfigureAwait(false);
+        return allProducts.Where(p => p.PriceSeq == priceSeq).ToList();
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<IReadOnlyList<CashShopProduct>> GetPackageProductsByPriceSeqAsync(
+        int[] productSequences,
+        int priceSeq,
+        GameConfiguration gameConfiguration,
+        CancellationToken cancellationToken = default)
+    {
+        if (productSequences is null || productSequences.Length == 0)
+        {
+            return Array.Empty<CashShopProduct>();
+        }
+
+        var allProducts = await this.GetAllProductsCachedAsync(gameConfiguration, cancellationToken).ConfigureAwait(false);
+        var wanted = productSequences.ToHashSet();
+        return allProducts.Where(p => p.PriceSeq == priceSeq && wanted.Contains(p.ProductSeq)).ToList();
+    }
+
+    /// <inheritdoc />
+    public async Task InvalidateAndReloadCacheAsync(GameConfiguration gameConfiguration, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(gameConfiguration);
         await this._reloadLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            this._memoryCache.Remove(CacheKeyAllCategories);
-            this._memoryCache.Remove(CacheKeyAllPackages);
-            this._memoryCache.Remove(CacheKeyAllProducts);
+            var categoryCacheKey = GetCacheKey(CacheKeyAllCategories, gameConfiguration);
+            var packageCacheKey = GetCacheKey(CacheKeyAllPackages, gameConfiguration);
+            var productCacheKey = GetCacheKey(CacheKeyAllProducts, gameConfiguration);
+            this._memoryCache.Remove(categoryCacheKey);
+            this._memoryCache.Remove(packageCacheKey);
+            this._memoryCache.Remove(productCacheKey);
 
-            this._logger.LogInformation("CashShop catalog cache invalidated. Reloading fresh snapshot from database...");
-            await this.LoadCatalogSnapshotFromDbAsync(cancellationToken).ConfigureAwait(false);
-            this._logger.LogInformation("CashShop catalog snapshot reloaded successfully.");
+            this._logger.LogInformation("CashShop catalog cache invalidated for configuration {ConfigurationId}.", gameConfiguration.GetId());
+            await this.LoadCatalogSnapshotFromDbAsync(gameConfiguration, cancellationToken).ConfigureAwait(false);
         }
         finally
         {
@@ -147,52 +183,60 @@ public class CashShopCatalogService : ICashShopCatalogService, IDisposable
         }
     }
 
-    private async ValueTask<IReadOnlyList<CashShopCategory>> GetAllCategoriesCachedAsync(CancellationToken cancellationToken)
+    private async ValueTask<IReadOnlyList<CashShopCategory>> GetAllCategoriesCachedAsync(GameConfiguration gameConfiguration, CancellationToken cancellationToken)
     {
-        if (this._memoryCache.TryGetValue(CacheKeyAllCategories, out IReadOnlyList<CashShopCategory>? cached) && cached != null)
+        var cacheKey = GetCacheKey(CacheKeyAllCategories, gameConfiguration);
+        if (this._memoryCache.TryGetValue(cacheKey, out IReadOnlyList<CashShopCategory>? cached) && cached is not null)
         {
             return cached;
         }
 
-        await this.EnsureCacheLoadedAsync(cancellationToken).ConfigureAwait(false);
-        return this._memoryCache.Get<IReadOnlyList<CashShopCategory>>(CacheKeyAllCategories) ?? Array.Empty<CashShopCategory>();
+        await this.EnsureCacheLoadedAsync(gameConfiguration, cancellationToken).ConfigureAwait(false);
+        return this._memoryCache.Get<IReadOnlyList<CashShopCategory>>(cacheKey) ?? Array.Empty<CashShopCategory>();
     }
 
-    private async ValueTask<IReadOnlyList<CashShopPackage>> GetAllPackagesCachedAsync(CancellationToken cancellationToken)
+    private async ValueTask<IReadOnlyList<CashShopPackage>> GetAllPackagesCachedAsync(GameConfiguration gameConfiguration, CancellationToken cancellationToken)
     {
-        if (this._memoryCache.TryGetValue(CacheKeyAllPackages, out IReadOnlyList<CashShopPackage>? cached) && cached != null)
+        var cacheKey = GetCacheKey(CacheKeyAllPackages, gameConfiguration);
+        if (this._memoryCache.TryGetValue(cacheKey, out IReadOnlyList<CashShopPackage>? cached) && cached is not null)
         {
             return cached;
         }
 
-        await this.EnsureCacheLoadedAsync(cancellationToken).ConfigureAwait(false);
-        return this._memoryCache.Get<IReadOnlyList<CashShopPackage>>(CacheKeyAllPackages) ?? Array.Empty<CashShopPackage>();
+        await this.EnsureCacheLoadedAsync(gameConfiguration, cancellationToken).ConfigureAwait(false);
+        return this._memoryCache.Get<IReadOnlyList<CashShopPackage>>(cacheKey) ?? Array.Empty<CashShopPackage>();
     }
 
-    private async ValueTask<IReadOnlyList<CashShopProduct>> GetAllProductsCachedAsync(CancellationToken cancellationToken)
+    private async ValueTask<IReadOnlyList<CashShopProduct>> GetAllProductsCachedAsync(GameConfiguration gameConfiguration, CancellationToken cancellationToken)
     {
-        if (this._memoryCache.TryGetValue(CacheKeyAllProducts, out IReadOnlyList<CashShopProduct>? cached) && cached != null)
+        var cacheKey = GetCacheKey(CacheKeyAllProducts, gameConfiguration);
+        if (this._memoryCache.TryGetValue(cacheKey, out IReadOnlyList<CashShopProduct>? cached) && cached is not null)
         {
             return cached;
         }
 
-        await this.EnsureCacheLoadedAsync(cancellationToken).ConfigureAwait(false);
-        return this._memoryCache.Get<IReadOnlyList<CashShopProduct>>(CacheKeyAllProducts) ?? Array.Empty<CashShopProduct>();
+        await this.EnsureCacheLoadedAsync(gameConfiguration, cancellationToken).ConfigureAwait(false);
+        return this._memoryCache.Get<IReadOnlyList<CashShopProduct>>(cacheKey) ?? Array.Empty<CashShopProduct>();
     }
 
-    private async Task EnsureCacheLoadedAsync(CancellationToken cancellationToken)
+    private async Task EnsureCacheLoadedAsync(GameConfiguration gameConfiguration, CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(gameConfiguration);
+        var categoryCacheKey = GetCacheKey(CacheKeyAllCategories, gameConfiguration);
+        var packageCacheKey = GetCacheKey(CacheKeyAllPackages, gameConfiguration);
+        var productCacheKey = GetCacheKey(CacheKeyAllProducts, gameConfiguration);
+
         await this._reloadLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            if (this._memoryCache.TryGetValue(CacheKeyAllCategories, out _) &&
-                this._memoryCache.TryGetValue(CacheKeyAllPackages, out _) &&
-                this._memoryCache.TryGetValue(CacheKeyAllProducts, out _))
+            if (this._memoryCache.TryGetValue(categoryCacheKey, out _) &&
+                this._memoryCache.TryGetValue(packageCacheKey, out _) &&
+                this._memoryCache.TryGetValue(productCacheKey, out _))
             {
                 return;
             }
 
-            await this.LoadCatalogSnapshotFromDbAsync(cancellationToken).ConfigureAwait(false);
+            await this.LoadCatalogSnapshotFromDbAsync(gameConfiguration, cancellationToken).ConfigureAwait(false);
         }
         finally
         {
@@ -200,9 +244,10 @@ public class CashShopCatalogService : ICashShopCatalogService, IDisposable
         }
     }
 
-    private async Task LoadCatalogSnapshotFromDbAsync(CancellationToken cancellationToken)
+    private async Task LoadCatalogSnapshotFromDbAsync(GameConfiguration gameConfiguration, CancellationToken cancellationToken)
     {
-        using var context = this._persistenceContextProvider.CreateNewContext();
+        ArgumentNullException.ThrowIfNull(gameConfiguration);
+        using var context = this._persistenceContextProvider.CreateNewContext(gameConfiguration);
 
         var categories = (await context.GetAsync<CashShopCategory>(cancellationToken).ConfigureAwait(false)).ToList();
         var packages = (await context.GetAsync<CashShopPackage>(cancellationToken).ConfigureAwait(false)).ToList();
@@ -212,14 +257,17 @@ public class CashShopCatalogService : ICashShopCatalogService, IDisposable
             .SetAbsoluteExpiration(DefaultCacheDuration)
             .SetPriority(CacheItemPriority.High);
 
-        this._memoryCache.Set(CacheKeyAllCategories, (IReadOnlyList<CashShopCategory>)categories, cacheEntryOptions);
-        this._memoryCache.Set(CacheKeyAllPackages, (IReadOnlyList<CashShopPackage>)packages, cacheEntryOptions);
-        this._memoryCache.Set(CacheKeyAllProducts, (IReadOnlyList<CashShopProduct>)products, cacheEntryOptions);
+        this._memoryCache.Set(GetCacheKey(CacheKeyAllCategories, gameConfiguration), (IReadOnlyList<CashShopCategory>)categories, cacheEntryOptions);
+        this._memoryCache.Set(GetCacheKey(CacheKeyAllPackages, gameConfiguration), (IReadOnlyList<CashShopPackage>)packages, cacheEntryOptions);
+        this._memoryCache.Set(GetCacheKey(CacheKeyAllProducts, gameConfiguration), (IReadOnlyList<CashShopProduct>)products, cacheEntryOptions);
 
         this._logger.LogInformation(
-            "CashShop catalog snapshot loaded: {CategoriesCount} categories, {PackagesCount} packages, {ProductsCount} products.",
+            "CashShop catalog snapshot loaded for configuration {ConfigurationId}: {CategoriesCount} categories, {PackagesCount} packages, {ProductsCount} products.",
+            gameConfiguration.GetId(),
             categories.Count,
             packages.Count,
             products.Count);
     }
+
+    private static string GetCacheKey(string cacheKey, GameConfiguration gameConfiguration) => $"{cacheKey}:{gameConfiguration.GetId()}";
 }

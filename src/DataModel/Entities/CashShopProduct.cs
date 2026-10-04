@@ -53,11 +53,11 @@ public class CashShopProduct
     public int Price { get; set; }
 
     /// <summary>
-    /// Gets or sets the PriceSeq (UNIQUE identifier).
+    /// Gets or sets the PriceSeq da linha de produto.
     /// </summary>
     /// <remarks>
-    /// Este é o identificador único da variação.
-    /// Deve ser UNIQUE na tabela.
+    /// O IBS reutiliza PriceSeq para diferentes PropertySeq do mesmo ProductSeq.
+    /// A chave natural confirmada do produto é (ProductSeq, PriceSeq, PropertySeq).
     /// </remarks>
     public int PriceSeq { get; set; }
 

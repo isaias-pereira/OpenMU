@@ -15,8 +15,9 @@ using MUnique.OpenMU.PlugIns;
 /// storage when the shop dialog was opened or when the player uses the storage paging.
 /// </summary>
 /// <remarks>
-/// The cash shop storage itself is not implemented yet (FASE 9), so this always answers an empty
-/// storage (D2 06 with zero items and pages) to keep the client UI from freezing.
+/// The client requests the storage list when the shop opens (<c>D2 02</c>) and after every
+/// successful purchase (<c>D2 03</c>). The handler answers the page counts (<c>D2 06</c>) and
+/// then the items of the requested page (<c>D2 0D</c>).
 /// </remarks>
 [PlugIn]
 [Display(Name = "Cash Shop Storage List Handler", Description = "Answers the cash shop storage list request (D2 05).")]
@@ -24,7 +25,16 @@ using MUnique.OpenMU.PlugIns;
 [BelongsToGroup(CashShopGroupHandlerPlugIn.GroupKey)]
 internal class CashShopStorageListRequestHandlerPlugIn : ISubPacketHandlerPlugIn
 {
-    private readonly CashShopStorageListAction _action = new();
+    private readonly CashShopStorageListAction _action;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="CashShopStorageListRequestHandlerPlugIn"/> class.
+    /// </summary>
+    /// <param name="action">The cash shop storage list action.</param>
+    public CashShopStorageListRequestHandlerPlugIn(CashShopStorageListAction action)
+    {
+        this._action = action ?? throw new ArgumentNullException(nameof(action));
+    }
 
     /// <inheritdoc/>
     public bool IsEncryptionExpected => false;

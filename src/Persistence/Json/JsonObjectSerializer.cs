@@ -42,6 +42,7 @@ public class JsonObjectSerializer
                 new OnlyWriteBelowRootConverter<BasicModel.MonsterDefinition>(),
                 new OnlyWriteBelowRootConverter<BasicModel.AttributeDefinition>(),
                 new OnlyWriteBelowRootConverter<BasicModel.MagicEffectDefinition>(),
+                new MUnique.OpenMU.Interfaces.LocalizedStringJsonConverter(),
             },
         };
 

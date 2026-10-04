@@ -45,6 +45,12 @@ public class CashShopViewPlugIn : ICashShopViewPlugIn
     }
 
     /// <inheritdoc/>
+    public async ValueTask ShowStorageItemAsync(int storageIndex, int itemSeq, int storageGroupCode, int productSeq, int priceSeq, double cashPoint, char itemType)
+    {
+        await this._player.Connection.SendCashShopStorageItemAsync(storageIndex, itemSeq, storageGroupCode, productSeq, priceSeq, cashPoint, itemType).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc/>
     public async ValueTask ShowScriptVersionAsync(ushort saleZone, ushort year, ushort yearIdentify)
     {
         await this._player.Connection.SendCashShopScriptVersionAsync(saleZone, year, yearIdentify).ConfigureAwait(false);
@@ -65,7 +71,10 @@ public class CashShopViewPlugIn : ICashShopViewPlugIn
     /// <inheritdoc/>
     public async ValueTask ShowBuyResultAsync(bool success, int errorCode, string? deliveredItem)
     {
-        var resultCode = success ? (byte)0 : (byte)errorCode;
+        // The client reads byResultCode as a BYTE and compares it against static_cast<BYTE>(-1)
+        // and static_cast<BYTE>(-2), so negative codes must go out as the two's-complement byte
+        // (255 / 254). A checked cast would throw on those values.
+        var resultCode = success ? (byte)0 : unchecked((byte)errorCode);
         await this._player.Connection.SendCashShopBuyResultAsync(resultCode, 0).ConfigureAwait(false);
     }
 }

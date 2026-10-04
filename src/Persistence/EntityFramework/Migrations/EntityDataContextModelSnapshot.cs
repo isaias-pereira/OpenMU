@@ -552,7 +552,9 @@ namespace MUnique.OpenMU.Persistence.EntityFramework.Migrations
 
                     b.HasIndex("GameConfigurationId");
 
-                    b.HasIndex("PackageProductSeq")
+                    b.HasIndex("PackageProductSeq");
+
+                    b.HasIndex("ProductDisplaySeq", "PackageProductSeq")
                         .IsUnique();
 
                     b.ToTable("CashShopPackage", "data");
@@ -656,12 +658,70 @@ namespace MUnique.OpenMU.Persistence.EntityFramework.Migrations
 
                     b.HasIndex("InGamePackageID");
 
-                    b.HasIndex("PriceSeq")
-                        .IsUnique();
+                    b.HasIndex("PriceSeq");
 
                     b.HasIndex("ProductSeq");
 
+                    b.HasIndex("ProductSeq", "PriceSeq", "PropertySeq")
+                        .IsUnique();
+
                     b.ToTable("CashShopProduct", "data");
+                });
+
+            modelBuilder.Entity("MUnique.OpenMU.Persistence.EntityFramework.Model.CashShopStorageItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<double>("CashPoint")
+                        .HasColumnType("double precision");
+
+                    b.Property<Guid?>("ItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsGift")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("ItemSeq")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ItemType")
+                        .IsRequired()
+                        .HasMaxLength(1)
+                        .HasColumnType("character varying(1)");
+
+                    b.Property<int>("PriceSeq")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ProductSeq")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("PurchasedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("StorageGroup")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("StorageIndex")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId");
+
+                    b.HasIndex("AccountId", "IsGift");
+
+                    b.HasIndex("ItemId")
+                        .IsUnique();
+
+                    b.HasIndex("AccountId", "IsGift", "StorageIndex")
+                        .IsUnique();
+
+                    b.ToTable("CashShopStorageItem", "data");
                 });
 
             modelBuilder.Entity("MUnique.OpenMU.Persistence.EntityFramework.Model.Character", b =>
@@ -4378,6 +4438,22 @@ namespace MUnique.OpenMU.Persistence.EntityFramework.Migrations
                         .WithMany("RawCashShopProducts")
                         .HasForeignKey("GameConfigurationId")
                         .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("MUnique.OpenMU.Persistence.EntityFramework.Model.CashShopStorageItem", b =>
+                {
+                    b.HasOne("MUnique.OpenMU.Persistence.EntityFramework.Model.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MUnique.OpenMU.Persistence.EntityFramework.Model.Item", "RawItem")
+                        .WithOne()
+                        .HasForeignKey("MUnique.OpenMU.Persistence.EntityFramework.Model.CashShopStorageItem", "ItemId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("RawItem");
                 });
 
             modelBuilder.Entity("MUnique.OpenMU.Persistence.EntityFramework.Model.Character", b =>

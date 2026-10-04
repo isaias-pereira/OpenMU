@@ -11,15 +11,15 @@ using MUnique.OpenMU.GameLogic.Views.CashShop;
 /// </summary>
 public class CashShopBuyAction
 {
-    private readonly ICashShopPurchaseService _purchaseService;
+    private readonly ICashShopBuyService _buyService;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="CashShopBuyAction"/> class.
     /// </summary>
-    /// <param name="purchaseService">The purchase service.</param>
-    public CashShopBuyAction(ICashShopPurchaseService purchaseService)
+    /// <param name="buyService">The cash shop buy service.</param>
+    public CashShopBuyAction(ICashShopBuyService buyService)
     {
-        this._purchaseService = purchaseService ?? throw new ArgumentNullException(nameof(purchaseService));
+        this._buyService = buyService ?? throw new ArgumentNullException(nameof(buyService));
     }
 
     /// <summary>
@@ -27,13 +27,17 @@ public class CashShopBuyAction
     /// </summary>
     /// <param name="player">The player.</param>
     /// <param name="packageProductSeq">The package product sequence.</param>
-    /// <param name="priceSeq">The price sequence of the selected product variant.</param>
-    /// <param name="coinType">The coin type (1=WCoinC, 2=WCoinP, 3=Goblin).</param>
-    /// <param name="mileageFlag">Whether to use mileage.</param>
+    /// <param name="productDisplaySeq">The package category/product display sequence.</param>
+    /// <param name="priceSeq">The selected price sequence.</param>
+    /// <param name="itemCode">The item code sent by the client.</param>
+    /// <param name="coinType">The cash type sent by the client.</param>
+    /// <param name="mileageFlag">Whether the client requested mileage.</param>
     public async ValueTask HandleBuyAsync(
         Player player,
         int packageProductSeq,
+        int productDisplaySeq,
         int priceSeq,
+        ushort itemCode,
         int coinType,
         bool mileageFlag)
     {
@@ -42,14 +46,14 @@ public class CashShopBuyAction
             return;
         }
 
-        // CoinIndex 1=WCoinC, 2=WCoinP, 3=GoblinCoin
-        // MileageFlag: 0=don't use mileage, 1=use mileage
-        // For now, mileage is not implemented, so we just use the coin type as-is
-        var result = await this._purchaseService.ProcessPurchaseAsync(
+        var result = await this._buyService.ProcessPurchaseAsync(
             player,
             packageProductSeq,
+            productDisplaySeq,
             priceSeq,
-            coinType).ConfigureAwait(false);
+            itemCode,
+            coinType,
+            mileageFlag).ConfigureAwait(false);
 
         await player.InvokeViewPlugInAsync<ICashShopViewPlugIn>(
             p => p.ShowBuyResultAsync(result.Success, (int)result.ErrorCode, result.DeliveredItem)).ConfigureAwait(false);

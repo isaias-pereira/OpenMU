@@ -178,6 +178,90 @@ public class CashShopPacketTests
     /// A minimal in-memory <see cref="IConnection"/> which captures everything written to its
     /// output pipe, so the packet layout can be asserted byte by byte.
     /// </summary>
+    /// <summary>
+    /// Tests the storage count (C1 D2 06) and one storage item (C1 D2 0D).
+    /// </summary>
+    /// <remarks>
+    /// D2 06 is 12 bytes with four WORDs. D2 0D is 33 bytes: five little-endian ints at
+    /// offsets 4/8/12/16/20, an unaligned double at 24 and the item type byte at 32, matching
+    /// <c>PMSG_CASHSHOP_STORAGELIST</c> in the client. The client resolves the displayed item
+    /// from the product and price sequences, so those offsets carry the catalog identity.
+    /// </remarks>
+    [Test]
+    public async Task CashShopStorageItem_HasCorrectLayout()
+    {
+        using var connection = new SpyConnection();
+        await connection.SendCashShopStorageItemAsync(
+            storageIndex: 7,
+            itemSeq: 42,
+            storageGroupCode: 3,
+            productSeq: 528,
+            priceSeq: 607,
+            cashPoint: 1234.5,
+            itemType: 'P');
+
+        var bytes = await connection.GetSinglePacket();
+        Assert.Multiple(() =>
+        {
+            Assert.That(bytes.Length, Is.EqualTo(33));
+            Assert.That(bytes[0], Is.EqualTo(0xC1));
+            Assert.That(bytes[1], Is.EqualTo(33));
+            Assert.That(bytes[2], Is.EqualTo(0xD2));
+            Assert.That(bytes[3], Is.EqualTo(0x0D));
+            Assert.That(BinaryPrimitives.ReadInt32LittleEndian(bytes.AsSpan(4)), Is.EqualTo(7));
+            Assert.That(BinaryPrimitives.ReadInt32LittleEndian(bytes.AsSpan(8)), Is.EqualTo(42));
+            Assert.That(BinaryPrimitives.ReadInt32LittleEndian(bytes.AsSpan(12)), Is.EqualTo(3));
+            Assert.That(BinaryPrimitives.ReadInt32LittleEndian(bytes.AsSpan(16)), Is.EqualTo(528));
+            Assert.That(BinaryPrimitives.ReadInt32LittleEndian(bytes.AsSpan(20)), Is.EqualTo(607));
+            Assert.That(BinaryPrimitives.ReadDoubleLittleEndian(bytes.AsSpan(24)), Is.EqualTo(1234.5));
+            Assert.That(bytes[32], Is.EqualTo((byte)'P'));
+        });
+    }
+
+    /// <summary>
+    /// Tests the buy result (C1 D2 03): 9 bytes with the result code at offset 4 and the
+    /// remaining item count at offset 5. The client only reads the result code.
+    /// </summary>
+    [Test]
+    public async Task CashShopBuyResult_HasCorrectLayout()
+    {
+        using var connection = new SpyConnection();
+        await connection.SendCashShopBuyResultAsync(0, 12345);
+
+        var bytes = await connection.GetSinglePacket();
+        Assert.Multiple(() =>
+        {
+            Assert.That(bytes.Length, Is.EqualTo(9));
+            Assert.That(bytes[0], Is.EqualTo(0xC1));
+            Assert.That(bytes[1], Is.EqualTo(9));
+            Assert.That(bytes[2], Is.EqualTo(0xD2));
+            Assert.That(bytes[3], Is.EqualTo(0x03));
+            Assert.That(bytes[4], Is.EqualTo(0));
+            Assert.That(BinaryPrimitives.ReadInt32LittleEndian(bytes.AsSpan(5)), Is.EqualTo(12345));
+        });
+    }
+
+    /// <summary>
+    /// Tests that the negative result codes reach the client as the two's-complement bytes the
+    /// client compares against (<c>static_cast&lt;BYTE&gt;(-1)</c> = 255 and
+    /// <c>static_cast&lt;BYTE&gt;(-2)</c> = 254), instead of being clamped to zero.
+    /// </summary>
+    [Test]
+    [TestCase(-1, 255)]
+    [TestCase(-2, 254)]
+    public async Task CashShopBuyResult_SendsNegativeCodesAsTwoComplementBytes(int errorCode, byte expected)
+    {
+        using var connection = new SpyConnection();
+        await connection.SendCashShopBuyResultAsync(unchecked((byte)errorCode), 0);
+
+        var bytes = await connection.GetSinglePacket();
+        Assert.Multiple(() =>
+        {
+            Assert.That(bytes.Length, Is.EqualTo(9));
+            Assert.That(bytes[4], Is.EqualTo(expected));
+        });
+    }
+
     private sealed class SpyConnection : IConnection
     {
         private readonly Pipe _pipe = new ();

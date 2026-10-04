@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Moq;
+using MUnique.OpenMU.DataModel.Configuration;
 using MUnique.OpenMU.DataModel.Entities;
 using MUnique.OpenMU.GameLogic.CashShop;
 using MUnique.OpenMU.Persistence;
@@ -28,13 +29,15 @@ public class CashShopCatalogServiceTests
     private Mock<IContext> _contextMock = null!;
     private IMemoryCache _memoryCache = null!;
     private CashShopCatalogService _service = null!;
+    private GameConfiguration _gameConfiguration = null!;
 
     [SetUp]
     public void SetUp()
     {
         this._contextProviderMock = new Mock<IPersistenceContextProvider>();
         this._contextMock = new Mock<IContext>();
-        this._contextProviderMock.Setup(p => p.CreateNewContext()).Returns(this._contextMock.Object);
+        this._gameConfiguration = new MUnique.OpenMU.Persistence.BasicModel.GameConfiguration { Id = Guid.NewGuid() };
+        this._contextProviderMock.Setup(p => p.CreateNewContext(It.IsAny<GameConfiguration>())).Returns(this._contextMock.Object);
 
         this._memoryCache = new MemoryCache(new MemoryCacheOptions());
         var loggerMock = new Mock<ILogger<CashShopCatalogService>>();
@@ -70,7 +73,7 @@ public class CashShopCatalogServiceTests
             .ReturnsAsync(new List<CashShopProduct>());
 
         // Act
-        var result = await this._service.GetRootCategoriesAsync();
+        var result = await this._service.GetRootCategoriesAsync(this._gameConfiguration);
 
         // Assert
         Assert.That(result.Count, Is.EqualTo(2));
@@ -98,10 +101,10 @@ public class CashShopCatalogServiceTests
             .ReturnsAsync(new List<CashShopProduct>());
 
         // Act - primeira chamada carrega do banco
-        await this._service.GetRootCategoriesAsync();
+        await this._service.GetRootCategoriesAsync(this._gameConfiguration);
 
         // Act - segunda chamada usa o cache
-        var result = await this._service.GetRootCategoriesAsync();
+        var result = await this._service.GetRootCategoriesAsync(this._gameConfiguration);
 
         // Assert
         Assert.That(result.Count, Is.EqualTo(1));
@@ -131,7 +134,7 @@ public class CashShopCatalogServiceTests
             .ReturnsAsync(new List<CashShopProduct>());
 
         // Act
-        var result = await this._service.GetSubCategoriesAsync(1);
+        var result = await this._service.GetSubCategoriesAsync(1, this._gameConfiguration);
 
         // Assert
         Assert.That(result.Count, Is.EqualTo(2));
@@ -147,11 +150,11 @@ public class CashShopCatalogServiceTests
         var now = DateTime.UtcNow;
         var packages = new List<CashShopPackage>
         {
-            new() { Id = Guid.NewGuid(), PackageProductSeq = 1, ProductDisplaySeq = 100, PackageProductName = "Active", DeleteFlag = 0, StartDate = now.AddDays(-1), EndDate = now.AddDays(1), ViewOrder = 0 },
+            new() { Id = Guid.NewGuid(), PackageProductSeq = 1, ProductDisplaySeq = 100, PackageProductName = "Active", DeleteFlag = 181, StartDate = now.AddDays(-1), EndDate = now.AddDays(1), ViewOrder = 0 },
             new() { Id = Guid.NewGuid(), PackageProductSeq = 2, ProductDisplaySeq = 100, PackageProductName = "Deleted", DeleteFlag = 1, StartDate = now.AddDays(-1), EndDate = now.AddDays(1), ViewOrder = 1 },
-            new() { Id = Guid.NewGuid(), PackageProductSeq = 3, ProductDisplaySeq = 100, PackageProductName = "Not Started", DeleteFlag = 0, StartDate = now.AddDays(1), EndDate = now.AddDays(2), ViewOrder = 2 },
-            new() { Id = Guid.NewGuid(), PackageProductSeq = 4, ProductDisplaySeq = 100, PackageProductName = "Expired", DeleteFlag = 0, StartDate = now.AddDays(-2), EndDate = now.AddDays(-1), ViewOrder = 3 },
-            new() { Id = Guid.NewGuid(), PackageProductSeq = 5, ProductDisplaySeq = 200, PackageProductName = "Other Category", DeleteFlag = 0, StartDate = now.AddDays(-1), EndDate = now.AddDays(1), ViewOrder = 4 },
+            new() { Id = Guid.NewGuid(), PackageProductSeq = 3, ProductDisplaySeq = 100, PackageProductName = "Not Started", DeleteFlag = 181, StartDate = now.AddDays(1), EndDate = now.AddDays(2), ViewOrder = 2 },
+            new() { Id = Guid.NewGuid(), PackageProductSeq = 4, ProductDisplaySeq = 100, PackageProductName = "Expired", DeleteFlag = 181, StartDate = now.AddDays(-2), EndDate = now.AddDays(-1), ViewOrder = 3 },
+            new() { Id = Guid.NewGuid(), PackageProductSeq = 5, ProductDisplaySeq = 200, PackageProductName = "Other Category", DeleteFlag = 181, StartDate = now.AddDays(-1), EndDate = now.AddDays(1), ViewOrder = 4 },
         };
 
         this._contextMock.Setup(c => c.GetAsync<CashShopCategory>(It.IsAny<CancellationToken>()))
@@ -162,16 +165,16 @@ public class CashShopCatalogServiceTests
             .ReturnsAsync(new List<CashShopProduct>());
 
         // Act
-        var result = await this._service.GetPackagesByCategoryAsync(100);
+        var result = await this._service.GetPackagesByCategoryAsync(100, this._gameConfiguration);
 
         // Assert - apenas o pacote "Active" deve ser retornado
         Assert.That(result.Count, Is.EqualTo(1));
         Assert.That(result[0].PackageProductName, Is.EqualTo("Active"));
-        Assert.That(result[0].DeleteFlag, Is.EqualTo(0));
+        Assert.That(result[0].DeleteFlag, Is.EqualTo(181));
     }
 
     [Test]
-    public async Task GetPackageBySeqAsync_ReturnsCorrectPackage()
+    public async Task GetPackageBySeqAsync_UsesCategoryAndPackageSequence()
     {
         // Arrange
         var packages = new List<CashShopPackage>
@@ -188,7 +191,7 @@ public class CashShopCatalogServiceTests
             .ReturnsAsync(new List<CashShopProduct>());
 
         // Act
-        var result = await this._service.GetPackageBySeqAsync(200);
+        var result = await this._service.GetPackageBySeqAsync(1, 200, this._gameConfiguration);
 
         // Assert
         Assert.That(result, Is.Not.Null);
@@ -197,13 +200,13 @@ public class CashShopCatalogServiceTests
     }
 
     [Test]
-    public async Task GetProductByPriceSeqAsync_ReturnsCorrectProduct()
+    public async Task GetProductByPriceSeqAsync_UsesNaturalProductKey()
     {
         // Arrange
         var products = new List<CashShopProduct>
         {
-            new() { Id = Guid.NewGuid(), PriceSeq = 1001, ProductName = "Product 1", ProductSeq = 1, DeleteFlag = 0 },
-            new() { Id = Guid.NewGuid(), PriceSeq = 1002, ProductName = "Product 2", ProductSeq = 2, DeleteFlag = 0 },
+            new() { Id = Guid.NewGuid(), PriceSeq = 1001, ProductName = "Product 1", ProductSeq = 1, PropertySeq = 5, DeleteFlag = 0 },
+            new() { Id = Guid.NewGuid(), PriceSeq = 1002, ProductName = "Product 2", ProductSeq = 2, PropertySeq = 6, DeleteFlag = 0 },
         };
 
         this._contextMock.Setup(c => c.GetAsync<CashShopCategory>(It.IsAny<CancellationToken>()))
@@ -214,7 +217,7 @@ public class CashShopCatalogServiceTests
             .ReturnsAsync(products);
 
         // Act
-        var result = await this._service.GetProductByPriceSeqAsync(1002);
+        var result = await this._service.GetProductByPriceSeqAsync(2, 1002, 6, this._gameConfiguration);
 
         // Assert
         Assert.That(result, Is.Not.Null);
@@ -245,19 +248,48 @@ public class CashShopCatalogServiceTests
             .ReturnsAsync(new List<CashShopProduct>());
 
         // Act - carrega cache inicial
-        var result1 = await this._service.GetRootCategoriesAsync();
+        var result1 = await this._service.GetRootCategoriesAsync(this._gameConfiguration);
         Assert.That(result1[0].CategoryName, Is.EqualTo("Initial"));
 
         // Act - invalida e recarrega
-        await this._service.InvalidateAndReloadCacheAsync();
+        await this._service.InvalidateAndReloadCacheAsync(this._gameConfiguration);
 
         // Act - lê novamente após invalidação
-        var result2 = await this._service.GetRootCategoriesAsync();
+        var result2 = await this._service.GetRootCategoriesAsync(this._gameConfiguration);
 
         // Assert - deve ter recarregado com dados atualizados
         Assert.That(result2[0].CategoryName, Is.EqualTo("Updated"));
 
         // Verifica que o contexto foi chamado duas vezes (carga inicial + reload)
+        this._contextMock.Verify(c => c.GetAsync<CashShopCategory>(It.IsAny<CancellationToken>()), Times.Exactly(2));
+    }
+
+    [Test]
+    public async Task Cache_IsScopedByGameConfiguration()
+    {
+        var secondConfiguration = new MUnique.OpenMU.Persistence.BasicModel.GameConfiguration { Id = Guid.NewGuid() };
+        var firstCategories = new List<CashShopCategory>
+        {
+            new() { Id = Guid.NewGuid(), ProductDisplaySeq = 1, IsRoot = true, CategoryName = "First configuration" },
+        };
+        var secondCategories = new List<CashShopCategory>
+        {
+            new() { Id = Guid.NewGuid(), ProductDisplaySeq = 1, IsRoot = true, CategoryName = "Second configuration" },
+        };
+
+        this._contextMock.SetupSequence(c => c.GetAsync<CashShopCategory>(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(firstCategories)
+            .ReturnsAsync(secondCategories);
+        this._contextMock.Setup(c => c.GetAsync<CashShopPackage>(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<CashShopPackage>());
+        this._contextMock.Setup(c => c.GetAsync<CashShopProduct>(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<CashShopProduct>());
+
+        var first = await this._service.GetRootCategoriesAsync(this._gameConfiguration);
+        var second = await this._service.GetRootCategoriesAsync(secondConfiguration);
+
+        Assert.That(first[0].CategoryName, Is.EqualTo("First configuration"));
+        Assert.That(second[0].CategoryName, Is.EqualTo("Second configuration"));
         this._contextMock.Verify(c => c.GetAsync<CashShopCategory>(It.IsAny<CancellationToken>()), Times.Exactly(2));
     }
 
@@ -279,7 +311,7 @@ public class CashShopCatalogServiceTests
 
         // Act - 10 chamadas concorrentes
         var tasks = Enumerable.Range(0, 10)
-            .Select(_ => this._service.GetRootCategoriesAsync().AsTask())
+            .Select(_ => this._service.GetRootCategoriesAsync(this._gameConfiguration).AsTask())
             .ToArray();
 
         var results = await Task.WhenAll(tasks);

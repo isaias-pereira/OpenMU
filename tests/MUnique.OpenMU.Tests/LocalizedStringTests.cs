@@ -5,6 +5,7 @@
 namespace MUnique.OpenMU.Tests;
 
 using System.Globalization;
+using System.Text.Json;
 using MUnique.OpenMU.Interfaces;
 using NUnit.Framework;
 
@@ -13,6 +14,27 @@ using NUnit.Framework;
 /// </summary>
 public class LocalizedStringTests
 {
+    /// <summary>
+    /// Tests that the JSON converter accepts the object shape written by older versions.
+    /// </summary>
+    [Test]
+    public void JsonConverter_ReadsLegacyObjectShape()
+    {
+        const string json = """
+                            {
+                              "$id": "",
+                              "Value": "Golden Invasion||de=Goldene Invasion",
+                              "ValueInNeutralLanguage": "Golden Invasion"
+                            }
+                            """;
+        var options = new JsonSerializerOptions();
+        options.Converters.Add(new LocalizedStringJsonConverter());
+
+        var result = JsonSerializer.Deserialize<LocalizedString>(json, options);
+
+        Assert.That(result.Value, Is.EqualTo("Golden Invasion||de=Goldene Invasion"));
+    }
+
     /// <summary>
     /// Tests that the implicit conversion from <see cref="string"/> to <see cref="LocalizedString"/> allows a <see langword="null"/> value.
     /// </summary>

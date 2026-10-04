@@ -37,7 +37,7 @@ public class CashShopEventItemListAction
         }
 
         // Buscar pacotes ativos da categoria solicitada
-        var packages = await this._catalogService.GetPackagesByCategoryAsync((int)categoryIndex).ConfigureAwait(false);
+        var packages = await this._catalogService.GetPackagesByCategoryAsync((int)categoryIndex, player.GameContext.Configuration).ConfigureAwait(false);
         var activePackageCount = packages.Count;
 
         await player.InvokeViewPlugInAsync<ICashShopViewPlugIn>(p => p.ShowEventItemCountAsync((ushort)activePackageCount)).ConfigureAwait(false);

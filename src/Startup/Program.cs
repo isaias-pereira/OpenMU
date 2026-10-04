@@ -1,4 +1,4 @@
-﻿// <copyright file="Program.cs" company="MUnique">
+// <copyright file="Program.cs" company="MUnique">
 // Licensed under the MIT License. See LICENSE file in the project root for full license information.
 // </copyright>
 
@@ -30,6 +30,7 @@ using MUnique.OpenMU.Persistence;
 using MUnique.OpenMU.Persistence.EntityFramework;
 using MUnique.OpenMU.Persistence.EntityFramework.Json;
 using MUnique.OpenMU.Persistence.Initialization;
+using MUnique.OpenMU.Persistence.Initialization.DataInitialization;
 using MUnique.OpenMU.Persistence.Initialization.Version075;
 using MUnique.OpenMU.Persistence.InMemory;
 using MUnique.OpenMU.PlugIns;
@@ -283,6 +284,17 @@ internal sealed class Program : IDisposable
             .AddSingleton<IFriendNotifier, FriendNotifierToGameServer>()
             .AddMemoryCache()
             .AddSingleton<ICashShopCatalogService, CashShopCatalogService>()
+            .AddSingleton<ICashShopStorageService>(serviceProvider => new CashShopStorageService(
+                // The storage belongs to the account, so it is read through a short-lived
+                // context created from the shared provider instead of a player's context.
+                () => serviceProvider.GetRequiredService<IPersistenceContextProvider>().CreateNewContext()))
+            .AddSingleton<UnsafeContextRetirement, UnsafeContextRetirement>()
+            .AddSingleton<ICashShopSelectionResolver, CashShopSelectionResolver>()
+            .AddSingleton<ICashShopBuyService, CashShopBuyService>()
+            .AddSingleton<ICashShopGiftService, CashShopGiftService>()
+            .AddSingleton<CashShopBuyAction>()
+            .AddSingleton<CashShopGiftAction>()
+            .AddSingleton<CashShopStorageListAction>()
             .AddSingleton<CashShopEventItemListAction>()
             .AddSingleton<PlugInManager>()
             .AddSingleton<IServerProvider, LocalServerProvider>()
@@ -484,31 +496,22 @@ internal sealed class Program : IDisposable
         }
         else if (!await contextProvider.IsDatabaseUpToDateAsync().ConfigureAwait(false))
         {
-            if (_systemConfiguration?.AutoUpdateSchema is true || await contextProvider.ShouldDoAutoSchemaUpdateAsync())
+            var autoUpdateSchema = _systemConfiguration?.AutoUpdateSchema is true || await contextProvider.ShouldDoAutoSchemaUpdateAsync().ConfigureAwait(false);
+            var schemaUpdated = await CashShopCatalogStartupInitializer.ApplySchemaUpdateAndInitializeAsync(
+                    autoUpdateSchema,
+                    contextProvider.ApplyAllPendingUpdatesAsync,
+                    () => CashShopCatalogStartupInitializer.InitializeIfConfiguredAsync(contextProvider, loggerFactory),
+                    () => Console.ReadLine(),
+                    message => Console.WriteLine(message))
+                .ConfigureAwait(false);
+            if (!schemaUpdated)
             {
-                Console.WriteLine("The database schema needs to be updated before the server can be started. Updating...");
-                await contextProvider.ApplyAllPendingUpdatesAsync().ConfigureAwait(false);
-                Console.WriteLine("The database schema has been successfully updated.");
-            }
-            else
-            {
-                Console.WriteLine("The database schema needs to be updated before the server can be started. Apply update? (y/n)");
-                var key = Console.ReadLine()?.ToLowerInvariant();
-                if (key == "y")
-                {
-                    await contextProvider.ApplyAllPendingUpdatesAsync().ConfigureAwait(false);
-                    Console.WriteLine("The database schema has been successfully updated.");
-                }
-                else
-                {
-                    Console.WriteLine("Cancelled the schema update process, can't start the server.");
-                    return null!;
-                }
+                return null!;
             }
         }
         else
         {
-            // everything is fine and ready
+            await CashShopCatalogStartupInitializer.InitializeIfConfiguredAsync(contextProvider, loggerFactory).ConfigureAwait(false);
         }
 
         return contextProvider;

@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -87,7 +88,7 @@ public class CashShopCatalogParserTests
         // Arrange
         var packageFile = Path.Combine(this._tempDirectory, "IBSPackage.txt");
         // Formato: ProductDisplaySeq@ViewOrder@PackageProductSeq@PackageProductName@PackageProductType@Price@Description@Caution@SalesFlag@GiftFlag@StartDate@EndDate@CapsuleFlag@CapsuleCount@ProductCashName@PriceUnitName@DeleteFlag@EventFlag@ProductAmount@ProductSeqList@InGamePackageID@ProductCashSeq@PriceCount@PriceSeqList@DeductMileageFlag@CashType@CashTypeFlag@
-        var content = "1@0@100@Test Package@1@1000@Package description@Package caution@1@1@20260101000000@20261231235959@0@0@CashName@USD@0@0@1@101|102@PKG001@301@2@201|202@0@0@0@\n";
+        var content = "1@0@100@Test Package@1@1000@Package description@Package caution@1@1@20260101000000@20261231235959@0@0@CashName@USD@0@0@1@101|102@PKG001@301@2@201|202@0@0@0\n";
         await File.WriteAllTextAsync(packageFile, content);
         await File.WriteAllTextAsync(Path.Combine(this._tempDirectory, "empty_categories.txt"), string.Empty);
         await File.WriteAllTextAsync(Path.Combine(this._tempDirectory, "empty_products.txt"), string.Empty);
@@ -129,12 +130,38 @@ public class CashShopCatalogParserTests
         Assert.That(package.EndDate, Is.EqualTo(new DateTime(2026, 12, 31, 23, 59, 59, DateTimeKind.Utc)));
 
         // Verifica relações extraídas
-        Assert.That(result.PackageProductRelations.Count, Is.EqualTo(2));
+        Assert.That(result.PackageProductRelations.Count, Is.EqualTo(4));
         Assert.That(result.PackageProductRelations[0].PackageProductSeq, Is.EqualTo(100));
+        Assert.That(result.PackageProductRelations[0].ProductSeq, Is.EqualTo(101));
         Assert.That(result.PackageProductRelations[0].PriceSeq, Is.EqualTo(201));
-        Assert.That(result.PackageProductRelations[1].PackageProductSeq, Is.EqualTo(100));
+        Assert.That(result.PackageProductRelations[1].ProductSeq, Is.EqualTo(101));
         Assert.That(result.PackageProductRelations[1].PriceSeq, Is.EqualTo(202));
+        Assert.That(result.PackageProductRelations[2].ProductSeq, Is.EqualTo(102));
+        Assert.That(result.PackageProductRelations[2].PriceSeq, Is.EqualTo(201));
+        Assert.That(result.PackageProductRelations[3].ProductSeq, Is.EqualTo(102));
+        Assert.That(result.PackageProductRelations[3].PriceSeq, Is.EqualTo(202));
     }
+
+    [Test]
+    public async Task ParseProductsAsync_Cp949Encoding_PreservesText()
+    {
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        var cp949 = Encoding.GetEncoding(949);
+        var productFile = Path.Combine(this._tempDirectory, "IBSProduct.txt");
+        var content = "101@한글@Property@Value@Unit@1000@201@1@145@0@144@2@518@ITEM001@5@3@1\n";
+        await File.WriteAllBytesAsync(productFile, cp949.GetBytes(content));
+        await File.WriteAllTextAsync(Path.Combine(this._tempDirectory, "empty_categories.txt"), string.Empty);
+        await File.WriteAllTextAsync(Path.Combine(this._tempDirectory, "empty_packages.txt"), string.Empty);
+
+        var result = await this._parser.ParseCatalogAsync(
+            Path.Combine(this._tempDirectory, "empty_categories.txt"),
+            Path.Combine(this._tempDirectory, "empty_packages.txt"),
+            productFile);
+
+        Assert.That(result.Products, Has.Count.EqualTo(1));
+        Assert.That(result.Products[0].ProductName, Is.EqualTo("한글"));
+    }
+
 
     [Test]
     public async Task ParseProductsAsync_ValidFile_ParsesCorrectly()
@@ -143,7 +170,7 @@ public class CashShopCatalogParserTests
         var productFile = Path.Combine(this._tempDirectory, "IBSProduct.txt");
         // Formato real IBS: ProductSeq@ProductName@PropertyName@Value@UnitName@Price@PriceSeq@PropertyType@MustFlag@ViewOrder@DeleteFlag@StorageGroup@ShareFlag@InGamePackageID@PropertySeq@ProductType@UnitType@
         // MustFlag: 145=required, 146=optional | DeleteFlag: 144=active | ShareFlag: 518=shareable
-        var content = "101@Test Product@Property@Value@Unit@1000@201@1@145@0@144@2@518@ITEM001@5@3@1@\n";
+        var content = "101@Test Product@Property@Value@Unit@1000@201@1@145@0@144@2@518@ITEM001@5@3@1\n";
         await File.WriteAllTextAsync(productFile, content);
         await File.WriteAllTextAsync(Path.Combine(this._tempDirectory, "empty_categories.txt"), string.Empty);
         await File.WriteAllTextAsync(Path.Combine(this._tempDirectory, "empty_packages.txt"), string.Empty);
@@ -203,7 +230,7 @@ public class CashShopCatalogParserTests
     {
         // Arrange
         var packageFile = Path.Combine(this._tempDirectory, "IBSPackage.txt");
-        var content = "1@0@100@Package No Products@1@1000@Description@Caution@1@1@@@0@0@CashName@USD@0@0@1@@PKG001@301@0@@0@0@0@\n";
+        var content = "1@0@100@Package No Products@1@1000@Description@Caution@1@1@@@0@0@CashName@USD@0@0@1@@PKG001@301@0@@0@0@0\n";
         await File.WriteAllTextAsync(packageFile, content);
         await File.WriteAllTextAsync(Path.Combine(this._tempDirectory, "empty_categories.txt"), string.Empty);
         await File.WriteAllTextAsync(Path.Combine(this._tempDirectory, "empty_products.txt"), string.Empty);
@@ -238,25 +265,20 @@ public class CashShopCatalogParserTests
         await File.WriteAllTextAsync(Path.Combine(this._tempDirectory, "empty_packages.txt"), string.Empty);
         await File.WriteAllTextAsync(Path.Combine(this._tempDirectory, "empty_products.txt"), string.Empty);
 
-        // Act
-        var result = await this._parser.ParseCatalogAsync(
+        // Act / Assert - uma linha malformada interrompe o parse para não importar catálogo parcial.
+        Assert.ThrowsAsync<InvalidDataException>(async () => await this._parser.ParseCatalogAsync(
             categoryFile,
             Path.Combine(this._tempDirectory, "empty_packages.txt"),
-            Path.Combine(this._tempDirectory, "empty_products.txt"));
-
-        // Assert - apenas as linhas válidas são parseadas
-        Assert.That(result.Categories.Count, Is.EqualTo(2));
-        Assert.That(result.Categories[0].ProductDisplaySeq, Is.EqualTo(10));
-        Assert.That(result.Categories[1].ProductDisplaySeq, Is.EqualTo(13));
+            Path.Combine(this._tempDirectory, "empty_products.txt")));
     }
 
     [Test]
-    public async Task ParsePackagesAsync_MismatchedListLengths_UsesMinimumLength()
+    public async Task ParsePackagesAsync_MismatchedListLengths_UsesCartesianProduct()
     {
         // Arrange
         var packageFile = Path.Combine(this._tempDirectory, "IBSPackage.txt");
-        // ProductSeqList tem 3 itens (101|102|103), PriceSeqList tem 2 (201|202) - deve criar apenas 2 relações
-        var content = "1@0@100@Package@1@1000@Desc@Caution@1@1@@@0@0@CashName@USD@0@0@1@101|102|103@PKG@301@2@201|202@0@0@0@\n";
+        // ProductSeqList tem 3 itens (101|102|103), PriceSeqList tem 2 (201|202): são 6 combinações.
+        var content = "1@0@100@Package@1@1000@Desc@Caution@1@1@@@0@0@CashName@USD@0@0@1@101|102|103@PKG@301@2@201|202@0@0@0\n";
         await File.WriteAllTextAsync(packageFile, content);
         await File.WriteAllTextAsync(Path.Combine(this._tempDirectory, "empty_categories.txt"), string.Empty);
         await File.WriteAllTextAsync(Path.Combine(this._tempDirectory, "empty_products.txt"), string.Empty);
@@ -267,9 +289,12 @@ public class CashShopCatalogParserTests
             packageFile,
             Path.Combine(this._tempDirectory, "empty_products.txt"));
 
-        // Assert - apenas o mínimo entre as listas (2) é usado
-        Assert.That(result.PackageProductRelations.Count, Is.EqualTo(2));
+        Assert.That(result.PackageProductRelations.Count, Is.EqualTo(6));
+        Assert.That(result.PackageProductRelations[0].PackageProductSeq, Is.EqualTo(100));
+        Assert.That(result.PackageProductRelations[0].ProductSeq, Is.EqualTo(101));
         Assert.That(result.PackageProductRelations[0].PriceSeq, Is.EqualTo(201));
         Assert.That(result.PackageProductRelations[1].PriceSeq, Is.EqualTo(202));
+        Assert.That(result.PackageProductRelations[5].ProductSeq, Is.EqualTo(103));
+        Assert.That(result.PackageProductRelations[5].PriceSeq, Is.EqualTo(202));
     }
 }

@@ -29,11 +29,11 @@ public class CashShopPackage
     public int ViewOrder { get; set; }
 
     /// <summary>
-    /// Gets or sets the PackageProductSeq (ID único do pacote).
+    /// Gets or sets the PackageProductSeq (ID do pacote).
     /// </summary>
     /// <remarks>
-    /// Este é o identificador único usado na compra (pacote D2 03).
-    /// Deve ser UNIQUE na tabela.
+    /// O valor é único dentro de uma categoria, mas pode ocorrer em categorias diferentes no IBS.
+    /// A chave natural do pacote no catálogo é (ProductDisplaySeq, PackageProductSeq).
     /// </remarks>
     public int PackageProductSeq { get; set; }
 

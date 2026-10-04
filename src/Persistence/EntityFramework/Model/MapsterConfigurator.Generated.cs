@@ -62,6 +62,9 @@ public static class MapsterConfigurator
         Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.CashShopProduct, MUnique.OpenMU.DataModel.Entities.CashShopProduct>()
             .Include<MUnique.OpenMU.DataModel.Entities.CashShopProduct, BasicModel.CashShopProduct>();
 
+        Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.CashShopStorageItem, MUnique.OpenMU.DataModel.Entities.CashShopStorageItem>()
+            .Include<MUnique.OpenMU.DataModel.Entities.CashShopStorageItem, BasicModel.CashShopStorageItem>();
+
         Mapster.TypeAdapterConfig.GlobalSettings.NewConfig<MUnique.OpenMU.DataModel.Entities.Character, MUnique.OpenMU.DataModel.Entities.Character>()
             .Include<MUnique.OpenMU.DataModel.Entities.Character, BasicModel.Character>();
 

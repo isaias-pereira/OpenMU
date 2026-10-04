@@ -23,7 +23,7 @@ public class CustomMoveEntry
     /// <summary>
     /// Initializes a new instance of the <see cref="CustomMoveEntry"/> class with the specified id.
     /// </summary>
-    public CustomMoveEntry(Guid id)
+    public CustomMoveEntry(Guid id) : this()
     {
         this.Id = id;
     }

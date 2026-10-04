@@ -29,7 +29,10 @@ COPY src/Directory.Build.props .
 COPY src/Startup/*.csproj Startup/
 COPY src/Persistence/**/*.csproj Persistence/
 
-RUN dotnet restore "Startup/MUnique.OpenMU.Startup.csproj"
+# Restore with parallelism disabled. The SDK otherwise saturates the available memory while
+# resolving the whole graph, which was enough to make the Docker engine abort the build
+# ("rpc error: code = Unavailable desc = error reading from server: EOF") on this machine.
+RUN dotnet restore "Startup/MUnique.OpenMU.Startup.csproj" --disable-parallel
 
 # Copia todo o código-fonte
 COPY src/ .
@@ -39,13 +42,17 @@ WORKDIR /src/Startup
 RUN dotnet build "MUnique.OpenMU.Startup.csproj" \
     -c Release \
     -o /app/build \
-    -p:ci=true
+    -p:ci=true \
+    -m:1 \
+    /p:BuildInParallel=false
 
 FROM build AS publish
 RUN dotnet publish "MUnique.OpenMU.Startup.csproj" \
     -c Release \
     -o /app/publish \
-    -p:ci=true
+    -p:ci=true \
+    -m:1 \
+    /p:BuildInParallel=false
 
 FROM base AS final
 WORKDIR /app

@@ -144,11 +144,28 @@ internal class TypedContext : EntityDataContext, ITypedContext
 
     private static IEnumerable<(Type EntityType, bool IsReadOnly, bool IsBackReference)> DetermineNavigationTypes(IMutableEntityType parentType)
     {
-        var navigations = parentType
-            .GetNavigations()
-            .Where(nav => nav.PropertyInfo is { });
-        foreach (var navigation in navigations)
+        // The traversal follows aggregate navigations recursively, so it needs to remember where it
+        // already has been. Without this guard a navigation cycle in the model (for example a pair of
+        // types that are members of each other's aggregate, which the Cash Shop entities introduce)
+        // makes this method recurse until the process dies with a stack overflow while the Entity
+        // Framework model is being built. Visiting each entity type once is what the caller expects
+        // anyway: the result is deduplicated further up by DistinctBy.
+        return DetermineNavigationTypes(parentType, new HashSet<IMutableEntityType>());
+
+        static IEnumerable<(Type EntityType, bool IsReadOnly, bool IsBackReference)> DetermineNavigationTypes(
+            IMutableEntityType parentType,
+            HashSet<IMutableEntityType> visited)
         {
+            if (!visited.Add(parentType))
+            {
+                yield break;
+            }
+
+            var navigations = parentType
+                .GetNavigations()
+                .Where(nav => nav.PropertyInfo is { });
+            foreach (var navigation in navigations)
+            {
             var type = navigation.TargetEntityType;
 
             if (navigation.IsMemberOfAggregate() || navigation.Name.StartsWith("Joined"))
@@ -172,9 +189,10 @@ internal class TypedContext : EntityDataContext, ITypedContext
                 continue;
             }
 
-            foreach (var navEditType in DetermineNavigationTypes(type))
-            {
-                yield return navEditType;
+            foreach (var navEditType in DetermineNavigationTypes(type, visited))
+                {
+                    yield return navEditType;
+                }
             }
         }
     }

@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -48,7 +49,7 @@ public class CashShopCatalogParser
     /// <summary>
     /// Relação entre PackageProductSeq e PriceSeq extraída dos campos ProductSeqList / PriceSeqList.
     /// </summary>
-    public record PackageProductRelation(int PackageProductSeq, int PriceSeq);
+    public record PackageProductRelation(int ProductDisplaySeq, int PackageProductSeq, int ProductSeq, int PriceSeq);
 
     /// <summary>
     /// Parseia o conjunto completo de arquivos do catálogo IBS.
@@ -86,13 +87,7 @@ public class CashShopCatalogParser
     private async Task<List<CashShopCategory>> ParseCategoriesAsync(string filePath, CancellationToken cancellationToken)
     {
         var categories = new List<CashShopCategory>();
-        if (!File.Exists(filePath))
-        {
-            this._logger.LogWarning("Category file not found: {FilePath}", filePath);
-            return categories;
-        }
-
-        var lines = await File.ReadAllLinesAsync(filePath, cancellationToken).ConfigureAwait(false);
+        var lines = await ReadLinesAsync(filePath, cancellationToken).ConfigureAwait(false);
 
         foreach (var line in lines)
         {
@@ -102,14 +97,12 @@ public class CashShopCatalogParser
             }
 
             var fields = line.Split(RecordDelimiter, StringSplitOptions.None);
-            if (fields.Length < 7)
+            if (fields.Length != 7)
             {
-                this._logger.LogWarning("Invalid category line (expected 7 fields): {Line}", line);
-                continue;
+                throw new InvalidDataException($"Invalid category record in '{filePath}': expected 7 fields, got {fields.Length}.");
             }
 
-            // Formato real: ProductDisplaySeq @ CategoryName @ EventFlag @ OpenFlag @ ParentProductDisplaySeq @ DisplayOrder @ Root
-            var category = new CashShopCategory
+            categories.Add(new CashShopCategory
             {
                 Id = Guid.NewGuid(),
                 ProductDisplaySeq = ParseInt(fields[0]),
@@ -119,9 +112,7 @@ public class CashShopCatalogParser
                 ParentProductDisplaySeq = ParseInt(fields[4]),
                 DisplayOrder = ParseInt(fields[5]),
                 IsRoot = ParseInt(fields[6]) == 1,
-            };
-
-            categories.Add(category);
+            });
         }
 
         return categories;
@@ -136,13 +127,7 @@ public class CashShopCatalogParser
     {
         var packages = new List<CashShopPackage>();
         var relations = new List<PackageProductRelation>();
-        if (!File.Exists(filePath))
-        {
-            this._logger.LogWarning("Package file not found: {FilePath}", filePath);
-            return (packages, relations);
-        }
-
-        var lines = await File.ReadAllLinesAsync(filePath, cancellationToken).ConfigureAwait(false);
+        var lines = await ReadLinesAsync(filePath, cancellationToken).ConfigureAwait(false);
 
         foreach (var line in lines)
         {
@@ -152,24 +137,24 @@ public class CashShopCatalogParser
             }
 
             var fields = line.Split(RecordDelimiter, StringSplitOptions.None);
-            if (fields.Length < 27)
+            if (fields.Length != 27)
             {
-                this._logger.LogWarning("Invalid package line (expected 27 fields): {Line}", line);
-                continue;
+                throw new InvalidDataException($"Invalid package record in '{filePath}': expected 27 fields, got {fields.Length}.");
             }
 
             var packageProductSeq = ParseInt(fields[2]);
-
             var productSeqList = ParseIntList(fields[19]);
             var priceSeqList = ParseIntList(fields[23]);
 
-            // Gerar relações PackageProductRelation
-            for (int i = 0; i < Math.Min(productSeqList.Count, priceSeqList.Count); i++)
+            foreach (var productSeq in productSeqList)
             {
-                relations.Add(new PackageProductRelation(packageProductSeq, priceSeqList[i]));
+                foreach (var priceSeq in priceSeqList)
+                {
+                    relations.Add(new PackageProductRelation(ParseInt(fields[0]), packageProductSeq, productSeq, priceSeq));
+                }
             }
 
-            var package = new CashShopPackage
+            packages.Add(new CashShopPackage
             {
                 Id = Guid.NewGuid(),
                 ProductDisplaySeq = ParseInt(fields[0]),
@@ -199,9 +184,7 @@ public class CashShopCatalogParser
                 DeductMileageFlag = ParseInt(fields[24]) == 1,
                 CashType = ParseInt(fields[25]),
                 CashTypeFlag = ParseInt(fields[26]),
-            };
-
-            packages.Add(package);
+            });
         }
 
         return (packages, relations);
@@ -213,13 +196,7 @@ public class CashShopCatalogParser
     private async Task<List<CashShopProduct>> ParseProductsAsync(string filePath, CancellationToken cancellationToken)
     {
         var products = new List<CashShopProduct>();
-        if (!File.Exists(filePath))
-        {
-            this._logger.LogWarning("Product file not found: {FilePath}", filePath);
-            return products;
-        }
-
-        var lines = await File.ReadAllLinesAsync(filePath, cancellationToken).ConfigureAwait(false);
+        var lines = await ReadLinesAsync(filePath, cancellationToken).ConfigureAwait(false);
 
         foreach (var line in lines)
         {
@@ -229,13 +206,12 @@ public class CashShopCatalogParser
             }
 
             var fields = line.Split(RecordDelimiter, StringSplitOptions.None);
-            if (fields.Length < 17)
+            if (fields.Length != 17)
             {
-                this._logger.LogWarning("Invalid product line (expected 17 fields): {Line}", line);
-                continue;
+                throw new InvalidDataException($"Invalid product record in '{filePath}': expected 17 fields, got {fields.Length}.");
             }
 
-            var product = new CashShopProduct
+            products.Add(new CashShopProduct
             {
                 Id = Guid.NewGuid(),
                 ProductSeq = ParseInt(fields[0]),
@@ -246,48 +222,47 @@ public class CashShopCatalogParser
                 Price = ParseInt(fields[5]),
                 PriceSeq = ParseInt(fields[6]),
                 PropertyType = ParseInt(fields[7]),
-                MustFlag = ParseInt(fields[8]) == 145,   // IBS: 145=required, 146=optional
+                MustFlag = ParseInt(fields[8]) == 145,
                 ViewOrder = ParseInt(fields[9]),
-                DeleteFlag = ParseInt(fields[10]),        // IBS: 144=active, 143=deleted
+                DeleteFlag = ParseInt(fields[10]),
                 StorageGroup = ParseInt(fields[11]),
-                ShareFlag = ParseInt(fields[12]) == 518,  // IBS: 518=shareable, 517=not shareable
+                ShareFlag = ParseInt(fields[12]) == 518,
                 InGamePackageID = fields[13],
                 PropertySeq = ParseInt(fields[14]),
                 ProductType = ParseInt(fields[15]),
                 UnitType = ParseInt(fields[16]),
-            };
-
-            products.Add(product);
+            });
         }
 
         return products;
     }
 
+    private static readonly Encoding Utf8Encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
+    private static readonly Encoding Cp949Encoding = CreateCp949Encoding();
+
     private static int ParseInt(string value)
     {
-        return int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var result) ? result : 0;
-    }
-
-    private static int? ParseNullableInt(string value)
-    {
-        if (string.IsNullOrWhiteSpace(value) || value == "0")
+        if (!int.TryParse(value.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var result))
         {
-            return null;
+            throw new InvalidDataException($"Invalid integer value '{value}'.");
         }
 
-        return int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var result) ? result : null;
+        return result;
     }
 
     private static DateTime ParseDateTime(string value)
     {
-        if (string.IsNullOrWhiteSpace(value))
+        if (string.IsNullOrWhiteSpace(value) || value.Trim() == "0")
         {
             return default;
         }
 
-        return DateTime.TryParseExact(value, DateFormat, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var result)
-            ? result
-            : default;
+        if (!DateTime.TryParseExact(value.Trim(), DateFormat, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var result))
+        {
+            throw new InvalidDataException($"Invalid IBS date '{value}'. Expected {DateFormat}.");
+        }
+
+        return result;
     }
 
     private static List<int> ParseIntList(string value)
@@ -298,7 +273,41 @@ public class CashShopCatalogParser
         }
 
         return value.Split(ListSeparator, StringSplitOptions.RemoveEmptyEntries)
-            .Select(s => ParseInt(s))
+            .Select(ParseInt)
             .ToList();
     }
+
+    private static Encoding CreateCp949Encoding()
+    {
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        return Encoding.GetEncoding(949, EncoderFallback.ExceptionFallback, DecoderFallback.ExceptionFallback);
+    }
+
+    private static async Task<string[]> ReadLinesAsync(string filePath, CancellationToken cancellationToken)
+    {
+        if (!File.Exists(filePath))
+        {
+            throw new FileNotFoundException("Cash Shop IBS catalog file was not found.", filePath);
+        }
+
+        var bytes = await File.ReadAllBytesAsync(filePath, cancellationToken).ConfigureAwait(false);
+        string text;
+        try
+        {
+            text = Utf8Encoding.GetString(bytes);
+        }
+        catch (DecoderFallbackException)
+        {
+            text = Cp949Encoding.GetString(bytes);
+        }
+
+        var lines = text.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
+        if (lines.Length > 0)
+        {
+            lines[0] = lines[0].TrimStart('\uFEFF');
+        }
+
+        return lines;
+    }
+
 }

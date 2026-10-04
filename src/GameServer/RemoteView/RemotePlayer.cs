@@ -100,11 +100,44 @@ public class RemotePlayer : Player, IClientVersionProvider
     protected override async ValueTask InternalDisconnectAsync()
     {
         await base.InternalDisconnectAsync().ConfigureAwait(false);
-        if (this.Connection is { Connected: true })
+        await this.CloseConnectionAsync().ConfigureAwait(false);
+    }
+
+    /// <inheritdoc/>
+    /// <remarks>
+    /// The connection must be closed here as well, otherwise the retirement would only change the
+    /// player state while the client stays connected — and the state alone is not evidence that a
+    /// connection was closed.
+    /// </remarks>
+    protected override async ValueTask InternalDisconnectWithoutSavingAsync()
+    {
+        var failures = new List<Exception>();
+        await RunDisconnectStepAsync(() => base.InternalDisconnectWithoutSavingAsync(), failures).ConfigureAwait(false);
+        await RunDisconnectStepAsync(this.CloseConnectionAsync, failures).ConfigureAwait(false);
+        ThrowDisconnectFailures(failures);
+    }
+
+    private async ValueTask CloseConnectionAsync()
+    {
+        if (this.Connection is { } connection)
         {
-            await this.Connection.DisconnectAsync().ConfigureAwait(false);
-            this.Connection.Dispose();
-            this.Connection = null;
+            var failures = new List<Exception>();
+            if (connection.Connected)
+            {
+                await RunDisconnectStepAsync(connection.DisconnectAsync, failures).ConfigureAwait(false);
+            }
+
+            try
+            {
+                connection.Dispose();
+                this.Connection = null;
+            }
+            catch (Exception exception)
+            {
+                failures.Add(exception);
+            }
+
+            ThrowDisconnectFailures(failures);
         }
     }
 

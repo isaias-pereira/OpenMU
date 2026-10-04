@@ -50,7 +50,8 @@ internal static class CashShopPackageExtensions
         builder.Property(p => p.PriceUnitName).HasMaxLength(128);
         builder.Property(p => p.InGamePackageID).HasMaxLength(64);
 
-        builder.HasIndex(p => p.PackageProductSeq).IsUnique();
+        builder.HasIndex(p => new { p.ProductDisplaySeq, p.PackageProductSeq }).IsUnique();
+        builder.HasIndex(p => p.PackageProductSeq);
         builder.HasIndex(p => p.CategoryId);
 
         builder.HasOne(p => p.RawCategory)
@@ -77,8 +78,9 @@ internal static class CashShopProductExtensions
         builder.Property(p => p.UnitName).HasMaxLength(64);
         builder.Property(p => p.InGamePackageID).HasMaxLength(64);
 
-        builder.HasIndex(p => p.PriceSeq).IsUnique();
+        builder.HasIndex(p => new { p.ProductSeq, p.PriceSeq, p.PropertySeq }).IsUnique();
         builder.HasIndex(p => p.ProductSeq);
+        builder.HasIndex(p => p.PriceSeq);
         builder.HasIndex(p => p.InGamePackageID);
     }
 }

@@ -18,6 +18,8 @@ using MUnique.OpenMU.Network;
 ///   <item><term>D2 01</term><description>45 bytes: [4]=byte ViewType; [5..45)=5 doubles LE (TotalCash, CashCredit, CashPrepaid, TotalPoint, TotalMileage). The whole cashshop struct block is inside #pragma pack(push,1) in the client (WSclient.h), so the doubles are NOT 8-byte aligned.</description></item>
 ///   <item><term>D2 02</term><description>5 bytes: [4]=byte ShopOpenResult (0 = failure; the client auto-requests 01 and 05 after a non-zero result).</description></item>
 ///   <item><term>D2 06</term><description>12 bytes: off 4..12 = 4 WORDs (TotalItemCount, CurrentItemCount, PageIndex, TotalPage).</description></item>
+///   <item><term>D2 03</term><description>9 bytes: off 4 = BYTE byResultCode; off 5..9 = long lItemLeftCount. The client reads only the result code (ReceiveIGS_BuyItem).</description></item>
+///   <item><term>D2 0D</term><description>33 bytes: off 4..24 = 5 longs (lStorageIndex, lItemSeq, lStorageGroupCode, lProductSeq, lPriceSeq); off 24..32 = double dCashPoint; off 32 = char chItemType. One packet per item of the requested page.</description></item>
 ///   <item><term>D2 0C</term><description>10 bytes: off 4..10 = 3 WORDs (SaleZone, Year, YearIdentify). Unlocks the shop UI (ShopOpenUnLock) when KJH_MOD_SHOP_SCRIPT_DOWNLOAD is defined.</description></item>
 ///   <item><term>D2 13</term><description>6 bytes: off 4 = WORD EventItemListCount.</description></item>
 ///   <item><term>D2 15</term><description>10 bytes: same layout as 0C (banner version).</description></item>
@@ -123,6 +125,66 @@ public static class CashShopConnectionExtensions
             WriteWord(span[6..8], currentPageItemCount);
             WriteWord(span[8..10], pageIndex);
             WriteWord(span[10..12], totalPage);
+            return length;
+        }
+
+        await connection.SendAsync(WritePacket).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Sends one cash shop storage item (C1 D2 0D) to the client.
+    /// </summary>
+    /// <param name="connection">The connection.</param>
+    /// <param name="storageIndex">The index of the line in the storage (lStorageIndex).</param>
+    /// <param name="itemSeq">The item sequence within the storage (lItemSeq).</param>
+    /// <param name="storageGroupCode">The storage group code (lStorageGroupCode).</param>
+    /// <param name="productSeq">The product sequence (lProductSeq).</param>
+    /// <param name="priceSeq">The price sequence (lPriceSeq); zero resolves by product only.</param>
+    /// <param name="cashPoint">The paid cash points (dCashPoint).</param>
+    /// <param name="itemType">The item type (chItemType): 'P' for a product, 'C' for currency.</param>
+    /// <remarks>
+    /// The client sends D2 0D once per item of the requested page and stops reading after
+    /// <c>wCurrentItemCount</c> lines (D2 06), see <c>CNewUIInGameShop::AddStorageItem</c>.
+    /// The 33-byte layout mirrors <c>PMSG_CASHSHOP_STORAGELIST</c> in the client
+    /// (<c>src\source\Network\Server\WSclient.h</c>), inside the <c>#pragma pack(push, 1)</c>
+    /// region, so the double is not 8-byte aligned.
+    /// <para>
+    /// <paramref name="productSeq"/> and <paramref name="priceSeq"/> are mandatory: the client
+    /// resolves name, quantity, period and item code from its <b>local</b> catalog through
+    /// <c>GetProductInfoFromPriceSeq</c>. <paramref name="itemType"/> must be 'P' or 'C',
+    /// otherwise the client silently drops the line.
+    /// </para>
+    /// </remarks>
+    public static async ValueTask SendCashShopStorageItemAsync(
+        this IConnection? connection,
+        int storageIndex,
+        int itemSeq,
+        int storageGroupCode,
+        int productSeq,
+        int priceSeq,
+        double cashPoint,
+        char itemType)
+    {
+        if (connection is null)
+        {
+            return;
+        }
+
+        int WritePacket()
+        {
+            const byte length = 33;
+            var span = connection.Output.GetSpan(length)[..length];
+            span[0] = 0xC1;
+            span[1] = length;
+            span[2] = PacketCode;
+            span[3] = 0x0D;
+            BinaryPrimitives.WriteInt32LittleEndian(span[4..8], storageIndex);
+            BinaryPrimitives.WriteInt32LittleEndian(span[8..12], itemSeq);
+            BinaryPrimitives.WriteInt32LittleEndian(span[12..16], storageGroupCode);
+            BinaryPrimitives.WriteInt32LittleEndian(span[16..20], productSeq);
+            BinaryPrimitives.WriteInt32LittleEndian(span[20..24], priceSeq);
+            WriteDouble(span[24..32], cashPoint);
+            span[32] = (byte)itemType;
             return length;
         }
 
