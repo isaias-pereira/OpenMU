@@ -121,12 +121,14 @@ public class CashShopBuyServiceTests
         return gameContext;
     }
 
-    private void SetupValidCatalog(Action<CashShopPackage>? configurePackage = null, IReadOnlyList<CashShopProduct>? products = null)
+    private void SetupValidCatalog(Action<CashShopPackage>? configurePackage = null, IReadOnlyList<CashShopProduct>? products = null, int? productDisplaySeq = null, int? packageProductSeq = null)
     {
+        var displaySeq = productDisplaySeq ?? CategoryProductDisplaySeq;
+        var packageSeq = packageProductSeq ?? PackageProductSeq;
         var package = new CashShopPackage
         {
-            ProductDisplaySeq = CategoryProductDisplaySeq,
-            PackageProductSeq = PackageProductSeq,
+            ProductDisplaySeq = displaySeq,
+            PackageProductSeq = packageSeq,
             PackageProductName = "Test Package",
             DeleteFlag = ActivePackageDeleteFlag,
             SalesFlag = SalesFlagAvailable,
@@ -140,7 +142,7 @@ public class CashShopBuyServiceTests
         configurePackage?.Invoke(package);
 
         this._catalog
-            .Setup(c => c.GetPackageBySeqAsync(CategoryProductDisplaySeq, PackageProductSeq, It.IsAny<GameConfiguration>(), It.IsAny<CancellationToken>()))
+            .Setup(c => c.GetPackageBySeqAsync(displaySeq, packageSeq, It.IsAny<GameConfiguration>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(package);
 
         // The real CashShopCatalogService filters by the requested price sequence and by the
@@ -271,6 +273,46 @@ public class CashShopBuyServiceTests
     }
 
     /// <summary>
+    /// Cria uma linha de <c>IBSProduct</c> com os mesmos 17 campos do arquivo real, para os
+    /// testes que reproduzem uma oferta concreta do catálogo.
+    /// </summary>
+    private static CashShopProduct CreateCatalogRow(
+        int productSeq,
+        int priceSeq,
+        string itemCode,
+        int propertySeq,
+        string propertyName,
+        string value,
+        string unitName,
+        int unitType,
+        bool mustFlag,
+        int viewOrder,
+        int price,
+        int productType)
+    {
+        return new CashShopProduct
+        {
+            ProductSeq = productSeq,
+            PriceSeq = priceSeq,
+            InGamePackageID = itemCode,
+            PropertySeq = propertySeq,
+            ProductName = "Wizard Ring",
+            PropertyName = propertyName,
+            Value = value,
+            UnitName = unitName,
+            UnitType = unitType,
+            MustFlag = mustFlag,
+            ViewOrder = viewOrder,
+            ProductType = productType,
+            Price = price,
+            PropertyType = 142,
+            StorageGroup = 673,
+            ShareFlag = true,
+            DeleteFlag = ActiveProductDeleteFlag,
+        };
+    }
+
+    /// <summary>
     /// Uma compra válida debita o preço e grava a entrega no storage da conta.
     /// </summary>
     [Test]
@@ -296,6 +338,278 @@ public class CashShopBuyServiceTests
             Assert.That(stored[0].ItemType, Is.EqualTo(CashShopStorageItemType.Product));
             Assert.That(stored[0].Item, Is.Not.Null, "The storage line must reference the delivered item.");
         });
+    }
+
+    /// <summary>
+    /// O pacote real 35 (Wizard Ring, categoria 31) é vendido em duas variantes de preço — 95 a 1 dia
+    /// e 96 a 7 dias — e cada variante tem três linhas em <c>IBSProduct.txt</c>: PropertySeq 10
+    /// (<c>Duration</c>), 37 (<c>기간제-감가상각기간</c>) e 53 (<c>기간아이템 유효기간</c>).
+    /// <para>
+    /// Essas três linhas são atributos complementares da <i>mesma</i> oferta, não variantes
+    /// concorrentes: o cliente as percorre todas em <c>GetPriceSeqNext</c> e devolve um único pedido,
+    /// e nos 874 grupos reais do catálogo nenhum tem duas linhas de duração, nem preços ou
+    /// <c>InGamePackageID</c> divergentes. Portanto a compra tem de ser aceita.
+    /// </para>
+    /// </summary>
+    [Test]
+    public async Task ProcessPurchaseAsync_RealPackage35_ComplementaryPropertyRows_ResolveAndDeliver()
+    {
+        // InGamePackageID 6676 = group 13, number 4 (codigo = group * 512 + number).
+        this._configuration.Items.Add(new ItemDefinition { Group = 13, Number = 4, Name = "Wizard Ring", Width = 2, Height = 2 });
+
+        var player = await this.CreatePlayerWithBalanceAsync(1000);
+
+        this.SetupValidCatalog(
+            package =>
+            {
+                package.ProductDisplaySeq = 31;
+                package.PackageProductSeq = 35;
+                package.PackageProductName = "[Wizard Ring]";
+                package.ProductSeqList = "[58]";
+                package.PriceSeqList = "[95,96]";
+                package.Price = 100;
+            },
+            products: new[]
+            {
+                CreateCatalogRow(58, 95, "6676", 10, "Duration", "86400", "Sec.", 386, true, 1, 100, 140),
+                CreateCatalogRow(58, 95, "6676", 37, "기간제-감가상각기간", "365", "Day(s)", 151, false, 9, 100, 140),
+                CreateCatalogRow(58, 95, "6676", 53, "기간아이템 유효기간", "365", "Day(s)", 151, false, 9, 100, 140),
+            },
+            productDisplaySeq: 31,
+            packageProductSeq: 35);
+
+        var result = await this._service.ProcessPurchaseAsync(player, 35, 31, 95, 6676, WCoinPCashType, false);
+
+        Assert.That(result.Success, Is.True, $"O pacote real 35 deve ser compravel: {result.ErrorMessage}");
+
+        var stored = await this.GetStoredItemsAsync();
+        Assert.Multiple(() =>
+        {
+            Assert.That(stored, Has.Count.EqualTo(1));
+            Assert.That(stored[0].ProductSeq, Is.EqualTo(58));
+            Assert.That(stored[0].PriceSeq, Is.EqualTo(95));
+            Assert.That(stored[0].CashPoint, Is.EqualTo(100), "O preco cobrado e o da variante de 1 dia.");
+            Assert.That(stored[0].Item, Is.Not.Null);
+        });
+        Assert.That(await this.GetWalletBalanceAsync(), Is.EqualTo(1000 - 100));
+    }
+
+    /// <summary>
+    /// A segunda variante do pacote 35 (PriceSeq 96, 7 dias) tem preco distinto da primeira
+    /// (PriceSeq 95, 1 dia). O PriceSeq e o que o cliente escolhe na lista, entao cobrar o preco
+    /// errado seria cobrar a oferta errada.
+    /// </summary>
+    [Test]
+    public async Task ProcessPurchaseAsync_RealPackage35_PriceSeq96_ChargesTheSevenDayVariantPrice()
+    {
+        this._configuration.Items.Add(new ItemDefinition { Group = 13, Number = 4, Name = "Wizard Ring", Width = 2, Height = 2 });
+        var player = await this.CreatePlayerWithBalanceAsync(1000);
+
+        this.SetupValidCatalog(
+            package =>
+            {
+                package.ProductDisplaySeq = 31;
+                package.PackageProductSeq = 35;
+                package.ProductSeqList = "[58]";
+                package.PriceSeqList = "[95,96]";
+                package.Price = 100;
+            },
+            products: new[]
+            {
+                CreateCatalogRow(58, 96, "6676", 10, "Duration", "604800", "Sec.", 386, true, 1, 500, 140),
+                CreateCatalogRow(58, 96, "6676", 37, "기간제-감가상각기간", "365", "Day(s)", 151, false, 9, 500, 140),
+                CreateCatalogRow(58, 96, "6676", 53, "기간아이템 유효기간", "365", "Day(s)", 151, false, 9, 500, 140),
+            },
+            productDisplaySeq: 31,
+            packageProductSeq: 35);
+
+        var result = await this._service.ProcessPurchaseAsync(player, 35, 31, 96, 6676, WCoinPCashType, false);
+
+        Assert.That(result.Success, Is.True, result.ErrorMessage);
+        var stored = await this.GetStoredItemsAsync();
+        Assert.Multiple(() =>
+        {
+            Assert.That(stored, Has.Count.EqualTo(1));
+            Assert.That(stored[0].PriceSeq, Is.EqualTo(96));
+            Assert.That(stored[0].CashPoint, Is.EqualTo(500), "A variante de 7 dias custa 500, nao 100.");
+        });
+        Assert.That(await this.GetWalletBalanceAsync(), Is.EqualTo(1000 - 500));
+    }
+
+    /// <summary>
+    /// O padrao 10/37/53 (273 grupos reais) e o de item de periodo: as tres linhas descrevem uma
+    /// oferta unica e precisam ser aceitas como uma so.
+    /// </summary>
+    [Test]
+    public async Task ProcessPurchaseAsync_Pattern10_37_53_AggregatesIntoASingleOffer()
+    {
+        var player = await this.CreatePlayerWithBalanceAsync(1000);
+        this.SetupValidCatalog(products: new[]
+        {
+            CreateCatalogRow(ProductSeq, PriceSeq, ItemCode.ToString(), 10, "Duration", "86400", "Sec.", 386, true, 1, Price, 140),
+            CreateCatalogRow(ProductSeq, PriceSeq, ItemCode.ToString(), 37, "기간제-감가상각기간", "365", "Day(s)", 151, false, 9, Price, 140),
+            CreateCatalogRow(ProductSeq, PriceSeq, ItemCode.ToString(), 53, "기간아이템 유효기간", "365", "Day(s)", 151, false, 9, Price, 140),
+        });
+
+        var result = await this._service.ProcessPurchaseAsync(player, PackageProductSeq, CategoryProductDisplaySeq, PriceSeq, ItemCode, WCoinPCashType, false);
+
+        Assert.That(result.Success, Is.True, result.ErrorMessage);
+    }
+
+    /// <summary>
+    /// O padrao 7/35/51 (487 grupos reais, o mais frequente do catalogo) e o de consumivel:
+    /// quantidade em 7, metadados em 35 e 51. Tambem e uma oferta unica.
+    /// </summary>
+    [Test]
+    public async Task ProcessPurchaseAsync_Pattern7_35_51_AggregatesIntoASingleOffer()
+    {
+        var player = await this.CreatePlayerWithBalanceAsync(1000);
+        this.SetupValidCatalog(products: new[]
+        {
+            CreateCatalogRow(ProductSeq, PriceSeq, ItemCode.ToString(), 7, "Quantity", "20", "EA", 680, true, 1, Price, 138),
+            CreateCatalogRow(ProductSeq, PriceSeq, ItemCode.ToString(), 35, "소모성-감가상각기간", "365", "Day(s)", 151, false, 9, Price, 138),
+            CreateCatalogRow(ProductSeq, PriceSeq, ItemCode.ToString(), 51, "소모아이템 유효기간", "365", "Day(s)", 151, false, 9, Price, 138),
+        });
+
+        var result = await this._service.ProcessPurchaseAsync(player, PackageProductSeq, CategoryProductDisplaySeq, PriceSeq, ItemCode, WCoinPCashType, false);
+
+        Assert.That(result.Success, Is.True, result.ErrorMessage);
+    }
+
+    /// <summary>
+    /// O padrao 9/10/37/53 (23 grupos reais) traz quantidade e duracao na mesma oferta.
+    /// </summary>
+    [Test]
+    public async Task ProcessPurchaseAsync_Pattern9_10_37_53_AggregatesQuantityAndDuration()
+    {
+        var player = await this.CreatePlayerWithBalanceAsync(1000);
+        this.SetupValidCatalog(products: new[]
+        {
+            CreateCatalogRow(ProductSeq, PriceSeq, ItemCode.ToString(), 9, "Quantity", "1", "&nbsp;", 147, true, 1, Price, 140),
+            CreateCatalogRow(ProductSeq, PriceSeq, ItemCode.ToString(), 10, "Duration", "259200", "Sec.", 386, true, 1, Price, 140),
+            CreateCatalogRow(ProductSeq, PriceSeq, ItemCode.ToString(), 37, "기간제-감가상각기간", "365", "Day(s)", 151, false, 9, Price, 140),
+            CreateCatalogRow(ProductSeq, PriceSeq, ItemCode.ToString(), 53, "기간아이템 유효기간", "365", "Day(s)", 151, false, 9, Price, 140),
+        });
+
+        var result = await this._service.ProcessPurchaseAsync(player, PackageProductSeq, CategoryProductDisplaySeq, PriceSeq, ItemCode, WCoinPCashType, false);
+
+        Assert.That(result.Success, Is.True, result.ErrorMessage);
+    }
+
+    /// <summary>
+    /// Duas linhas com o mesmo atributo de duracao (PropertySeq 10 e 2, ambos em
+    /// <c>IGS_PRODUCT_ATT_TYPE_USE_LIMIT_PERIOD</c>) sao conflito real: nao existe qual delas
+    /// definiria a duracao. Nenhum dos 874 grupos reais tem esse caso, mas a regra precisa recusar.
+    /// </summary>
+    [Test]
+    public async Task ProcessPurchaseAsync_TwoDurationRows_AreRejectedAsRealConflict()
+    {
+        var player = await this.CreatePlayerWithBalanceAsync(1000);
+        this.SetupValidCatalog(products: new[]
+        {
+            CreateCatalogRow(ProductSeq, PriceSeq, ItemCode.ToString(), 10, "Duration", "86400", "Sec.", 386, true, 1, Price, 140),
+            CreateCatalogRow(ProductSeq, PriceSeq, ItemCode.ToString(), 2, "Duration", "604800", "Sec.", 386, true, 1, Price, 140),
+        });
+
+        var result = await this._service.ProcessPurchaseAsync(player, PackageProductSeq, CategoryProductDisplaySeq, PriceSeq, ItemCode, WCoinPCashType, false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Success, Is.False);
+            Assert.That(result.ErrorCode, Is.EqualTo(PurchaseErrorCode.SelectionUnavailable));
+        });
+        Assert.That(await this.GetWalletBalanceAsync(), Is.EqualTo(1000), "Uma recusa nao pode debitar.");
+    }
+
+    /// <summary>
+    /// Duas linhas com o mesmo atributo de quantidade (PropertySeq 7 e 9, ambos em
+    /// <c>IGS_PRODUCT_ATT_TYPE_NUM</c>) sao conflito real.
+    /// </summary>
+    [Test]
+    public async Task ProcessPurchaseAsync_TwoQuantityRows_AreRejectedAsRealConflict()
+    {
+        var player = await this.CreatePlayerWithBalanceAsync(1000);
+        this.SetupValidCatalog(products: new[]
+        {
+            CreateCatalogRow(ProductSeq, PriceSeq, ItemCode.ToString(), 7, "Quantity", "1", "EA", 680, true, 1, Price, 138),
+            CreateCatalogRow(ProductSeq, PriceSeq, ItemCode.ToString(), 9, "Quantity", "5", "&nbsp;", 147, true, 1, Price, 138),
+        });
+
+        var result = await this._service.ProcessPurchaseAsync(player, PackageProductSeq, CategoryProductDisplaySeq, PriceSeq, ItemCode, WCoinPCashType, false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Success, Is.False);
+            Assert.That(result.ErrorCode, Is.EqualTo(PurchaseErrorCode.SelectionUnavailable));
+        });
+        Assert.That(await this.GetWalletBalanceAsync(), Is.EqualTo(1000));
+    }
+
+    /// <summary>
+    /// Precos divergentes dentro do mesmo grupo sao conflito real: nao existe qual cobrar.
+    /// </summary>
+    [Test]
+    public async Task ProcessPurchaseAsync_DivergingPrice_IsRejectedAsRealConflict()
+    {
+        var player = await this.CreatePlayerWithBalanceAsync(1000);
+        this.SetupValidCatalog(products: new[]
+        {
+            CreateCatalogRow(ProductSeq, PriceSeq, ItemCode.ToString(), 10, "Duration", "86400", "Sec.", 386, true, 1, 100, 140),
+            CreateCatalogRow(ProductSeq, PriceSeq, ItemCode.ToString(), 37, "기간제-감가상각기간", "365", "Day(s)", 151, false, 9, 200, 140),
+        });
+
+        var result = await this._service.ProcessPurchaseAsync(player, PackageProductSeq, CategoryProductDisplaySeq, PriceSeq, ItemCode, WCoinPCashType, false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Success, Is.False);
+            Assert.That(result.ErrorCode, Is.EqualTo(PurchaseErrorCode.CannotBeBought));
+        });
+        Assert.That(await this.GetWalletBalanceAsync(), Is.EqualTo(1000));
+    }
+
+    /// <summary>
+    /// <c>InGamePackageID</c> e o filtro exato do item entregue (o codigo que o cliente manda no
+    /// D2 03). Uma linha de outro item, dentro do mesmo <c>PriceSeq</c>, nao participa da oferta e
+    /// tambem nao pode criar conflito.
+    /// </summary>
+    [Test]
+    public async Task ProcessPurchaseAsync_RowWithAnotherItemCode_IsExcludedInsteadOfConflicting()
+    {
+        var player = await this.CreatePlayerWithBalanceAsync(1000);
+        this.SetupValidCatalog(products: new[]
+        {
+            CreateCatalogRow(ProductSeq, PriceSeq, ItemCode.ToString(), 10, "Duration", "86400", "Sec.", 386, true, 1, Price, 140),
+            CreateCatalogRow(ProductSeq, PriceSeq, ItemCode.ToString(), 37, "기간제-감가상각기간", "365", "Day(s)", 151, false, 9, Price, 140),
+            CreateCatalogRow(ProductSeq, PriceSeq, ItemCode.ToString(), 53, "기간아이템 유효기간", "365", "Day(s)", 151, false, 9, Price, 140),
+            // Mesmo ProductSeq e PriceSeq, item diferente: pertence a outra oferta.
+            CreateCatalogRow(ProductSeq, PriceSeq, ((ItemGroup * 512) + 99).ToString(), 1, "IP Quantity", "1", "EA", 680, false, 9, 999, 138),
+        });
+
+        var result = await this._service.ProcessPurchaseAsync(player, PackageProductSeq, CategoryProductDisplaySeq, PriceSeq, ItemCode, WCoinPCashType, false);
+
+        Assert.That(result.Success, Is.True, result.ErrorMessage);
+    }
+
+    /// <summary>
+    /// Grupo sem nenhuma linha de PropertySeq {2,12,28,58,10} e um item permanente: precisa
+    /// resolver e entregar, sem duracao a extrair.
+    /// </summary>
+    [Test]
+    public async Task ProcessPurchaseAsync_GroupWithoutDurationRow_IsResolvedAsPermanent()
+    {
+        var player = await this.CreatePlayerWithBalanceAsync(1000);
+        this.SetupValidCatalog(products: new[]
+        {
+            CreateCatalogRow(ProductSeq, PriceSeq, ItemCode.ToString(), 53, "기간아이템 유효기간", "365", "Day(s)", 151, false, 9, Price, 140),
+            CreateCatalogRow(ProductSeq, PriceSeq, ItemCode.ToString(), 61, "감가상각기간", "120", "Day(s)", 151, false, 9, Price, 140),
+        });
+
+        var result = await this._service.ProcessPurchaseAsync(player, PackageProductSeq, CategoryProductDisplaySeq, PriceSeq, ItemCode, WCoinPCashType, false);
+
+        Assert.That(result.Success, Is.True, result.ErrorMessage);
+        var stored = await this.GetStoredItemsAsync();
+        Assert.That(stored, Has.Count.EqualTo(1), "Um item permanente tambem precisa ser entregue.");
     }
 
     /// <summary>
