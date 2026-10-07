@@ -104,10 +104,15 @@ public static class Program
     /// <summary>
     /// Entry point of the homologation seeder.
     /// </summary>
-    /// <param name="args">Unused.</param>
-    /// <returns>0 when the catalog was seeded; 1 otherwise.</returns>
+    /// <param name="args">Pass <c>gift</c> to run the gift flow homologation scenarios instead of the seed.</param>
+    /// <returns>0 when the catalog was seeded or every gift scenario passed; 1 otherwise.</returns>
     public static async Task<int> Main(string[] args)
     {
+        if (args.Any(argument => string.Equals(argument, "gift", StringComparison.OrdinalIgnoreCase)))
+        {
+            return await GiftHomologation.RunAsync().ConfigureAwait(false);
+        }
+
         var database = Environment.GetEnvironmentVariable("DB_NAME");
         Console.WriteLine($"Target database: {database ?? "<from ConnectionSettings.xml>"}");
 
