@@ -354,8 +354,8 @@ public class CashShopBuyServiceTests
     [Test]
     public async Task ProcessPurchaseAsync_RealPackage35_ComplementaryPropertyRows_ResolveAndDeliver()
     {
-        // InGamePackageID 6676 = group 13, number 4 (codigo = group * 512 + number).
-        this._configuration.Items.Add(new ItemDefinition { Group = 13, Number = 4, Name = "Wizard Ring", Width = 2, Height = 2 });
+        // InGamePackageID 6676 = group 13, number 20 (codigo = group * 512 + number).
+        this._configuration.Items.Add(new ItemDefinition { Group = 13, Number = 20, Name = "Wizard Ring", Width = 2, Height = 2 });
 
         var player = await this.CreatePlayerWithBalanceAsync(1000);
 
@@ -402,7 +402,7 @@ public class CashShopBuyServiceTests
     [Test]
     public async Task ProcessPurchaseAsync_RealPackage35_PriceSeq96_ChargesTheSevenDayVariantPrice()
     {
-        this._configuration.Items.Add(new ItemDefinition { Group = 13, Number = 4, Name = "Wizard Ring", Width = 2, Height = 2 });
+        this._configuration.Items.Add(new ItemDefinition { Group = 13, Number = 20, Name = "Wizard Ring", Width = 2, Height = 2 });
         var player = await this.CreatePlayerWithBalanceAsync(1000);
 
         this.SetupValidCatalog(
@@ -463,6 +463,10 @@ public class CashShopBuyServiceTests
     [Test]
     public async Task ProcessPurchaseAsync_Pattern7_35_51_AggregatesIntoASingleOffer()
     {
+        // Quantity 20 of a stackable item needs Durability >= 20 as stack capacity
+        // (IsStackable = !wearable && Durability > 1). The resolver takes the first
+        // matching definition, so the SetUp item itself is made stackable here.
+        this._configuration.Items.First(item => item.Group == ItemGroup && item.Number == ItemNumber).Durability = 20;
         var player = await this.CreatePlayerWithBalanceAsync(1000);
         this.SetupValidCatalog(products: new[]
         {
@@ -474,6 +478,60 @@ public class CashShopBuyServiceTests
         var result = await this._service.ProcessPurchaseAsync(player, PackageProductSeq, CategoryProductDisplaySeq, PriceSeq, ItemCode, WCoinPCashType, false);
 
         Assert.That(result.Success, Is.True, result.ErrorMessage);
+        var stored = await this.GetStoredItemsAsync();
+        Assert.That(stored, Has.Count.EqualTo(1), "Quantity 20 fits one stack of capacity 20.");
+        Assert.That(stored[0].Item?.Durability, Is.EqualTo(20));
+    }
+
+    /// <summary>
+    /// Quantidade acima da capacidade de stack e recusada: dividir em varias linhas mudaria o
+    /// que a oferta promete, e reduzir silenciosamente entregaria menos do que o catalogo cobra.
+    /// </summary>
+    [Test]
+    public async Task ProcessPurchaseAsync_QuantityAboveStackCapacity_IsRejected()
+    {
+        // Item empilhavel com capacidade 20; a oferta pede 25 unidades.
+        this._configuration.Items.First(item => item.Group == ItemGroup && item.Number == ItemNumber).Durability = 20;
+        var player = await this.CreatePlayerWithBalanceAsync(1000);
+        this.SetupValidCatalog(products: new[]
+        {
+            CreateCatalogRow(ProductSeq, PriceSeq, ItemCode.ToString(), 7, "Quantity", "25", "EA", 680, true, 1, Price, 138),
+        });
+
+        var result = await this._service.ProcessPurchaseAsync(player, PackageProductSeq, CategoryProductDisplaySeq, PriceSeq, ItemCode, WCoinPCashType, false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Success, Is.False, "A quantity above the stack capacity must be refused, not split.");
+            Assert.That(result.ErrorCode, Is.EqualTo(PurchaseErrorCode.CannotBeBought));
+        });
+        Assert.That(await this.GetWalletBalanceAsync(), Is.EqualTo(1000), "A refused purchase must not debit the wallet.");
+        Assert.That(await this.GetStoredItemsAsync(), Is.Empty, "A refused purchase must not deliver anything.");
+    }
+
+    /// <summary>
+    /// Quantidade acima de um em item nao-empilhavel e recusada: um item que nao empilha nao
+    /// carrega mais de uma unidade, e o catalogo nao pode ser entregue parcialmente.
+    /// </summary>
+    [Test]
+    public async Task ProcessPurchaseAsync_QuantityAboveOneOfNonStackable_IsRejected()
+    {
+        // O item do SetUp nao tem Durability (0) nem ItemSlot: nao empilha. A oferta pede 20.
+        var player = await this.CreatePlayerWithBalanceAsync(1000);
+        this.SetupValidCatalog(products: new[]
+        {
+            CreateCatalogRow(ProductSeq, PriceSeq, ItemCode.ToString(), 7, "Quantity", "20", "EA", 680, true, 1, Price, 138),
+        });
+
+        var result = await this._service.ProcessPurchaseAsync(player, PackageProductSeq, CategoryProductDisplaySeq, PriceSeq, ItemCode, WCoinPCashType, false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Success, Is.False, "A quantity above one of a non-stackable item must be refused.");
+            Assert.That(result.ErrorCode, Is.EqualTo(PurchaseErrorCode.CannotBeBought));
+        });
+        Assert.That(await this.GetWalletBalanceAsync(), Is.EqualTo(1000), "A refused purchase must not debit the wallet.");
+        Assert.That(await this.GetStoredItemsAsync(), Is.Empty, "A refused purchase must not deliver anything.");
     }
 
     /// <summary>
@@ -767,10 +825,12 @@ public class CashShopBuyServiceTests
     /// entregue em outro storage. A selecao deve ser recusada como conflito real.
     /// </summary>
     /// <summary>
-    /// Duas variantes com duracao diferente nao entregam o mesmo item: a selecao deve ser recusada.
+    /// UnitName divergente entre linhas complementares (Sec. vs Day(s)) e o formato real do
+    /// catalogo para os atributos 37/53; como 37/53 nao sao lidos como duracao, a oferta nao
+    /// fica ambigua e a compra passa.
     /// </summary>
     [Test]
-    public async Task ProcessPurchaseAsync_DivergingDuration_IsRejected()
+    public async Task ProcessPurchaseAsync_DivergingUnitName_IsAcceptedAsComplementary()
     {
         var player = await this.CreatePlayerWithBalanceAsync(1000);
         var first = this.CreateProduct(PropertySeq: 10, productPrice: Price);
@@ -780,20 +840,22 @@ public class CashShopBuyServiceTests
         this.SetupValidCatalog(products: new[] { first, second });
 
         var result = await this._service.ProcessPurchaseAsync(player, PackageProductSeq, CategoryProductDisplaySeq, PriceSeq, ItemCode, WCoinPCashType, false);
-        var balance = await this.GetWalletBalanceAsync();
 
         Assert.Multiple(() =>
         {
-            Assert.That(result.ErrorCode, Is.EqualTo(PurchaseErrorCode.SelectionUnavailable), "A different duration must be refused as a conflict.");
-            Assert.That(balance, Is.EqualTo(1000), "A refused selection must not debit the wallet.");
+            Assert.That(result.Success, Is.True, "UnitName divergence between complementary rows is part of the catalog shape: {0}", result.ErrorMessage);
+            Assert.That(result.ErrorCode, Is.EqualTo(PurchaseErrorCode.None));
         });
+        Assert.That(await this.GetWalletBalanceAsync(), Is.EqualTo(1000 - Price));
     }
 
     /// <summary>
-    /// Variantes cobradas em moedas diferentes nao podem ser agrupadas: a cobranca seria ambigua.
+    /// UnitType divergente entre linhas complementares descreve a unidade de cada atributo, nao
+    /// moedas distintas: a moeda vem de CashType e o cliente escolhe a variante pelo PriceSeq.
+    /// O caso real e o pacote 35 (386 segundos vs 151 dias na mesma oferta) e precisa ser aceito.
     /// </summary>
     [Test]
-    public async Task ProcessPurchaseAsync_DivergingCurrency_IsRejected()
+    public async Task ProcessPurchaseAsync_DivergingUnitType_IsAcceptedAsComplementary()
     {
         var player = await this.CreatePlayerWithBalanceAsync(1000);
         var first = this.CreateProduct(PropertySeq: 10, productPrice: Price);
@@ -803,20 +865,22 @@ public class CashShopBuyServiceTests
         this.SetupValidCatalog(products: new[] { first, second });
 
         var result = await this._service.ProcessPurchaseAsync(player, PackageProductSeq, CategoryProductDisplaySeq, PriceSeq, ItemCode, WCoinPCashType, false);
-        var balance = await this.GetWalletBalanceAsync();
 
         Assert.Multiple(() =>
         {
-            Assert.That(result.ErrorCode, Is.EqualTo(PurchaseErrorCode.SelectionUnavailable), "Products in different currencies must not be grouped.");
-            Assert.That(balance, Is.EqualTo(1000), "A refused selection must not debit the wallet.");
+            Assert.That(result.Success, Is.True, "UnitType divergence between complementary rows is complementary catalog data: {0}", result.ErrorMessage);
+            Assert.That(result.ErrorCode, Is.EqualTo(PurchaseErrorCode.None));
         });
+        Assert.That(await this.GetWalletBalanceAsync(), Is.EqualTo(1000 - Price));
     }
 
     /// <summary>
-    /// MustFlag controla a entrega obrigatoria; variantes com flags diferentes nao sao o mesmo item.
+    /// Linhas complementares da mesma oferta podem divergir em MustFlag: o atributo e lido por
+    /// linha pelo cliente, e as linhas reais do pacote 35 divergem nesse campo (10 = true,
+    /// 37/53 = false). Divergencia real e uma segunda linha do MESMO atributo com valor diferente.
     /// </summary>
     [Test]
-    public async Task ProcessPurchaseAsync_DivergingMustFlag_IsRejected()
+    public async Task ProcessPurchaseAsync_DivergingMustFlag_IsAcceptedAsComplementary()
     {
         var player = await this.CreatePlayerWithBalanceAsync(1000);
         var first = this.CreateProduct(PropertySeq: 10, productPrice: Price);
@@ -826,13 +890,13 @@ public class CashShopBuyServiceTests
         this.SetupValidCatalog(products: new[] { first, second });
 
         var result = await this._service.ProcessPurchaseAsync(player, PackageProductSeq, CategoryProductDisplaySeq, PriceSeq, ItemCode, WCoinPCashType, false);
-        var balance = await this.GetWalletBalanceAsync();
 
         Assert.Multiple(() =>
         {
-            Assert.That(result.ErrorCode, Is.EqualTo(PurchaseErrorCode.SelectionUnavailable), "A different MustFlag must be refused as a conflict.");
-            Assert.That(balance, Is.EqualTo(1000), "A refused selection must not debit the wallet.");
+            Assert.That(result.Success, Is.True, "MustFlag divergence between complementary rows is part of the catalog shape: {0}", result.ErrorMessage);
+            Assert.That(result.ErrorCode, Is.EqualTo(PurchaseErrorCode.None));
         });
+        Assert.That(await this.GetWalletBalanceAsync(), Is.EqualTo(1000 - Price));
     }
 
     /// <summary>
@@ -972,15 +1036,17 @@ public class CashShopBuyServiceTests
     }
 
     /// <summary>
-    /// Characterizes the current resolver against the three real IBS property rows for package 35.
+    /// As tres linhas reais do pacote 35 em IBSProduct.txt (versao 512.2012.084) descrevem uma
+    /// unica oferta complementar: apos a semantica de agregacao, a compra e aceita e entregue.
     /// </summary>
     [Test]
-    public async Task ProcessPurchaseAsync_RealPackage35PropertySet_IsRejectedAsConflicting()
+    public async Task ProcessPurchaseAsync_RealPackage35PropertySet_ResolvesAndDelivers()
     {
         // Product fields are copied from IBSProduct.txt lines 283–285 in version 512.2012.084.
         // Only the package validity window is adjusted in this fixture: this reproduces the
         // OPENMU_CASH_SHOP_REOPEN_PACKAGES effect without changing any product property.
-        // This test characterizes current behavior; it does not declare the IBS inconsistent.
+        // InGamePackageID 6676 = group 13, number 20.
+        this._configuration.Items.Add(new ItemDefinition { Group = 13, Number = 20, Name = "Wizard Ring", Width = 2, Height = 2 });
         var player = await this.CreatePlayerWithBalanceAsync(1000);
         var package = new CashShopPackage
         {
@@ -1096,12 +1162,13 @@ public class CashShopBuyServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(result.ErrorCode, Is.EqualTo(PurchaseErrorCode.SelectionUnavailable));
-            Assert.That(result.ErrorMessage, Is.EqualTo("The selected product has conflicting catalog rows."));
-            Assert.That(result.DeliveredItem, Is.Null, "A rejected purchase must not report an item delivery.");
-            Assert.That(balanceAfter, Is.EqualTo(balanceBefore), "A conflicting property set must not debit the wallet.");
+            Assert.That(result.Success, Is.True, "The real package 35 property set is complementary and must be accepted: {0}", result.ErrorMessage);
+            Assert.That(result.ErrorCode, Is.EqualTo(PurchaseErrorCode.None));
+            Assert.That(balanceAfter, Is.EqualTo(balanceBefore - 100), "The 1-day variant costs 100 WCoinP.");
             Assert.That(storageBefore, Is.Empty);
-            Assert.That(storageAfter, Is.EqualTo(storageBefore), "A rejected purchase must not change Cash Shop Storage.");
+            Assert.That(storageAfter, Has.Count.EqualTo(1), "A successful purchase delivers to Cash Shop Storage.");
+            Assert.That(storageAfter[0].ProductSeq, Is.EqualTo(58));
+            Assert.That(storageAfter[0].PriceSeq, Is.EqualTo(95));
         });
 
         this._catalog.Verify(c => c.GetPackageBySeqAsync(31, 35, It.IsAny<GameConfiguration>(), It.IsAny<CancellationToken>()), Times.Once);
@@ -1114,7 +1181,7 @@ public class CashShopBuyServiceTests
             It.IsAny<IContext>(),
             It.IsAny<Guid>(),
             It.IsAny<bool>(),
-            It.IsAny<CancellationToken>()), Times.Never);
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 
     /// <summary>

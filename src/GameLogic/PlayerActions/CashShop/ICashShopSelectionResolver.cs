@@ -85,6 +85,21 @@ public sealed record CashShopSelectionResult
     public ItemDefinition? ItemDefinition { get; init; }
 
     /// <summary>
+    /// Gets the duration in seconds aggregated from the offer's duration property rows, or zero
+    /// when the offer is permanent.
+    /// </summary>
+    /// <remarks>
+    /// Resolved and preserved, but <b>not applied</b> to the delivered item yet: OpenMU has no
+    /// item expiry infrastructure, so there is nowhere to put it. Kept so the value is not lost.
+    /// </remarks>
+    public int DurationSeconds { get; init; }
+
+    /// <summary>
+    /// Gets the quantity aggregated from the offer's quantity property rows; one when absent.
+    /// </summary>
+    public int Quantity { get; init; }
+
+    /// <summary>
     /// Gets the reason the selection could not be resolved; <see cref="PurchaseErrorCode.None"/>
     /// when it succeeded.
     /// </summary>
@@ -104,7 +119,7 @@ public sealed record CashShopSelectionResult
     /// <param name="price">The shared price.</param>
     /// <param name="selectedPriceSequence">The price sequence that was selected.</param>
     /// <param name="itemDefinition">The item definition of the product.</param>
-    public static CashShopSelectionResult Resolved(int productSequence, int storageGroup, string productName, int price, int selectedPriceSequence, ItemDefinition itemDefinition) =>
+    public static CashShopSelectionResult Resolved(int productSequence, int storageGroup, string productName, int price, int selectedPriceSequence, ItemDefinition itemDefinition, int durationSeconds = 0, int quantity = 1) =>
         new()
         {
             ProductSequence = productSequence,
@@ -113,6 +128,8 @@ public sealed record CashShopSelectionResult
             Price = price,
             SelectedPriceSequence = selectedPriceSequence,
             ItemDefinition = itemDefinition,
+            DurationSeconds = durationSeconds,
+            Quantity = quantity,
         };
 
     /// <summary>

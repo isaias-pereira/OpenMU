@@ -27,6 +27,12 @@
     <AdditionalFiles Include="..\..\src\stylecop.json" Link="stylecop.json" />
   </ItemGroup>
 
+  <!-- A fixture do catalogoIBS e consumida por caminho relativo ao diretorio do projeto, entao
+       precisa ser copiada para a output junto com o assembly de teste. -->
+  <ItemGroup>
+    <None Include="CashShop\TestData\CashShopCatalogBuyableGroups.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <ItemGroup>
     <None Include="..\..\src\.editorconfig" Link=".editorconfig" />
   </ItemGroup>

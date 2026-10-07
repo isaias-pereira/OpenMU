@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using MUnique.OpenMU.DataModel.Configuration.Items;
 using MUnique.OpenMU.DataModel.Entities;
 using MUnique.OpenMU.GameLogic.CashShop;
 using MUnique.OpenMU.GameLogic.Views.Inventory;
@@ -127,44 +128,64 @@ public sealed class CashShopBuyService : ICashShopBuyService
             var itemDefinition = selection.ItemDefinition!;
             var selectedPriceSequence = selection.SelectedPriceSequence;
 
+            // How many units are delivered is decided from the catalog before anything is staged, so
+            // an offer that cannot be delivered correctly is refused without touching the wallet or
+            // the storage slots.
+            var quantity = selection.Quantity < 1 ? 1 : selection.Quantity;
+
             // The item is delivered to the cash shop storage, so the storage capacity — not the
             // character inventory — decides delivery failure (client code 2).
             //
-            // The slot is reserved inside the player's own context, not read from a separate one:
-            // the reservation then shares the single unit of work with the debit, so a slot that
+            // Every slot is reserved inside the player's own context, not read from a separate one:
+            // the reservations then share the single unit of work with the debit, so a slot that
             // this context already holds (a purchase still in flight) can never be handed out
-            // twice. ReserveNextStorageIndexAsync also reports "full" by returning -1, so the
-            // capacity check and the index allocation cannot disagree the way a separate
-            // count-then-index read could.
-            var reservation = await this._storageService
-                .ReserveNextStorageIndexAsync(player.PersistenceContext, account.Id, forGift: false, cancellationToken)
-                .ConfigureAwait(false);
-            if (reservation.StorageItem is null)
+            // twice. ReserveNextStorageIndexAsync also reports "full" by returning an empty
+            // reservation, so the capacity check and the index allocation cannot disagree the way
+            // a separate count-then-index read could.
+            //
+            // A stackable offer packs its quantity into a single row as long as it fits the
+            // stack capacity; a quantity above the capacity, or above one on a non-stackable
+            // item, is refused before anything is staged.
+            var deliveredDurabilities = ResolveDeliveredDurabilities(itemDefinition, quantity);
+            if (deliveredDurabilities.Count == 0)
             {
-                return PurchaseResult.Failed(PurchaseErrorCode.NoDeliverySpace, "The cash shop storage of the account is full.");
+                return PurchaseResult.Failed(PurchaseErrorCode.CannotBeBought, "The selected item cannot be delivered in the requested quantity.");
             }
-
-            var storageItem = reservation.StorageItem;
-            var storageIndex = reservation.StorageIndex;
 
             // From here on the context holds staged state. Every exit path must undo it, and
             // any failure while staging it must undo whatever was already staged — otherwise a
             // later save of the player's context would persist a half-written purchase.
-            Item? item = null;
+            var staged = new List<(CashShopStorageItem Row, Item Item)>();
             WCoinDebit? debit = null;
             try
             {
-                item = player.PersistenceContext.CreateNew<Item>();
-                item.Definition = itemDefinition;
-                item.Durability = item.IsStackable() ? 1 : itemDefinition.Durability;
+                foreach (var deliveredDurability in deliveredDurabilities)
+                {
+                    var reservation = await this._storageService
+                        .ReserveNextStorageIndexAsync(player.PersistenceContext, account.Id, forGift: false, cancellationToken)
+                        .ConfigureAwait(false);
+                    if (reservation.StorageItem is null)
+                    {
+                        // Storage got full mid-way: undo the reservations already made so the
+                        // context does not hold half of a delivery.
+                        return await this.DiscardAndReportAsync(
+                            player, staged, null, "The cash shop storage of the account does not have enough free slots.", PurchaseErrorCode.NoDeliverySpace).ConfigureAwait(false);
+                    }
 
-                storageItem.ItemSeq = storageIndex;
-                storageItem.StorageGroup = selection.StorageGroup;
-                storageItem.ProductSeq = selection.ProductSequence;
-                storageItem.PriceSeq = selectedPriceSequence;
-                storageItem.CashPoint = price;
-                storageItem.ItemType = CashShopStorageItemType.Product;
-                storageItem.Item = item;
+                    var item = player.PersistenceContext.CreateNew<Item>();
+                    item.Definition = itemDefinition;
+                    item.Durability = deliveredDurability;
+
+                    var storageItem = reservation.StorageItem;
+                    storageItem.ItemSeq = reservation.StorageIndex;
+                    storageItem.StorageGroup = selection.StorageGroup;
+                    storageItem.ProductSeq = selection.ProductSequence;
+                    storageItem.PriceSeq = selectedPriceSequence;
+                    storageItem.CashPoint = price;
+                    storageItem.ItemType = CashShopStorageItemType.Product;
+                    storageItem.Item = item;
+                    staged.Add((storageItem, item));
+                }
 
                 debit = await WCoinService.TryDebit(
                         player.PersistenceContext,
@@ -176,16 +197,16 @@ public sealed class CashShopBuyService : ICashShopBuyService
                 {
                     // Undo the staged rows so nothing dirty is left behind for a later save.
                     return await this.DiscardAndReportAsync(
-                        player, storageItem, item, null, "Insufficient WCoinP balance.", PurchaseErrorCode.InsufficientBalance).ConfigureAwait(false);
+                        player, staged, null, "Insufficient WCoinP balance.", PurchaseErrorCode.InsufficientBalance).ConfigureAwait(false);
                 }
 
-                // One SaveChangesAsync commits the delivery, the reservation and the debit in a
+                // One SaveChangesAsync commits the deliveries, the reservations and the debit in a
                 // single database transaction, so the player is never charged for an item that
                 // was not persisted.
                 if (!await player.PersistenceContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false))
                 {
                     this._logger.LogError("The cash shop purchase was not committed for {Player}.", player.Name);
-                    return await this.DiscardAndReportAsync(player, storageItem, item, debit, "The cash shop purchase could not be completed.").ConfigureAwait(false);
+                    return await this.DiscardAndReportAsync(player, staged, debit, "The cash shop purchase could not be completed.").ConfigureAwait(false);
                 }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -195,7 +216,7 @@ public sealed class CashShopBuyService : ICashShopBuyService
                 // context would commit a purchase the client already abandoned. Cancellation is
                 // deliberately rethrown rather than reported as TransactionFailed, so the caller
                 // can tell "the server is going away" from "the purchase failed".
-                var discarded = await this.DiscardStagedPurchaseAsync(player, storageItem, item, debit).ConfigureAwait(false);
+                var discarded = await this.DiscardStagedPurchaseAsync(player, staged, debit).ConfigureAwait(false);
                 if (!discarded)
                 {
                     // The rollback could not fully undo the staged state, so the context is
@@ -217,7 +238,7 @@ public sealed class CashShopBuyService : ICashShopBuyService
                 // blocked on with GetAwaiter().GetResult(). That is deadlock-prone as soon as any
                 // step of the rollback becomes genuinely asynchronous.
                 this._logger.LogError(exception, "The cash shop purchase could not be committed for {Player}.", player.Name);
-                return await this.DiscardAndReportAsync(player, storageItem, item, debit, "The cash shop purchase could not be completed.").ConfigureAwait(false);
+                return await this.DiscardAndReportAsync(player, staged, debit, "The cash shop purchase could not be completed.").ConfigureAwait(false);
             }
 
             return PurchaseResult.Successful(selection.ProductName ?? string.Empty);
@@ -260,8 +281,7 @@ public sealed class CashShopBuyService : ICashShopBuyService
     /// </para>
     /// </remarks>
     /// <param name="player">The player whose context holds the staged purchase.</param>
-    /// <param name="storageItem">The staged storage row.</param>
-    /// <param name="item">The staged item, if it was created.</param>
+    /// <param name="staged">The staged storage rows with their items, in reservation order.</param>
     /// <param name="debit">The staged WCOIN debit, or <c>null</c> if the debit was refused for lack of balance.</param>
     /// <param name="message">The message reported when the rollback fully restored the context.</param>
     /// <param name="cleanRollbackError">The error to report when rollback succeeds.</param>
@@ -273,13 +293,12 @@ public sealed class CashShopBuyService : ICashShopBuyService
 
     private async ValueTask<PurchaseResult> DiscardAndReportAsync(
         Player player,
-        CashShopStorageItem storageItem,
-        Item? item,
+        IReadOnlyList<(CashShopStorageItem Row, Item Item)> staged,
         WCoinDebit? debit,
         string message,
         PurchaseErrorCode cleanRollbackError = PurchaseErrorCode.TransactionFailed)
     {
-        var discarded = await this.DiscardStagedPurchaseAsync(player, storageItem, item, debit).ConfigureAwait(false);
+        var discarded = await this.DiscardStagedPurchaseAsync(player, staged, debit).ConfigureAwait(false);
         if (!discarded)
         {
             // The rollback left the context possibly dirty, so the session is retired before the
@@ -299,17 +318,101 @@ public sealed class CashShopBuyService : ICashShopBuyService
     }
 
     /// <summary>
+    /// Decides how the catalog quantity is stored on the delivered items, one durability value per
+    /// storage row to be created.
+    /// </summary>
+    /// <param name="itemDefinition">The definition of the item being delivered.</param>
+    /// <param name="quantity">The quantity aggregated from the catalog; at least one.</param>
+    /// <returns>
+    /// One durability per storage row, or an empty list when the quantity can never be delivered
+    /// (only possible when the definition itself has no positive durability).
+    /// </returns>
+    /// <remarks>
+    /// <para>
+    /// For a stackable item the stack count <b>is</b> <see cref="Item.Durability"/>:
+    /// <c>ItemExtensions.IsStackable</c> requires the definition's <c>Durability</c> to be the
+    /// maximum stack size. The catalog quantity is therefore stored as the stack count, and a
+    /// quantity above the stack capacity is refused (empty list) instead of being split into
+    /// several rows.
+    /// </para>
+    /// <para>
+    /// A non-stackable item with a quantity above one is refused (empty list), because a single
+    /// item can never carry more than one unit.
+    /// </para>
+    /// </remarks>
+    private List<double> ResolveDeliveredDurabilities(ItemDefinition itemDefinition, int quantity)
+    {
+        var durabilities = new List<double>();
+        var capacity = itemDefinition.Durability;
+
+        // A single unit is always deliverable with the definition's own durability, even when
+        // the definition carries no stack capacity. This preserves the HEAD behavior (which
+        // delivered quantity 1 unconditionally) and keeps fixtures without Durability GREEN.
+        // Quantity > 1 still requires a real stack capacity, otherwise it is refused.
+        if (quantity <= 1)
+        {
+            durabilities.Add(capacity);
+            return durabilities;
+        }
+
+        if (capacity <= 0)
+        {
+            this._logger.LogError(
+                "Cash shop offer of item {Group}/{Number} has a definition without positive durability; the purchase was refused.",
+                itemDefinition.Group,
+                itemDefinition.Number);
+            return durabilities;
+        }
+
+        if (IsStackable(itemDefinition))
+        {
+            // A stackable item carries its quantity as the stack count. A quantity above the
+            // stack capacity would have to be split into several rows — which changes what the
+            // offer promises —, so it is refused instead of silently adjusted.
+            if (quantity > capacity)
+            {
+                this._logger.LogError(
+                    "Cash shop offer of item {Group}/{Number} asks for {Quantity} units but the definition only stacks up to {Capacity}; the purchase was refused.",
+                    itemDefinition.Group,
+                    itemDefinition.Number,
+                    quantity,
+                    capacity);
+                durabilities.Clear();
+                return durabilities;
+            }
+
+            durabilities.Add(quantity);
+            return durabilities;
+        }
+
+        // A non-stackable item can never carry more than one unit. Silently reducing the
+        // quantity would deliver fewer units than the catalog promises, and duplicating the
+        // row is not what a non-stackable item is; the purchase is therefore refused.
+        this._logger.LogError(
+            "Cash shop offer of item {Group}/{Number} asks for {Quantity} units but the item is not stackable; the purchase was refused.",
+            itemDefinition.Group,
+            itemDefinition.Number,
+            quantity);
+        durabilities.Clear();
+        return durabilities;
+    }
+
+    /// <summary>
+    /// Mirrors <c>ItemExtensions.IsStackable</c>, which needs the definition to be set on an item first.
+    /// </summary>
+    private static bool IsStackable(ItemDefinition itemDefinition) =>
+        itemDefinition.ItemSlot is null && itemDefinition.Durability > 1;
+
+    /// <summary>
     /// Attempts each rollback step, preserving failures for the caller.
     /// </summary>
     /// <param name="player">The player whose context holds the staged purchase.</param>
-    /// <param name="storageItem">The staged storage row.</param>
-    /// <param name="item">The staged item.</param>
+    /// <param name="staged">The staged storage rows with their items.</param>
     /// <param name="debit">The staged debit, if any.</param>
     /// <returns>Whether every rollback step completed without throwing.</returns>
     private async ValueTask<bool> DiscardStagedPurchaseAsync(
         Player player,
-        CashShopStorageItem storageItem,
-        Item? item,
+        IReadOnlyList<(CashShopStorageItem Row, Item Item)> staged,
         WCoinDebit? debit)
     {
         var failures = new List<Exception>();
@@ -328,24 +431,27 @@ public sealed class CashShopBuyService : ICashShopBuyService
             }
         }
 
-        // Detach the storage row and the item separately. IContext.Detach recurses into the
+        // Detach each storage row and its item separately. IContext.Detach recurses into the
         // aggregate members, so detaching the storage row already detaches its Item; doing both
         // keeps the guarantee if a future context implementation stops recursing, and neither
         // call touches an entity outside this purchase.
-        foreach (var entity in new object?[] { storageItem, item })
+        foreach (var (row, item) in staged)
         {
-            if (entity is null)
+            foreach (var entity in new object?[] { row, item })
             {
-                continue;
-            }
+                if (entity is null)
+                {
+                    continue;
+                }
 
-            try
-            {
-                player.PersistenceContext.Detach(entity);
-            }
-            catch (Exception exception)
-            {
-                failures.Add(exception);
+                try
+                {
+                    player.PersistenceContext.Detach(entity);
+                }
+                catch (Exception exception)
+                {
+                    failures.Add(exception);
+                }
             }
         }
 
