@@ -52,8 +52,8 @@ public class CashShopGiftServiceTests
     private const int ItemCode = (ItemGroup * 512) + ItemNumber;
     private const int Price = 500;
     private const string ReceiverName = "Friend";
-    private const int GiftableGiftFlag = 0;
-    private const int NonGiftableGiftFlag = 1;
+    private const int GiftableGiftFlag = 184;
+    private const int NonGiftableGiftFlag = 182;
 
     private InMemoryPersistenceContextProvider _contextProvider = null!;
     private GameConfiguration _configuration = null!;
@@ -360,19 +360,19 @@ public class CashShopGiftServiceTests
     }
 
     /// <summary>
-    /// Enquanto a semantica do <c>GiftFlag</c> nao estiver confirmada, TODO presente e recusado
-    /// sem debitar WCoin. E o comportamento deliberado: adivinhar "0 = presenteavel" permitiria
-    /// cobrar e entregar presentes em pacotes que a loja talvez proiba.
+    /// Pacote sem <c>GiftFlag = 184</c> nao pode ser presenteado: o botao de presente do cliente
+    /// so habilita com 184 (<c>MsgBoxIGSBuySelectItem.cpp:67</c>). A recusa nao debita WCoin nem
+    /// deixa estado pendente.
     /// </summary>
     [Test]
-    public async Task ProcessGiftAsync_WhileGiftFlagSemanticsUnknown_IsRejectedWithoutDebit()
+    public async Task ProcessGiftAsync_NonGiftableFlag_IsRejectedWithoutDebit()
     {
         var player = await this.CreateSenderAsync(1000).ConfigureAwait(false);
-        this.SetupValidCatalog();
+        this.SetupValidCatalog(package => package.GiftFlag = NonGiftableGiftFlag);
 
         var result = await this.SendGiftAsync(player, ReceiverName).ConfigureAwait(false);
 
-        Assert.That(result.Success, Is.False, "A gift must not succeed while the gift flag is unknown.");
+        Assert.That(result.Success, Is.False, "A gift of a non-giftable package must be refused.");
         Assert.That(result.ErrorCode, Is.EqualTo(PurchaseErrorCode.CannotBeBought));
 
         var balance = await this.GetWalletBalanceAsync().ConfigureAwait(false);
@@ -392,31 +392,78 @@ public class CashShopGiftServiceTests
     }
 
     /// <summary>
-    /// O bloqueio vale para QUALQUER valor de <c>GiftFlag</c>, porque nenhum valor foi confirmado
-    /// como "presenteavel". Um teste com 0 e outro com 1 precisam falhar igual: e isso que
-    /// distingue "regra aplicada a dados" de "hipotese repetida pelo proprio teste".
+    /// Somente <c>GiftFlag = 184</c> habilita o presente no cliente
+    /// (<c>MsgBoxIGSBuySelectItem.cpp:67</c>): 0, 1 e 182 sao recusados sem debito.
     /// </summary>
     /// <param name="giftFlag">The catalog value under test.</param>
     [TestCase(0)]
     [TestCase(1)]
     [TestCase(182)]
-    public async Task ProcessGiftAsync_AnyGiftFlag_IsRejectedUntilSemanticsAreKnown(int giftFlag)
+    public async Task ProcessGiftAsync_NonGiftableFlags_AreRejectedWithoutDebit(int giftFlag)
     {
         var player = await this.CreateSenderAsync(1000).ConfigureAwait(false);
         this.SetupValidCatalog(package => package.GiftFlag = giftFlag);
 
         var result = await this.SendGiftAsync(player, ReceiverName).ConfigureAwait(false);
 
-        Assert.That(result.Success, Is.False, $"GiftFlag {giftFlag} must not be treated as giftable without evidence.");
+        Assert.That(result.Success, Is.False, $"GiftFlag {giftFlag} is not giftable: only 184 enables the present button.");
         Assert.That(await this.GetWalletBalanceAsync().ConfigureAwait(false), Is.EqualTo(1000));
     }
 
     /// <summary>
-    /// O bloqueio do presente NAO restringe a compra: o buy flow nao consulta a flag de
-    /// presentabilidade, entao o mesmo pacote continua sendo compravel normalmente.
+    /// <c>GiftFlag = 184</c> habilita o botao de presente no cliente, e por isso o pacote tem de ser
+    /// presenteavel. Este e o unico valor de <c>GiftFlag</c> com evidencia de codigo do cliente:
+    /// <c>C:\MuMain\src\source\GameShop\MsgBoxIGSBuySelectItem.cpp:67</c> e
+    /// <c>MsgBoxIGSBuyPackageItem.cpp:68</c> conditionam o botao exatamente assim:
+    /// <c>if (pPackage-&gt;GiftFlag == 184) { m_BtnPresent.SetEnable(true); } else { m_BtnPresent.SetEnable(false); }</c>.
+    /// <para>
+    /// O numero nao vira aqui um booleano por suposicao: o teste reproduz o fluxo completo
+    /// (remetente com saldo, destinatario valido, pacote ativo e moeda suportada) e so exige que a
+    /// entrega chegue ao storage do destinatario e que o remetente seja cobrado uma unica vez.
+    /// </para>
     /// </summary>
     [Test]
-    public async Task ProcessPurchaseAsync_WhileGiftFlagSemanticsUnknown_IsStillPurchasable()
+    public async Task ProcessGiftAsync_GiftFlag184_AllowsGiftDelivery()
+    {
+        // O valor real do catalogo (135 pacotes com 184 e 77 com 185 em IBSPackage.txt).
+        const int catalogGiftFlag = 184;
+        var player = await this.CreateSenderAsync(1000).ConfigureAwait(false);
+        this.SetupValidCatalog(package => package.GiftFlag = catalogGiftFlag);
+
+        var result = await this.SendGiftAsync(player, ReceiverName).ConfigureAwait(false);
+
+        Assert.That(result.Success, Is.True, $"GiftFlag {catalogGiftFlag} habilita o presente no cliente: {result.ErrorMessage}");
+
+        var senderBalance = await this.GetWalletBalanceAsync().ConfigureAwait(false);
+        var receiverItems = await this.GetStoredItemsAsync(this._receiverAccountId).ConfigureAwait(false);
+        var senderItems = await this.GetStoredItemsAsync(this._senderAccountId).ConfigureAwait(false);
+        var transactions = await this.GetTransactionsAsync().ConfigureAwait(false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(senderBalance, Is.EqualTo(1000 - Price), "O remetente paga o preco da oferta.");
+            Assert.That(receiverItems, Has.Count.EqualTo(1), "A entrega vai para o storage do destinatario.");
+            Assert.That(senderItems, Is.Empty, "Nenhum item pode ser entregue ao remetente.");
+            Assert.That(transactions, Has.Count.EqualTo(1), "O debito e registrado uma unica vez.");
+        });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(receiverItems[0].IsGift, Is.True, "A linha no storage do destinatario e marcada como presente.");
+            Assert.That(receiverItems[0].ProductSeq, Is.EqualTo(ProductSeq));
+            Assert.That(receiverItems[0].PriceSeq, Is.EqualTo(PriceSeq));
+            Assert.That(receiverItems[0].CashPoint, Is.EqualTo(Price));
+            Assert.That(receiverItems[0].ItemType, Is.EqualTo(CashShopStorageItemType.Product));
+            Assert.That(receiverItems[0].Item, Is.Not.Null, "A linha precisa referenciar o item entregue.");
+        });
+    }
+
+    /// <summary>
+    /// O presente nao restringe a compra: o buy flow nao consulta GiftFlag, entao o mesmo
+    /// pacote continua compravel normalmente mesmo sem ser presenteavel.
+    /// </summary>
+    [Test]
+    public async Task ProcessPurchaseAsync_NonGiftablePackage_IsStillPurchasable()
     {
         var player = await this.CreateSenderAsync(1000).ConfigureAwait(false);
         this.SetupValidCatalog();
