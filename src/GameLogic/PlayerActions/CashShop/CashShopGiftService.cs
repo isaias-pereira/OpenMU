@@ -165,6 +165,19 @@ public sealed class CashShopGiftService : ICashShopGiftService
             var itemDefinition = selection.ItemDefinition!;
             var selectedPriceSequence = selection.SelectedPriceSequence;
 
+            // The delivery is validated against the catalog before any state is staged, so an
+            // offer that cannot be delivered correctly is refused without touching the sender's
+            // wallet or the receiver's slot. The same rule as a purchase, shared from
+            // <see cref="CashShopBuyService.ResolveDeliveredDurabilities"/>: the catalog quantity
+            // becomes the stack count of a stackable item; a quantity above the stack capacity,
+            // or above one on a non-stackable item, is refused.
+            var quantity = selection.Quantity < 1 ? 1 : selection.Quantity;
+            var durabilities = CashShopBuyService.ResolveDeliveredDurabilities(itemDefinition, quantity, this._logger);
+            if (durabilities.Count == 0)
+            {
+                return PurchaseResult.Failed(PurchaseErrorCode.CannotBeBought, "The selected item cannot be delivered in the requested quantity.");
+            }
+
             // The slot is reserved in the sender's context, so the reservation, the delivery and
             // the debit are all committed by the single SaveChangesAsync below. A gift that
             // cannot be stored is refused before the sender is charged.
@@ -177,7 +190,6 @@ public sealed class CashShopGiftService : ICashShopGiftService
             }
 
             var storageItem = reservation.StorageItem;
-            var storageIndex = reservation.StorageIndex;
 
             Item? item = null;
             WCoinDebit? debit = null;
@@ -185,9 +197,8 @@ public sealed class CashShopGiftService : ICashShopGiftService
             {
                 item = player.PersistenceContext.CreateNew<Item>();
                 item.Definition = itemDefinition;
-                item.Durability = item.IsStackable() ? 1 : itemDefinition.Durability;
+                item.Durability = durabilities[0];
 
-                storageItem.ItemSeq = storageIndex;
                 storageItem.StorageGroup = selection.StorageGroup;
                 storageItem.ProductSeq = selection.ProductSequence;
                 storageItem.PriceSeq = selectedPriceSequence;

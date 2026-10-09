@@ -485,4 +485,50 @@ public class CashShopGiftServiceTests
             Assert.That(senderItems[0].IsGift, Is.False, "A purchase is not a gift row.");
         });
     }
+
+    /// <summary>
+    /// LACUNA FASE 8/9 (teste RED): o gift deve preservar a Quantity do catálogo no item entregue,
+    /// como a compra faz (Item.Durability = stack count; <c>CashShopBuyService.ResolveDeliveredDurabilities</c>).
+    /// Hoje o gift grava <c>Durability = 1</c> em stackables (<c>CashShopGiftService</c>, linha ~187:
+    /// <c>item.Durability = item.IsStackable() ? 1 : itemDefinition.Durability</c>), entregando 1 unidade
+    /// de um pacote que promete 20 — e o cliente exibe "20" porque resolve a quantidade no catálogo local.
+    /// </summary>
+    [Test]
+    public async Task ProcessGiftAsync_Quantity20_PreservesQuantityInStorageItem()
+    {
+        // Item stackable com capacidade 20 (IsStackable = !wearable && Durability > 1) e oferta
+        // com Quantity 20 (padrão 7/35/51 do catálogo real).
+        this._configuration.Items.First(item => item.Group == ItemGroup && item.Number == ItemNumber).Durability = 20;
+        var player = await this.CreateSenderAsync(1000).ConfigureAwait(false);
+        this.SetupValidCatalog(products: new[]
+        {
+            new CashShopProduct
+            {
+                ProductSeq = ProductSeq,
+                PriceSeq = PriceSeq,
+                PropertySeq = 7,
+                PropertyName = "Quantity",
+                Value = "20",
+                UnitName = "EA",
+                UnitType = 680,
+                MustFlag = true,
+                Price = Price,
+                DeleteFlag = ActiveProductDeleteFlag,
+                StorageGroup = 3,
+                InGamePackageID = ItemCode.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            },
+        });
+
+        var result = await this.SendGiftAsync(player, ReceiverName).ConfigureAwait(false);
+
+        Assert.That(result.Success, Is.True, $"O gift de um pacote com Quantity 20 e capacidade 20 deve ser aceito: {result.ErrorMessage}");
+        var stored = await this.GetStoredItemsAsync(this._receiverAccountId).ConfigureAwait(false);
+        Assert.Multiple(() =>
+        {
+            Assert.That(stored, Has.Count.EqualTo(1));
+            Assert.That(stored[0].Item, Is.Not.Null);
+            Assert.That(stored[0].Item!.Durability, Is.EqualTo(20), "O gift deve preservar a Quantity do catálogo (Item.Durability = 20), não entregar 1 unidade.");
+        });
+        Assert.That(await this.GetWalletBalanceAsync().ConfigureAwait(false), Is.EqualTo(1000 - Price), "O débito do gift é único, pelo preço da oferta.");
+    }
 }

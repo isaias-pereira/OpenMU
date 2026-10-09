@@ -146,7 +146,7 @@ public sealed class CashShopBuyService : ICashShopBuyService
             // A stackable offer packs its quantity into a single row as long as it fits the
             // stack capacity; a quantity above the capacity, or above one on a non-stackable
             // item, is refused before anything is staged.
-            var deliveredDurabilities = ResolveDeliveredDurabilities(itemDefinition, quantity);
+            var deliveredDurabilities = ResolveDeliveredDurabilities(itemDefinition, quantity, this._logger);
             if (deliveredDurabilities.Count == 0)
             {
                 return PurchaseResult.Failed(PurchaseErrorCode.CannotBeBought, "The selected item cannot be delivered in the requested quantity.");
@@ -177,7 +177,6 @@ public sealed class CashShopBuyService : ICashShopBuyService
                     item.Durability = deliveredDurability;
 
                     var storageItem = reservation.StorageItem;
-                    storageItem.ItemSeq = reservation.StorageIndex;
                     storageItem.StorageGroup = selection.StorageGroup;
                     storageItem.ProductSeq = selection.ProductSequence;
                     storageItem.PriceSeq = selectedPriceSequence;
@@ -339,8 +338,12 @@ public sealed class CashShopBuyService : ICashShopBuyService
     /// A non-stackable item with a quantity above one is refused (empty list), because a single
     /// item can never carry more than one unit.
     /// </para>
+    /// <para>
+    /// Shared with the gift flow (<see cref="CashShopGiftService"/>), which must apply the same
+    /// catalog quantity rule as a purchase.
+    /// </para>
     /// </remarks>
-    private List<double> ResolveDeliveredDurabilities(ItemDefinition itemDefinition, int quantity)
+    internal static List<double> ResolveDeliveredDurabilities(ItemDefinition itemDefinition, int quantity, ILogger logger)
     {
         var durabilities = new List<double>();
         var capacity = itemDefinition.Durability;
@@ -357,7 +360,7 @@ public sealed class CashShopBuyService : ICashShopBuyService
 
         if (capacity <= 0)
         {
-            this._logger.LogError(
+            logger.LogError(
                 "Cash shop offer of item {Group}/{Number} has a definition without positive durability; the purchase was refused.",
                 itemDefinition.Group,
                 itemDefinition.Number);
@@ -371,7 +374,7 @@ public sealed class CashShopBuyService : ICashShopBuyService
             // offer promises —, so it is refused instead of silently adjusted.
             if (quantity > capacity)
             {
-                this._logger.LogError(
+                logger.LogError(
                     "Cash shop offer of item {Group}/{Number} asks for {Quantity} units but the definition only stacks up to {Capacity}; the purchase was refused.",
                     itemDefinition.Group,
                     itemDefinition.Number,
@@ -388,7 +391,7 @@ public sealed class CashShopBuyService : ICashShopBuyService
         // A non-stackable item can never carry more than one unit. Silently reducing the
         // quantity would deliver fewer units than the catalog promises, and duplicating the
         // row is not what a non-stackable item is; the purchase is therefore refused.
-        this._logger.LogError(
+        logger.LogError(
             "Cash shop offer of item {Group}/{Number} asks for {Quantity} units but the item is not stackable; the purchase was refused.",
             itemDefinition.Group,
             itemDefinition.Number,
