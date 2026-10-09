@@ -166,6 +166,13 @@ public class CashShopStorageService : ICashShopStorageService
             storageItem.AccountId = accountId;
             storageItem.StorageIndex = index;
             storageItem.IsGift = forGift;
+
+            // O ItemSeq é uma sequência única POR CONTA, cobrindo as duas abas: é o segundo
+            // identificador que o cliente devolve no D2 0B e, por ser global à conta, o par
+            // (StorageIndex, ItemSeq) nunca colide entre as abas — a requisição de retirada
+            // (D2 0B) não carrega a aba, então a identificação precisa ser única sem ela.
+            var accountItemSeqs = items.Where(i => i.AccountId == accountId).Select(i => i.ItemSeq).ToList();
+            storageItem.ItemSeq = accountItemSeqs.Count == 0 ? 0 : accountItemSeqs.Max() + 1;
             return new CashShopStorageReservation(storageItem, index);
         }
 

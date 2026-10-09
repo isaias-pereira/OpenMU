@@ -283,6 +283,39 @@ public static class CashShopConnectionExtensions
 
 
     /// <summary>
+    /// Sends the cash shop storage item use result (C1 D2 0B) to the client.
+    /// </summary>
+    /// <remarks>
+    /// The client reads byResult as a BYTE and compares it against static_cast<BYTE>(-1)
+    /// and static_cast<BYTE>(-2), so negative codes must go out as the two's-complement
+    /// byte (255 / 254). On success (0) the client shows "ItemUsed" and re-requests the storage
+    /// list (D2 05).
+    /// </remarks>
+    /// <param name="connection">The connection.</param>
+    /// <param name="resultCode">The result code; zero indicates success.</param>
+    public static async ValueTask SendCashShopStorageItemUseResultAsync(this IConnection? connection, byte resultCode)
+    {
+        if (connection is null)
+        {
+            return;
+        }
+
+        int WritePacket()
+        {
+            const byte length = 5;
+            var span = connection.Output.GetSpan(length)[..length];
+            span[0] = 0xC1;
+            span[1] = length;
+            span[2] = PacketCode;
+            span[3] = 0x0B;
+            span[4] = resultCode;
+            return length;
+        }
+
+        await connection.SendAsync(WritePacket).ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Sends the cash shop banner version (C1 D2 15) to the client. Layout is identical to the
     /// script version (0C); with KJH_MOD_SHOP_SCRIPT_DOWNLOAD it just records the version.
     /// </summary>

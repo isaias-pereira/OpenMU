@@ -5,6 +5,7 @@
 namespace MUnique.OpenMU.GameServer.RemoteView.CashShop;
 
 using System.Runtime.InteropServices;
+using MUnique.OpenMU.GameLogic.PlayerActions.CashShop;
 using MUnique.OpenMU.GameLogic.Views.CashShop;
 using MUnique.OpenMU.Network.Packets.ServerToClient;
 using MUnique.OpenMU.PlugIns;
@@ -76,5 +77,14 @@ public class CashShopViewPlugIn : ICashShopViewPlugIn
         // (255 / 254). A checked cast would throw on those values.
         var resultCode = success ? (byte)0 : unchecked((byte)errorCode);
         await this._player.Connection.SendCashShopBuyResultAsync(resultCode, 0).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc/>
+    public async ValueTask ShowStorageItemUseResultAsync(StorageClaimErrorCode errorCode)
+    {
+        // The client reads byResult as a BYTE and compares it against static_cast<BYTE>(-1)
+        // and static_cast<BYTE>(-2), so negative codes must go out as the two's-complement byte
+        // (255 / 254). A checked cast would throw on those values.
+        await this._player.Connection.SendCashShopStorageItemUseResultAsync(unchecked((byte)errorCode)).ConfigureAwait(false);
     }
 }

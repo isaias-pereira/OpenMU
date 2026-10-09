@@ -292,6 +292,8 @@ internal sealed class Program : IDisposable
             .AddSingleton<ICashShopSelectionResolver, CashShopSelectionResolver>()
             .AddSingleton<ICashShopBuyService, CashShopBuyService>()
             .AddSingleton<ICashShopGiftService, CashShopGiftService>()
+            .AddSingleton<ICashShopStorageClaimService, CashShopStorageClaimService>()
+            .AddSingleton<CashShopStorageClaimService>()
             .AddSingleton<CashShopBuyAction>()
             .AddSingleton<CashShopGiftAction>()
             .AddSingleton<CashShopStorageListAction>()

@@ -82,4 +82,15 @@ public interface ICashShopViewPlugIn : IViewPlugIn
     /// <param name="errorCode">The error code if purchase failed.</param>
     /// <param name="deliveredItem">The name of the delivered item on success.</param>
     ValueTask ShowBuyResultAsync(bool success, int errorCode, string? deliveredItem);
+
+    /// <summary>
+    /// Sends the result of a storage item use (claim) request (D2 0B response). On success the
+    /// client shows "ItemUsed" and re-requests the storage list (D2 05) on its own.
+    /// </summary>
+    /// <param name="errorCode">
+    /// The result code, dictated by <c>ReceiveIGS_UseStorageItem</c> in the client: zero is
+    /// success; negative codes are sent as the two's-complement byte (255/254); 21 means the
+    /// character inventory is full.
+    /// </param>
+    ValueTask ShowStorageItemUseResultAsync(PlayerActions.CashShop.StorageClaimErrorCode errorCode);
 }

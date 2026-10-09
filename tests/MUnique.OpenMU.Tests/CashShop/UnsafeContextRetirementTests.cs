@@ -556,6 +556,8 @@ public class UnsafeContextRetirementTests
         services.AddSingleton<ICashShopSelectionResolver, CashShopSelectionResolver>();
         services.AddSingleton<ICashShopBuyService, CashShopBuyService>();
         services.AddSingleton<ICashShopGiftService, CashShopGiftService>();
+        services.AddSingleton<ICashShopStorageClaimService, CashShopStorageClaimService>();
+        services.AddSingleton<CashShopStorageClaimService>();
         services.AddSingleton<CashShopBuyAction>();
         services.AddSingleton<CashShopGiftAction>();
         services.AddSingleton<CashShopStorageListAction>();
