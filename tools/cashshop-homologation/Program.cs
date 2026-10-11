@@ -105,8 +105,9 @@ public static class Program
     /// Entry point of the homologation seeder.
     /// </summary>
     /// <param name="args">
-    /// Pass <c>gift</c> to run the gift flow homologation scenarios, or <c>claim</c> for the
-    /// storage claim scenarios, instead of the seed.
+    /// Pass <c>gift</c> to run the gift flow homologation scenarios, <c>claim</c> for the
+    /// storage claim scenarios, or <c>gift-storage</c> for the Fase 10 gift metadata + D2 0E
+    /// scenarios, instead of the seed.
     /// </param>
     /// <returns>0 when the catalog was seeded or every scenario passed; 1 otherwise.</returns>
     public static async Task<int> Main(string[] args)
@@ -119,6 +120,11 @@ public static class Program
         if (args.Any(argument => string.Equals(argument, "claim", StringComparison.OrdinalIgnoreCase)))
         {
             return await ClaimHomologation.RunAsync().ConfigureAwait(false);
+        }
+
+        if (args.Any(argument => string.Equals(argument, "gift-storage", StringComparison.OrdinalIgnoreCase)))
+        {
+            return await GiftStorageMetadataHomologation.RunAsync().ConfigureAwait(false);
         }
 
         var database = Environment.GetEnvironmentVariable("DB_NAME");

@@ -118,4 +118,51 @@ public class CashShopStorageItemMigrationTests
                 "The old global uniqueness would reject a gift colliding with a purchase.");
         });
     }
+
+    /// <summary>
+    /// FASE 10: a migration dos metadados de presente (GiftSender/GiftMessage) precisa ser
+    /// descoberta pelo EF e vir depois da migration da flag IsGift.
+    /// </summary>
+    [Test]
+    public void GiftMetadataMigration_IsDiscoveredByEntityFrameworkAfterTheGiftFlag()
+    {
+        var migrations = MigrationsAssembly.Migrations.Keys.ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(
+                migrations,
+                Does.Contain("20261011053051_AddCashShopStorageGiftMetadata"),
+                "Without the generated designer file the migration is invisible to EF and never runs.");
+            Assert.That(
+                migrations.IndexOf("20261011053051_AddCashShopStorageGiftMetadata"),
+                Is.GreaterThan(migrations.IndexOf(GiftFlagMigrationId)),
+                "The metadata columns are added after the gift flag exists.");
+        });
+    }
+
+    /// <summary>
+    /// FASE 10: o modelo mapeado precisa das duas colunas de metadados, nullable e com os
+    /// limites de caracteres da coluna PostgreSQL proposta (varchar(10)/varchar(200)).
+    /// </summary>
+    [Test]
+    public void CashShopStorageItemModel_HasNullableGiftMetadataColumns()
+    {
+        using var context = new EntityDataContextFactory().CreateDbContext(Array.Empty<string>());
+        var entity = context.Model.FindEntityType("MUnique.OpenMU.Persistence.EntityFramework.Model.CashShopStorageItem");
+
+        Assert.That(entity, Is.Not.Null);
+
+        var sender = entity!.FindProperty(nameof(CashShopStorageItem.GiftSender));
+        var message = entity!.FindProperty(nameof(CashShopStorageItem.GiftMessage));
+        Assert.Multiple(() =>
+        {
+            Assert.That(sender, Is.Not.Null, "GiftSender must be mapped.");
+            Assert.That(message, Is.Not.Null, "GiftMessage must be mapped.");
+            Assert.That(sender!.IsNullable, Is.True, "GiftSender é nullable: presentes antigos e compras não têm remetente.");
+            Assert.That(message!.IsNullable, Is.True, "GiftMessage é nullable: presentes antigos e compras não têm mensagem.");
+            Assert.That(sender.GetMaxLength(), Is.EqualTo(10), "O remetente cabe no campo de 11 bytes do cliente (10 úteis + NUL).");
+            Assert.That(message.GetMaxLength(), Is.EqualTo(200), "Limite da coluna em caracteres; o limite de bytes do fio é do serializer.");
+        });
+    }
 }

@@ -290,6 +290,41 @@ public class CashShopStorageClaimTests
     }
 
     /// <summary>
+    /// FASE 10: um presente com metadados (remetente/mensagem persistidos a partir da Fase 10)
+    /// é retirado normalmente pelo D2 0B — os metadados não participam da resolução nem da
+    /// entrega, e a Quantity/ausência de segundo débito continua valendo.
+    /// </summary>
+    [Test]
+    public async Task ClaimAsync_GiftRowWithMetadata_ClaimsNormally()
+    {
+        var receiverAccountId = Guid.NewGuid();
+        var senderAccountId = Guid.NewGuid();
+        var player = await this.CreatePlayerWithAccountAsync(receiverAccountId).ConfigureAwait(false);
+        await this.CreateWalletAsync(senderAccountId, 1000).ConfigureAwait(false);
+        var row = await this.CreateRowWithItemAsync(receiverAccountId, storageIndex: 0, itemSeq: 0, durability: 20, isGift: true).ConfigureAwait(false);
+        row.GiftSender = "Sender";
+        row.GiftMessage = "Feliz Natal!";
+        using (var context = this._contextProvider.CreateNewContext(this._configuration))
+        {
+            await context.SaveChangesAsync().ConfigureAwait(false);
+        }
+
+        var result = await this._service.ClaimAsync(player, storageIndex: 0, itemSeq: 0, StorageItemTypeProduct).ConfigureAwait(false);
+        var senderBalance = await this.GetWalletBalanceAsync(senderAccountId).ConfigureAwait(false);
+        var stored = await this.GetStoredItemsAsync(receiverAccountId).ConfigureAwait(false);
+        var inventoryItems = player.Inventory!.Items.ToList();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Success, Is.True, result.ErrorMessage);
+            Assert.That(inventoryItems, Has.Count.EqualTo(1), "Os metadados não impedem a entrega.");
+            Assert.That(inventoryItems[0].Durability, Is.EqualTo(20), "A Quantity do presente é preservada.");
+            Assert.That(senderBalance, Is.EqualTo(1000), "A retirada não sofre segundo débito.");
+            Assert.That(stored, Is.Empty, "A linha do presente é consumida.");
+        });
+    }
+
+    /// <summary>
     /// Cria um jogador cuja conta autenticada é a informada, para que as linhas desta conta
     /// resolvam como suas.
     /// </summary>

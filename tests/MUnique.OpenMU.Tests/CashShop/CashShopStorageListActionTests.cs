@@ -53,6 +53,9 @@ public class CashShopStorageListActionTests
         /// <summary>Gets the recorded <c>ShowStorageItemAsync</c> calls, in order.</summary>
         public List<(int StorageIndex, int ItemSeq, int StorageGroupCode, int ProductSeq, int PriceSeq, double CashPoint, char ItemType)> StorageItems { get; } = new();
 
+        /// <summary>Gets the recorded <c>ShowGiftStorageItemAsync</c> calls (D2 0E), in order.</summary>
+        public List<(int StorageIndex, int ItemSeq, int StorageGroupCode, int ProductSeq, int PriceSeq, double CashPoint, char ItemType, string? GiftSender, string? GiftMessage)> GiftStorageItems { get; } = new();
+
         /// <inheritdoc />
         public ValueTask ShowPointInfoAsync(double totalCash, double cashCredit, double cashPrepaid, double totalPoint, double totalMileage) => ValueTask.CompletedTask;
 
@@ -70,6 +73,13 @@ public class CashShopStorageListActionTests
         public ValueTask ShowStorageItemAsync(int storageIndex, int itemSeq, int storageGroupCode, int productSeq, int priceSeq, double cashPoint, char itemType)
         {
             this.StorageItems.Add((storageIndex, itemSeq, storageGroupCode, productSeq, priceSeq, cashPoint, itemType));
+            return ValueTask.CompletedTask;
+        }
+
+        /// <inheritdoc />
+        public ValueTask ShowGiftStorageItemAsync(int storageIndex, int itemSeq, int storageGroupCode, int productSeq, int priceSeq, double cashPoint, char itemType, string? giftSender, string? giftMessage)
+        {
+            this.GiftStorageItems.Add((storageIndex, itemSeq, storageGroupCode, productSeq, priceSeq, cashPoint, itemType, giftSender, giftMessage));
             return ValueTask.CompletedTask;
         }
 
@@ -208,7 +218,8 @@ public class CashShopStorageListActionTests
 
     /// <summary>
     /// A aba 'G' (caixa de presentes) lista somente as linhas marcadas como presente,
-    /// com numeração independente da aba de compras.
+    /// com numeração independente da aba de compras. A partir da Fase 10 as linhas saem
+    /// pelo D2 0E (com remetente/mensagem), não mais pelo D2 0D.
     /// </summary>
     [Test]
     public async Task RequestListAsync_GiftTab_ListsOnlyGiftRows()
@@ -226,9 +237,146 @@ public class CashShopStorageListActionTests
         {
             Assert.That(this._viewPlugIn.StorageCounts, Has.Count.EqualTo(1));
             Assert.That(this._viewPlugIn.StorageCounts[0].TotalItemCount, Is.EqualTo(1), "The gift tab counts only gift rows.");
-            Assert.That(this._viewPlugIn.StorageItems, Has.Count.EqualTo(1));
-            Assert.That(this._viewPlugIn.StorageItems[0].StorageIndex, Is.EqualTo(gift.StorageIndex));
-            Assert.That(this._viewPlugIn.StorageItems[0].ItemType, Is.EqualTo('P'), "A gift is rendered as a product ('P'); chItemType only accepts 'P'/'C'.");
+            Assert.That(this._viewPlugIn.GiftStorageItems, Has.Count.EqualTo(1), "A partir da Fase 10 a aba de presentes entrega as linhas pelo D2 0E.");
+            Assert.That(this._viewPlugIn.GiftStorageItems[0].StorageIndex, Is.EqualTo(gift.StorageIndex));
+            Assert.That(this._viewPlugIn.GiftStorageItems[0].ItemType, Is.EqualTo('P'), "A gift is rendered as a product ('P'); chItemType only accepts 'P'/'C'.");
+            Assert.That(this._viewPlugIn.StorageItems, Is.Empty, "A aba de presentes não envia linhas D2 0D.");
+        });
+    }
+
+    /// <summary>
+    /// FASE 10 (RED): a aba 'G' entrega as linhas pelo D2 0E — com o remetente e a mensagem da
+    /// linha — e nunca mistura D2 0D na mesma resposta; os demais campos replicam os do D2 0D.
+    /// </summary>
+    [Test]
+    public async Task RequestListAsync_GiftTab_SendsGiftStorageItemsWithMetadataViaD2_0E()
+    {
+        var accountId = Guid.NewGuid();
+        var gift = await this.CreateStorageRowAsync(accountId, storageIndex: 0, isGift: true).ConfigureAwait(false);
+        gift.GiftSender = "Sender";
+        gift.GiftMessage = "Feliz Natal!";
+        this._storageService.Setup(s => s.GetGiftCountAsync(accountId, It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        this._storageService.Setup(s => s.GetGiftPageAsync(accountId, 0, 30, It.IsAny<CancellationToken>())).ReturnsAsync(new[] { gift });
+        var player = await this.CreatePlayerWithAccountAsync(accountId).ConfigureAwait(false);
+
+        await this._action.RequestListAsync(player, pageIndex: 1, CashShopStorageListAction.GiftStorageType).ConfigureAwait(false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(this._viewPlugIn.GiftStorageItems, Has.Count.EqualTo(1), "A aba de presentes entrega cada linha pelo D2 0E.");
+            Assert.That(this._viewPlugIn.StorageItems, Is.Empty, "A aba de presentes não pode misturar linhas D2 0D.");
+            Assert.That(this._viewPlugIn.GiftStorageItems[0].StorageIndex, Is.EqualTo(gift.StorageIndex));
+            Assert.That(this._viewPlugIn.GiftStorageItems[0].ItemSeq, Is.EqualTo(gift.ItemSeq));
+            Assert.That(this._viewPlugIn.GiftStorageItems[0].StorageGroupCode, Is.EqualTo(gift.StorageGroup));
+            Assert.That(this._viewPlugIn.GiftStorageItems[0].ProductSeq, Is.EqualTo(gift.ProductSeq), "O cliente resolve o item no catálogo local como no D2 0D.");
+            Assert.That(this._viewPlugIn.GiftStorageItems[0].PriceSeq, Is.EqualTo(gift.PriceSeq));
+            Assert.That(this._viewPlugIn.GiftStorageItems[0].CashPoint, Is.EqualTo(gift.CashPoint));
+            Assert.That(this._viewPlugIn.GiftStorageItems[0].ItemType, Is.EqualTo('P'));
+            Assert.That(this._viewPlugIn.GiftStorageItems[0].GiftSender, Is.EqualTo("Sender"), "O D2 0E carrega o remetente persistido.");
+            Assert.That(this._viewPlugIn.GiftStorageItems[0].GiftMessage, Is.EqualTo("Feliz Natal!"), "O D2 0E carrega a mensagem persistida.");
+        });
+    }
+
+    /// <summary>
+    /// FASE 10: a aba de compras ('S') continua entregando apenas D2 0D — nenhuma linha D2 0E,
+    /// mesmo que uma linha de compra carregue metadados de presente (não podem existir, mas o
+    /// contrato é da aba, não da linha).
+    /// </summary>
+    [Test]
+    public async Task RequestListAsync_PurchaseTab_NeverSendsGiftStorageItems()
+    {
+        var accountId = Guid.NewGuid();
+        var own = await this.CreateStorageRowAsync(accountId, storageIndex: 0, isGift: false).ConfigureAwait(false);
+        this._storageService.Setup(s => s.GetItemCountAsync(accountId, false, It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        this._storageService.Setup(s => s.GetPageAsync(accountId, 0, 30, false, It.IsAny<CancellationToken>())).ReturnsAsync(new[] { own });
+        var player = await this.CreatePlayerWithAccountAsync(accountId).ConfigureAwait(false);
+
+        await this._action.RequestListAsync(player, pageIndex: 1, CashShopStorageListAction.DefaultStorageType).ConfigureAwait(false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(this._viewPlugIn.StorageItems, Has.Count.EqualTo(1), "A aba de compras continua entregando D2 0D.");
+            Assert.That(this._viewPlugIn.GiftStorageItems, Is.Empty, "A aba de compras nunca envia D2 0E.");
+        });
+    }
+
+    /// <summary>
+    /// FASE 10: a paginação da aba de presentes é preservada — D2 06 com as contagens e
+    /// D2 0E apenas para a página pedida; página fora do range responde só com as contagens.
+    /// </summary>
+    [Test]
+    public async Task RequestListAsync_GiftTab_PaginationAndCountPreserved()
+    {
+        var accountId = Guid.NewGuid();
+        var first = await this.CreateStorageRowAsync(accountId, storageIndex: 0, isGift: true).ConfigureAwait(false);
+        this._storageService.Setup(s => s.GetGiftCountAsync(accountId, It.IsAny<CancellationToken>())).ReturnsAsync(31);
+        this._storageService.Setup(s => s.GetGiftPageAsync(accountId, 0, 30, It.IsAny<CancellationToken>())).ReturnsAsync(new[] { first });
+        this._storageService.Setup(s => s.GetGiftPageAsync(accountId, 30, 30, It.IsAny<CancellationToken>())).ReturnsAsync(Array.Empty<CashShopStorageItem>());
+        var player = await this.CreatePlayerWithAccountAsync(accountId).ConfigureAwait(false);
+
+        await this._action.RequestListAsync(player, pageIndex: 1, CashShopStorageListAction.GiftStorageType).ConfigureAwait(false);
+        await this._action.RequestListAsync(player, pageIndex: 2, CashShopStorageListAction.GiftStorageType).ConfigureAwait(false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(this._viewPlugIn.StorageCounts, Has.Count.EqualTo(2), "Cada página pedida recebe um D2 06.");
+            Assert.That(this._viewPlugIn.StorageCounts[0].TotalItemCount, Is.EqualTo(31), "A contagem total cobre as 31 linhas de presente.");
+            Assert.That(this._viewPlugIn.StorageCounts[0].CurrentItemCount, Is.EqualTo(1));
+            Assert.That(this._viewPlugIn.StorageCounts[0].TotalPage, Is.EqualTo(2), "31 linhas em páginas de 30 = 2 páginas.");
+            Assert.That(this._viewPlugIn.StorageCounts[1].CurrentItemCount, Is.EqualTo(0), "A segunda página está vazia neste cenário.");
+            Assert.That(this._viewPlugIn.GiftStorageItems, Has.Count.EqualTo(1), "Somente a primeira página entrega linhas D2 0E.");
+        });
+    }
+
+    /// <summary>
+    /// FASE 10: a listagem de presentes é account-scoped — a ação consulta o serviço com a
+    /// conta autenticada, e linhas de outras contas nunca chegam ao cliente.
+    /// </summary>
+    [Test]
+    public async Task RequestListAsync_GiftTab_QueriesTheAuthenticatedAccountOnly()
+    {
+        var accountId = Guid.NewGuid();
+        var otherAccountId = Guid.NewGuid();
+        var own = await this.CreateStorageRowAsync(accountId, storageIndex: 0, isGift: true).ConfigureAwait(false);
+        await this.CreateStorageRowAsync(otherAccountId, storageIndex: 0, isGift: true).ConfigureAwait(false);
+        this._storageService.Setup(s => s.GetGiftCountAsync(accountId, It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        this._storageService.Setup(s => s.GetGiftPageAsync(accountId, 0, 30, It.IsAny<CancellationToken>())).ReturnsAsync(new[] { own });
+        var player = await this.CreatePlayerWithAccountAsync(accountId).ConfigureAwait(false);
+
+        await this._action.RequestListAsync(player, pageIndex: 1, CashShopStorageListAction.GiftStorageType).ConfigureAwait(false);
+
+        Assert.Multiple(() =>
+        {
+            this._storageService.Verify(s => s.GetGiftCountAsync(accountId, It.IsAny<CancellationToken>()), Times.Once, "A contagem consulta a conta autenticada.");
+            this._storageService.Verify(s => s.GetGiftPageAsync(accountId, 0, 30, It.IsAny<CancellationToken>()), Times.Once, "A página consulta a conta autenticada.");
+            this._storageService.Verify(s => s.GetGiftPageAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
+            Assert.That(this._viewPlugIn.GiftStorageItems, Has.Count.EqualTo(1), "Apenas as linhas da própria conta são entregues.");
+            Assert.That(this._viewPlugIn.GiftStorageItems[0].StorageIndex, Is.EqualTo(own.StorageIndex));
+        });
+    }
+
+    /// <summary>
+    /// FASE 10: um presente antigo sem metadados persistidos (colunas NULL) é listado pelo
+    /// D2 0E com remetente/mensagem nulos — nenhum remetente é inventado.
+    /// </summary>
+    [Test]
+    public async Task RequestListAsync_GiftTab_LegacyRowWithoutMetadata_ListsWithNullMetadata()
+    {
+        var accountId = Guid.NewGuid();
+        var legacy = await this.CreateStorageRowAsync(accountId, storageIndex: 0, isGift: true).ConfigureAwait(false);
+        Assert.That(legacy.GiftSender, Is.Null, "Linhas criadas antes da Fase 10 não têm remetente.");
+        Assert.That(legacy.GiftMessage, Is.Null);
+        this._storageService.Setup(s => s.GetGiftCountAsync(accountId, It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        this._storageService.Setup(s => s.GetGiftPageAsync(accountId, 0, 30, It.IsAny<CancellationToken>())).ReturnsAsync(new[] { legacy });
+        var player = await this.CreatePlayerWithAccountAsync(accountId).ConfigureAwait(false);
+
+        await this._action.RequestListAsync(player, pageIndex: 1, CashShopStorageListAction.GiftStorageType).ConfigureAwait(false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(this._viewPlugIn.GiftStorageItems, Has.Count.EqualTo(1), "O presente legado continua listado.");
+            Assert.That(this._viewPlugIn.GiftStorageItems[0].GiftSender, Is.Null, "Nenhum remetente é inventado para o presente legado.");
+            Assert.That(this._viewPlugIn.GiftStorageItems[0].GiftMessage, Is.Null);
         });
     }
 

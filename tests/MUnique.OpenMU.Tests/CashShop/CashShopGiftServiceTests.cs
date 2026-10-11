@@ -190,6 +190,31 @@ public class CashShopGiftServiceTests
     }
 
     /// <summary>
+    /// FASE 10 Rodada 2C: mensagem acima do limite de BYTES do fio (199) é persistida já
+    /// truncada na fronteira UTF-8 — o texto no banco é exatamente o que o cliente exibirá,
+    /// sem divergência silenciosa entre persistência e tela.
+    /// </summary>
+    [Test]
+    public async Task ProcessGiftAsync_MessageAboveWireByteLimit_PersistsExactlyWhatTheClientWillShow()
+    {
+        var player = await this.CreateSenderAsync(1000).ConfigureAwait(false);
+        this.SetupValidCatalog();
+        var message = new string('á', 150); // 300 bytes UTF-8 — acima dos 199 úteis do D2 0E.
+
+        var result = await this.SendGiftAsync(player, ReceiverName, giftText: message).ConfigureAwait(false);
+
+        Assert.That(result.Success, Is.True, result.ErrorMessage);
+        var stored = await this.GetStoredItemsAsync(this._receiverAccountId).ConfigureAwait(false);
+        var expected = new string('á', 99); // 99 × 2 bytes = 198 ≤ 199; o 100º 'á' não cabe.
+        Assert.Multiple(() =>
+        {
+            Assert.That(stored, Has.Count.EqualTo(1));
+            Assert.That(stored[0].GiftMessage, Is.EqualTo(expected), "O texto persistido é o truncado em fronteira UTF-8, igual ao que o fio carrega.");
+            Assert.That(System.Text.Encoding.UTF8.GetByteCount(stored[0].GiftMessage!), Is.EqualTo(198), "O texto persistido cabe no campo de 199 bytes úteis do D2 0E.");
+        });
+    }
+
+    /// <summary>
     /// Cria o remetente com carteira e um destinatário em outra conta, para que o lookup por
     /// nome de personagem resolva a conta correta.
     /// </summary>
@@ -530,5 +555,158 @@ public class CashShopGiftServiceTests
             Assert.That(stored[0].Item!.Durability, Is.EqualTo(20), "O gift deve preservar a Quantity do catálogo (Item.Durability = 20), não entregar 1 unidade.");
         });
         Assert.That(await this.GetWalletBalanceAsync().ConfigureAwait(false), Is.EqualTo(1000 - Price), "O débito do gift é único, pelo preço da oferta.");
+    }
+
+    /// <summary>
+    /// FASE 10 (RED): o gift deve persistir o remetente — o nome do <b>personagem</b> da sessão
+    /// autenticada — na linha de storage do destinatário (campo <c>chSendUserName</c> do D2 0E).
+    /// </summary>
+    [Test]
+    public async Task ProcessGiftAsync_PersistsSenderCharacterNameFromAuthenticatedSession()
+    {
+        var player = await this.CreateSenderAsync(1000).ConfigureAwait(false);
+        this.SetupValidCatalog();
+
+        var result = await this.SendGiftAsync(player, ReceiverName).ConfigureAwait(false);
+
+        Assert.That(result.Success, Is.True, result.ErrorMessage);
+        var stored = await this.GetStoredItemsAsync(this._receiverAccountId).ConfigureAwait(false);
+        Assert.Multiple(() =>
+        {
+            Assert.That(stored, Has.Count.EqualTo(1));
+            Assert.That(stored[0].GiftSender, Is.EqualTo(player.SelectedCharacter!.Name), "O remetente persistido é o personagem da sessão autenticada.");
+        });
+    }
+
+    /// <summary>
+    /// FASE 10 (RED): o gift deve persistir a mensagem enviada pelo cliente na linha de storage
+    /// do destinatário (campo <c>chMessage</c> do D2 0E), no mesmo commit da entrega.
+    /// </summary>
+    [Test]
+    public async Task ProcessGiftAsync_PersistsGiftMessage()
+    {
+        var player = await this.CreateSenderAsync(1000).ConfigureAwait(false);
+        this.SetupValidCatalog();
+
+        var result = await this.SendGiftAsync(player, ReceiverName, giftText: "Feliz Natal, amigo!").ConfigureAwait(false);
+
+        Assert.That(result.Success, Is.True, result.ErrorMessage);
+        var stored = await this.GetStoredItemsAsync(this._receiverAccountId).ConfigureAwait(false);
+        Assert.Multiple(() =>
+        {
+            Assert.That(stored, Has.Count.EqualTo(1));
+            Assert.That(stored[0].GiftMessage, Is.EqualTo("Feliz Natal, amigo!"), "A mensagem do presente é persistida integralmente (dentro do limite).");
+        });
+    }
+
+    /// <summary>
+    /// FASE 10: nenhum dado do pacote pode falsificar o remetente — o D2 04 não carrega campo de
+    /// remetente, e um texto forjado na mensagem não altera o <c>GiftSender</c> persistido, que
+    /// é sempre o personagem da sessão autenticada.
+    /// </summary>
+    [Test]
+    public async Task ProcessGiftAsync_ArbitrarySenderCannotBeSpoofed()
+    {
+        var player = await this.CreateSenderAsync(1000).ConfigureAwait(false);
+        this.SetupValidCatalog();
+
+        // A mensagem tenta se passar pelo remetente; o receptor também não interfere.
+        var result = await this.SendGiftAsync(player, ReceiverName, giftText: "From: Impostor").ConfigureAwait(false);
+
+        Assert.That(result.Success, Is.True, result.ErrorMessage);
+        var stored = await this.GetStoredItemsAsync(this._receiverAccountId).ConfigureAwait(false);
+        Assert.Multiple(() =>
+        {
+            Assert.That(stored, Has.Count.EqualTo(1));
+            Assert.That(stored[0].GiftSender, Is.EqualTo(player.SelectedCharacter!.Name), "O remetente vem da sessão autenticada, não do conteúdo do pacote.");
+            Assert.That(stored[0].GiftSender, Is.Not.EqualTo("Impostor"));
+            Assert.That(stored[0].GiftMessage, Is.EqualTo("From: Impostor"), "O texto forjado é tratado como mensagem, nunca como remetente.");
+        });
+    }
+
+    /// <summary>
+    /// FASE 10: mensagem vazia é aceita — o presente é entregue e a mensagem é persistida como
+    /// nula (campo vazio no D2 0E), sem falhar o fluxo nem inventar texto.
+    /// </summary>
+    [TestCase("")]
+    [TestCase("   ")]
+    public async Task ProcessGiftAsync_EmptyGiftMessage_IsAcceptedAndStoredAsNull(string giftText)
+    {
+        var player = await this.CreateSenderAsync(1000).ConfigureAwait(false);
+        this.SetupValidCatalog();
+
+        var result = await this.SendGiftAsync(player, ReceiverName, giftText: giftText).ConfigureAwait(false);
+
+        Assert.That(result.Success, Is.True, result.ErrorMessage);
+        var stored = await this.GetStoredItemsAsync(this._receiverAccountId).ConfigureAwait(false);
+        var balance = await this.GetWalletBalanceAsync().ConfigureAwait(false);
+        Assert.Multiple(() =>
+        {
+            Assert.That(stored, Has.Count.EqualTo(1), "A mensagem vazia não impede a entrega.");
+            Assert.That(stored[0].GiftMessage, Is.Null.Or.Empty, "A mensagem vazia é persistida como nula/vazia, sem texto inventado.");
+            Assert.That(balance, Is.EqualTo(1000 - Price), "O débito permanece único.");
+        });
+    }
+
+    /// <summary>
+    /// FASE 10: presente antigo sem metadados (colunas NULL, antes da Fase 10) continua válido
+    /// e listável — nenhum campo dos metadados é exigido para ler ou listar a linha.
+    /// </summary>
+    [Test]
+    public async Task LegacyGiftRow_WithNullMetadata_RemainsValidAndListable()
+    {
+        var player = await this.CreateSenderAsync(1000).ConfigureAwait(false);
+        this.SetupValidCatalog();
+
+        // Linha legada criada diretamente no contexto, como as entregues antes da Fase 10:
+        // sem GiftSender/GiftMessage.
+        using (var context = this._contextProvider.CreateNewContext(this._configuration))
+        {
+            var legacy = context.CreateNew<CashShopStorageItem>();
+            legacy.AccountId = this._receiverAccountId;
+            legacy.StorageIndex = 5;
+            legacy.ItemSeq = 9;
+            legacy.IsGift = true;
+            legacy.ItemType = CashShopStorageItemType.Product;
+            await context.SaveChangesAsync().ConfigureAwait(false);
+        }
+
+        var stored = await this.GetStoredItemsAsync(this._receiverAccountId).ConfigureAwait(false);
+        Assert.Multiple(() =>
+        {
+            Assert.That(stored, Has.Count.EqualTo(1));
+            Assert.That(stored[0].GiftSender, Is.Null, "O presente legado não ganha remetente inventado.");
+            Assert.That(stored[0].GiftMessage, Is.Null);
+        });
+    }
+
+    /// <summary>
+    /// FASE 10: falha de persistência não deixa nada parcial — sem gift, sem metadados, sem
+    /// débito: o rollback do contexto descarta a linha com os metadados junto.
+    /// </summary>
+    [Test]
+    public async Task ProcessGiftAsync_SaveFailure_LeavesNoPartialGiftMetadataOrDebit()
+    {
+        var (player, context) = await this.CreateSenderWithFailingSaveAsync(1000).ConfigureAwait(false);
+        context.FailNextSave = true;
+
+        var result = await this.SendGiftAsync(player, ReceiverName).ConfigureAwait(false);
+
+        var balance = await this.GetWalletBalanceAsync().ConfigureAwait(false);
+        var receiverItems = await this.GetStoredItemsAsync(this._receiverAccountId).ConfigureAwait(false);
+        var transactions = await this.GetTransactionsAsync().ConfigureAwait(false);
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.Success, Is.False, "A falha de gravação é reportada como falha.");
+            Assert.That(balance, Is.EqualTo(1000), "A falha de gravação não cobra o remetente.");
+            Assert.That(receiverItems, Is.Empty, "A falha de gravação não entrega a linha com metadados.");
+            Assert.That(transactions, Is.Empty, "A falha de gravação não deixa débito órfão.");
+        });
+
+        // Uma gravação posterior do contexto não pode ressuscitar o presente descartado.
+        context.FailNextSave = false;
+        await player.PersistenceContext.SaveChangesAsync().ConfigureAwait(false);
+        var afterSave = await this.GetStoredItemsAsync(this._receiverAccountId).ConfigureAwait(false);
+        Assert.That(afterSave, Is.Empty, "O rollback não pode deixar a linha com metadados para um save futuro persistir.");
     }
 }
