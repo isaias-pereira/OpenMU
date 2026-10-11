@@ -31,7 +31,7 @@ descobertos e corrigidos").
 | D2 0B | cliente → servidor | `STORAGE_ITEM_USE_REQ` (15 bytes: StorageSeq @4, StorageItemSeq @8, ItemCode u16 @12, StorageType @14) | Implementado |
 | D2 0B resposta | servidor → cliente | 5 bytes `byResult` (0 = ok + o cliente reenvia D2 05; 21 = inventário cheio; 22 = não pode usar; 1 = storage inexistente; -1/-2 em complemento de dois = 255/254) | Implementado |
 | D2 0A | cliente → servidor | Throw (jogar item do storage) | **Código morto no cliente — não implementado (pendência)** |
-| D2 0E | cliente → servidor | Gift com remetente/mensagem (244 bytes) | **Não implementado (pendência)** |
+| D2 0E | servidor → cliente | Linha da caixa de presentes com remetente/mensagem (244 bytes: base do D2 0D + `chSendUserName[11]` @33 + `chMessage[200]` @44, UTF-8 com NUL interno) | **Fase 10 (Rodada 2B): implementado. Correção factual de direção: o cliente trata 0x0E no dispatcher de recebimento (`WSclient.cpp:14480`, `ReceiveIGS_StorageGiftItemList`) e nunca envia 0x0E — a direção "cliente → servidor" registrada acima estava errada** |
 
 Nomes enganosos dos structs OpenMU: `BaseItemCode`/`MainItemCode` carregam na verdade
 `StorageSeq`/`StorageItemSeq`. O wire format não foi alterado (compatibilidade); a
