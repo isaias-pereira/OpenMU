@@ -141,6 +141,32 @@ public class CashShopStorageItem
     /// Gets or sets a data/hora em que o item foi comprado.
     /// </summary>
     public DateTime PurchasedAt { get; set; } = DateTime.UtcNow;
+
+    /// <summary>
+    /// Gets or sets o nome do <b>personagem</b> remetente de um presente
+    /// (aba de presentes do cliente, campo <c>chSendUserName</c> do D2 0E).
+    /// </summary>
+    /// <remarks>
+    /// É derivado sempre da sessão autenticada (<c>player.SelectedCharacter.Name</c>) —
+    /// nunca de um dado enviado pelo cliente, que não carrega campo de remetente no D2 04.
+    /// <c>null</c> em presentes antigos ou em compras: o cliente então exibe o remetente
+    /// como vazio (<c>AddStorageItem</c> trata <c>NULL</c> como string vazia).
+    /// </remarks>
+    public string? GiftSender { get; set; }
+
+    /// <summary>
+    /// Gets or sets a mensagem enviada junto com um presente
+    /// (campo <c>chMessage</c> do D2 0E).
+    /// </summary>
+    /// <remarks>
+    /// No fio o campo comporta até 199 bytes UTF-8 úteis + NUL (o cliente converte
+    /// até 200 bytes e exige um NUL interno para o <c>wcscpy</c>). A normalização do
+    /// serviço grava no máximo 199 bytes codificados — o mesmo limite do fio — para que
+    /// o texto persistido seja exatamente o que o destinatário verá; o limite desta
+    /// coluna (200 caracteres) nunca é atingido, pois chars ≤ bytes em UTF-8.
+    /// <c>null</c> para presentes antigos, compras e mensagens vazias.
+    /// </remarks>
+    public string? GiftMessage { get; set; }
 }
 
 /// <summary>

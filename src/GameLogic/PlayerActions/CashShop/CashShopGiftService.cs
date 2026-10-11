@@ -44,24 +44,27 @@ using Nito.AsyncEx;
 /// the gift flow shares with the buy flow.
 /// </para>
 /// <para>
-/// <b>Gift text is NOT processed.</b> The client sends <c>GiftText</c> (200 bytes, D2 04 offset 34)
-/// and this flow reads it, but it is <b>discarded</b>: it is not validated for content, not
-/// persisted and not shown anywhere. The reason is lack of contract, not lack of effort —
-/// <list type="bullet">
-/// <item><description>there is no response packet in <c>CashShopConnectionExtensions</c> that
-/// carries a message back to the receiver;</description></item>
-/// <item><description>the D2 0D storage line is rendered by the client from the catalog
-/// (<c>ProductSeq</c>/<c>PriceSeq</c>), with no field for a message;</description></item>
-/// <item><description>no notification or mail packet for a received gift is defined in this
-/// server.</description></item>
-/// </list>
-/// Adding a column for data the client never reads back would be a guess, so the message is
-/// accepted and dropped. This is a <b>known limitation</b>, not a handled feature: a receiver
-/// will not see any message from the sender.
+/// <b>Gift sender and message (Fase 10).</b> The client sends <c>GiftText</c> (200 bytes,
+/// D2 04 offset 34) and this flow persists it with the <b>sender's authenticated character
+/// name</b> on the receiver's storage row, in the same commit as the delivery. The D2 04
+/// request carries no sender field, so the sender can never be spoofed from packet content.
+/// The message is normalized for safe transmission only (<see cref="NormalizeGiftMessage"/>:
+/// cut at the first NUL, empty/whitespace-only becomes null, capped at the column limit) and
+/// is never written to the logs. The receiver's client reads both fields back on the gift-box
+/// tab through the D2 0E packet (<c>PMSG_CASHSHOP_GIFTSTORAGELIST</c>), rendered as
+/// "It's a gift from %s" plus the message box.
 /// </para>
 /// </remarks>
 public sealed class CashShopGiftService : ICashShopGiftService
 {
+    /// <summary>
+    /// Limite de <b>bytes UTF-8 úteis</b> da mensagem no campo de 200 bytes do D2 0E
+    /// (199 bytes + NUL obrigatório dentro do campo). A persistência usa o MESMO limite em
+    /// bytes — e não um limite de caracteres — para que o texto gravado seja exatamente o
+    /// que o destinatário verá na tela, sem divergência silenciosa entre banco e fio.
+    /// </summary>
+    private const int MaxGiftMessageBytes = 199;
+
     private readonly ICashShopSelectionResolver _selectionResolver;
     private readonly ICashShopStorageService _storageService;
     private readonly ILogger<CashShopGiftService> _logger;
@@ -206,6 +209,14 @@ public sealed class CashShopGiftService : ICashShopGiftService
                 storageItem.ItemType = CashShopStorageItemType.Product;
                 storageItem.Item = item;
 
+                // Fase 10: os metadados do presente seguem na MESMA linha e no MESMO commit do
+                // débito e da entrega. O remetente é a identidade autenticada da sessão — o
+                // D2 04 não carrega campo de remetente, então nada vindo do cliente pode
+                // falsificá-lo. O rollback existente (DiscardStagedGiftAsync) descarta a linha
+                // com os metadados junto; nenhuma gravação parcial é possível.
+                storageItem.GiftSender = player.SelectedCharacter!.Name;
+                storageItem.GiftMessage = NormalizeGiftMessage(giftText);
+
                 debit = await WCoinService.TryDebit(
                         player.PersistenceContext,
                         account.Id,
@@ -285,6 +296,66 @@ public sealed class CashShopGiftService : ICashShopGiftService
         // The field is a fixed 11-byte region, so it arrives NUL-padded; the client may also add
         // surrounding blanks. Neither belongs to the character name that is looked up.
         return receiverName!.Replace('\0', ' ').Trim();
+    }
+
+    /// <summary>
+    /// Normaliza a mensagem do presente para gravação e transmissão segura no D2 0E.
+    /// </summary>
+    /// <param name="giftText">A mensagem como o cliente a enviou.</param>
+    /// <returns>
+    /// A mensagem a persistir, ou <c>null</c> quando não há conteúdo visível.
+    /// </returns>
+    /// <remarks>
+    /// Política determinística, no mesmo espírito do que o cliente apresenta:
+    /// <list type="bullet">
+    /// <item><description>corta no primeiro NUL — o campo do fio e o cliente
+    /// (<c>ExtractString</c> no servidor, <c>MultiByteToWideChar</c> no cliente) terminam nele,
+    /// então nada além dele é conteúdo apresentável;</description></item>
+    /// <item><description>texto vazio ou só de espaços vira <c>null</c> — presente sem
+    /// mensagem, sem texto inventado;</description></item>
+    /// <item><description>limita a <see cref="MaxGiftMessageBytes"/> <b>bytes UTF-8</b>, em
+    /// fronteira de caractere — o MESMO limite do campo de 200 bytes do D2 0E. Assim o texto
+    /// persistido é exatamente o texto que o destinatário verá: a coluna varchar(200) só
+    /// precisa acomodar o que o fio carrega (chars ≤ bytes);</description></item>
+    /// <item><description>acentos e demais caracteres UTF-8 válidos passam como foram
+    /// enviados, sem transformação;</description></item>
+    /// <item><description>o conteúdo nunca é escrito nos logs.</description></item>
+    /// </list>
+    /// </remarks>
+    private static string? NormalizeGiftMessage(string? giftText)
+    {
+        if (string.IsNullOrEmpty(giftText))
+        {
+            return null;
+        }
+
+        var nulIndex = giftText.IndexOf('\0');
+        var content = nulIndex >= 0 ? giftText[..nulIndex] : giftText;
+        var truncated = TruncateToUtf8Bytes(content, MaxGiftMessageBytes);
+        return truncated.Trim().Length == 0 ? null : truncated;
+    }
+
+    /// <summary>
+    /// Trunca o texto em no máximo <paramref name="maxBytes"/> bytes UTF-8, sem dividir um
+    /// caractere: o corte caminha de volta sobre continuation bytes até uma fronteira.
+    /// Surrogates órfãos do .NET são substituídos por U+FFFD pelo encoder (saída sempre
+    /// UTF-8 bem-formada). É o mesmo contrato binário do serializer D2 0E.
+    /// </summary>
+    private static string TruncateToUtf8Bytes(string content, int maxBytes)
+    {
+        var encoded = System.Text.Encoding.UTF8.GetBytes(content);
+        if (encoded.Length <= maxBytes)
+        {
+            return content;
+        }
+
+        var useful = maxBytes;
+        while (useful > 0 && (encoded[useful] & 0xC0) == 0x80)
+        {
+            useful--;
+        }
+
+        return System.Text.Encoding.UTF8.GetString(encoded, 0, useful);
     }
 
     /// <summary>

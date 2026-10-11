@@ -20,6 +20,15 @@ internal static class CashShopStorageItemExtensions
         // linha inválida seja gravada e descartada silenciosamente pelo cliente.
         builder.Property(i => i.ItemType).HasMaxLength(1).IsRequired();
 
+        // Metadados de presente (Fase 10). Nullable: presentes antigos e compras não têm
+        // remetente/mensagem, e nenhum registro existente é preenchido retroativamente.
+        // GiftSender é o nome do personagem remetente (o campo do cliente aceita 11 bytes =
+        // 10 caracteres + NUL, MAX_USERNAME_SIZE). GiftMessage é a mensagem; o limite da
+        // coluna é em CARACTERES e independe do limite de bytes UTF-8 do fio (199 bytes úteis
+        // + NUL), que é responsabilidade do serializer D2 0E, não do banco.
+        builder.Property(i => i.GiftSender).HasMaxLength(10);
+        builder.Property(i => i.GiftMessage).HasMaxLength(200);
+
         builder.HasIndex(i => i.AccountId);
 
         // A unicidade é POR ABA, e não por conta. O StorageIndex é a posição da linha dentro da

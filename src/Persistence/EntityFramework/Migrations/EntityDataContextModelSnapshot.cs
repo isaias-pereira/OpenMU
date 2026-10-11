@@ -680,11 +680,19 @@ namespace MUnique.OpenMU.Persistence.EntityFramework.Migrations
                     b.Property<double>("CashPoint")
                         .HasColumnType("double precision");
 
-                    b.Property<Guid?>("ItemId")
-                        .HasColumnType("uuid");
+                    b.Property<string>("GiftMessage")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("GiftSender")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
 
                     b.Property<bool>("IsGift")
                         .HasColumnType("boolean");
+
+                    b.Property<Guid?>("ItemId")
+                        .HasColumnType("uuid");
 
                     b.Property<int>("ItemSeq")
                         .HasColumnType("integer");
@@ -713,10 +721,10 @@ namespace MUnique.OpenMU.Persistence.EntityFramework.Migrations
 
                     b.HasIndex("AccountId");
 
-                    b.HasIndex("AccountId", "IsGift");
-
                     b.HasIndex("ItemId")
                         .IsUnique();
+
+                    b.HasIndex("AccountId", "IsGift");
 
                     b.HasIndex("AccountId", "IsGift", "StorageIndex")
                         .IsUnique();
