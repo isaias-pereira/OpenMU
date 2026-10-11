@@ -20,6 +20,7 @@ using MUnique.OpenMU.Network;
 ///   <item><term>D2 06</term><description>12 bytes: off 4..12 = 4 WORDs (TotalItemCount, CurrentItemCount, PageIndex, TotalPage).</description></item>
 ///   <item><term>D2 03</term><description>9 bytes: off 4 = BYTE byResultCode; off 5..9 = long lItemLeftCount. The client reads only the result code (ReceiveIGS_BuyItem).</description></item>
 ///   <item><term>D2 0D</term><description>33 bytes: off 4..24 = 5 longs (lStorageIndex, lItemSeq, lStorageGroupCode, lProductSeq, lPriceSeq); off 24..32 = double dCashPoint; off 32 = char chItemType. One packet per item of the requested page.</description></item>
+///   <item><term>D2 0E</term><description>244 bytes: the D2 0D base fields plus chSendUserName[11] at off 33 and chMessage[200] at off 44 (UTF-8, each with an in-field NUL). Gift-box variant of the storage line, see <see cref="SendCashShopGiftStorageItemAsync"/>.</description></item>
 ///   <item><term>D2 0C</term><description>10 bytes: off 4..10 = 3 WORDs (SaleZone, Year, YearIdentify). Unlocks the shop UI (ShopOpenUnLock) when KJH_MOD_SHOP_SCRIPT_DOWNLOAD is defined.</description></item>
 ///   <item><term>D2 13</term><description>6 bytes: off 4 = WORD EventItemListCount.</description></item>
 ///   <item><term>D2 15</term><description>10 bytes: same layout as 0C (banner version).</description></item>
@@ -189,6 +190,131 @@ public static class CashShopConnectionExtensions
         }
 
         await connection.SendAsync(WritePacket).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Sends one cash shop gift storage item (C1 D2 0E) to the client — the gift-box variant
+    /// of <see cref="SendCashShopStorageItemAsync"/> with the sender name and message.
+    /// </summary>
+    /// <param name="connection">The connection.</param>
+    /// <param name="storageIndex">The index of the line in the storage (lStorageIndex).</param>
+    /// <param name="itemSeq">The item sequence within the storage (lItemSeq).</param>
+    /// <param name="storageGroupCode">The storage group code (lStorageGroupCode).</param>
+    /// <param name="productSeq">The product sequence (lProductSeq).</param>
+    /// <param name="priceSeq">The price sequence (lPriceSeq); zero resolves by product only.</param>
+    /// <param name="cashPoint">The paid cash points (dCashPoint).</param>
+    /// <param name="itemType">The item type (chItemType): 'P' for a product, 'C' for currency.</param>
+    /// <param name="giftSender">The sender character name (chSendUserName); null for legacy gifts.</param>
+    /// <param name="giftMessage">The gift message (chMessage); null for legacy gifts or empty messages.</param>
+    /// <remarks>
+    /// The 244-byte layout mirrors <c>PMSG_CASHSHOP_GIFTSTORAGELIST</c> in the client
+    /// (<c>src\source\Network\Server\WSclient.h</c>, pack(1)): the D2 0D base fields plus
+    /// <c>chSendUserName[11]</c> at offset 33 and <c>chMessage[200]</c> at offset 44.
+    /// Both text fields are UTF-8 with an in-field NUL terminator — the client's
+    /// <c>ConvertFromUtf8</c> + <c>wcscpy</c> combination reads past the field when no NUL
+    /// exists within it, so the sender is limited to 10 useful bytes and the message to
+    /// 199 useful bytes (truncated at UTF-8 character boundaries), NUL-padded to the full
+    /// field size.
+    /// </remarks>
+    public static async ValueTask SendCashShopGiftStorageItemAsync(
+        this IConnection? connection,
+        int storageIndex,
+        int itemSeq,
+        int storageGroupCode,
+        int productSeq,
+        int priceSeq,
+        double cashPoint,
+        char itemType,
+        string? giftSender,
+        string? giftMessage)
+    {
+        if (connection is null)
+        {
+            return;
+        }
+
+        int WritePacket()
+        {
+            const byte length = 244;
+            const int senderFieldStart = 33;
+            const int senderFieldSize = 11;
+            const int messageFieldStart = 44;
+            const int messageFieldSize = 200;
+            var span = connection.Output.GetSpan(length)[..length];
+            span[0] = 0xC1;
+            span[1] = length;
+            span[2] = PacketCode;
+            span[3] = 0x0E;
+            BinaryPrimitives.WriteInt32LittleEndian(span[4..8], storageIndex);
+            BinaryPrimitives.WriteInt32LittleEndian(span[8..12], itemSeq);
+            BinaryPrimitives.WriteInt32LittleEndian(span[12..16], storageGroupCode);
+            BinaryPrimitives.WriteInt32LittleEndian(span[16..20], productSeq);
+            BinaryPrimitives.WriteInt32LittleEndian(span[20..24], priceSeq);
+            WriteDouble(span[24..32], cashPoint);
+            span[32] = (byte)itemType;
+            WriteFixedUtf8Field(span.Slice(senderFieldStart, senderFieldSize), giftSender);
+            WriteFixedUtf8Field(span.Slice(messageFieldStart, messageFieldSize), giftMessage);
+            return length;
+        }
+
+        await connection.SendAsync(WritePacket).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Writes a fixed-size UTF-8 text field of the cash shop gift packet
+    /// (<c>chSendUserName[11]</c> / <c>chMessage[200]</c>).
+    /// </summary>
+    /// <param name="target">The exact field span inside the packet.</param>
+    /// <param name="value">The text to write; <c>null</c> or empty leaves the field all-zero.</param>
+    /// <remarks>
+    /// <para>
+    /// <b>Contract (verified against the MuMain client).</b> The client converts the field with
+    /// <c>ConvertFromUtf8</c> reading exactly the field size and then <c>wcscpy</c>s the result,
+    /// which reads past the buffer unless a NUL byte exists <b>inside</b> the field
+    /// (<c>MultiLanguage.cpp:58</c>: the NUL is only appended when the converted length is
+    /// shorter than the read length). The field therefore always keeps at least one NUL byte:
+    /// at most <c>fieldSize - 1</c> useful bytes are written, the rest is zero padding. There
+    /// are no uninitialized bytes: the whole field is cleared first.
+    /// </para>
+    /// <para>
+    /// <b>Deterministic sanitization.</b> Content stops at the first embedded NUL — the field
+    /// and the client treat it as the end of the content, so anything beyond it would diverge
+    /// from what the receiver sees. Over-long text is truncated at a UTF-8 character boundary:
+    /// the cut walks back over continuation bytes instead of splitting a sequence, so the
+    /// decoded text contains no replacement characters. Other content (accents, emoji, control
+    /// characters) passes through unchanged as valid UTF-8.
+    /// </para>
+    /// </remarks>
+    private static void WriteFixedUtf8Field(Span<byte> target, string? value)
+    {
+        // Zero the whole field first: NUL terminator and padding, never uninitialized bytes.
+        target.Clear();
+        if (string.IsNullOrEmpty(value))
+        {
+            return;
+        }
+
+        // The first embedded NUL ends the content on the wire, like ExtractString does on the
+        // client side of the request packets.
+        var nulIndex = value.IndexOf('\0');
+        var content = nulIndex >= 0 ? value[..nulIndex] : value;
+        if (content.Length == 0)
+        {
+            return;
+        }
+
+        var encoded = System.Text.Encoding.UTF8.GetBytes(content);
+        var useful = Math.Min(encoded.Length, target.Length - 1);
+        if (useful < encoded.Length)
+        {
+            // Walk the cut back over UTF-8 continuation bytes, so only whole characters remain.
+            while (useful > 0 && (encoded[useful] & 0xC0) == 0x80)
+            {
+                useful--;
+            }
+        }
+
+        encoded.AsSpan(0, useful).CopyTo(target);
     }
 
     /// <summary>

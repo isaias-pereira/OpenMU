@@ -52,6 +52,24 @@ public interface ICashShopViewPlugIn : IViewPlugIn
     ValueTask ShowStorageItemAsync(int storageIndex, int itemSeq, int storageGroupCode, int productSeq, int priceSeq, double cashPoint, char itemType);
 
     /// <summary>
+    /// Sends one gift-box storage item of the requested page (D2 0E) — the gift variant of
+    /// <see cref="ShowStorageItemAsync"/> with the sender character name and the gift message.
+    /// The client expects exactly <c>currentPageItemCount</c> lines after
+    /// <see cref="ShowStorageCountAsync"/> when the gift box ('G') was requested; the safekeeping
+    /// tab ('S') keeps receiving <see cref="ShowStorageItemAsync"/> (D2 0D).
+    /// </summary>
+    /// <param name="storageIndex">The index of the line in the storage.</param>
+    /// <param name="itemSeq">The item sequence within the storage.</param>
+    /// <param name="storageGroupCode">The storage group code of the product.</param>
+    /// <param name="productSeq">The product sequence the item was bought from.</param>
+    /// <param name="priceSeq">The price sequence the item was bought with; zero resolves by product only.</param>
+    /// <param name="cashPoint">The cash points which were paid for the item.</param>
+    /// <param name="itemType">The item type: <c>'P'</c> for a product, <c>'C'</c> for currency.</param>
+    /// <param name="giftSender">The sender character name; <c>null</c> for legacy gifts with no persisted sender.</param>
+    /// <param name="giftMessage">The gift message; <c>null</c> for legacy gifts or empty messages.</param>
+    ValueTask ShowGiftStorageItemAsync(int storageIndex, int itemSeq, int storageGroupCode, int productSeq, int priceSeq, double cashPoint, char itemType, string? giftSender, string? giftMessage);
+
+    /// <summary>
     /// Sends the script catalog version (D2 0C). This is the message which unlocks the shop
     /// client-side (SetScriptVersion + ShopOpenUnLock). The client then loads the local
     /// catalog folder data\InGameShopScript\{saleZone:000}.{year:0000}.{yearIdentify:000}\.

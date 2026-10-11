@@ -52,6 +52,12 @@ public class CashShopViewPlugIn : ICashShopViewPlugIn
     }
 
     /// <inheritdoc/>
+    public async ValueTask ShowGiftStorageItemAsync(int storageIndex, int itemSeq, int storageGroupCode, int productSeq, int priceSeq, double cashPoint, char itemType, string? giftSender, string? giftMessage)
+    {
+        await this._player.Connection.SendCashShopGiftStorageItemAsync(storageIndex, itemSeq, storageGroupCode, productSeq, priceSeq, cashPoint, itemType, giftSender, giftMessage).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc/>
     public async ValueTask ShowScriptVersionAsync(ushort saleZone, ushort year, ushort yearIdentify)
     {
         await this._player.Connection.SendCashShopScriptVersionAsync(saleZone, year, yearIdentify).ConfigureAwait(false);

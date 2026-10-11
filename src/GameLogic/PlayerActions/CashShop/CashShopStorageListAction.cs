@@ -54,7 +54,8 @@ public class CashShopStorageListAction
 
     /// <summary>
     /// Handles the storage list request of the client by answering the page counts (D2 06)
-    /// followed by the items of the requested page (D2 0D).
+    /// followed by the items of the requested page: D2 0D for the purchase tab ('S') and
+    /// D2 0E with sender/message for the gift tab ('G').
     /// </summary>
     /// <param name="player">The player.</param>
     /// <param name="pageIndex">The requested page index.</param>
@@ -109,15 +110,35 @@ public class CashShopStorageListAction
             // The client only renders 'P' (product) or 'C' (currency); anything else is
             // silently dropped by AddStorageItem, so never send a different value.
             var itemType = item.ItemType is { Length: > 0 } type ? type[0] : CashShopStorageItemType.Product[0];
-            await player.InvokeViewPlugInAsync<ICashShopViewPlugIn>(
-                p => p.ShowStorageItemAsync(
-                    item.StorageIndex,
-                    item.ItemSeq,
-                    item.StorageGroup,
-                    item.ProductSeq,
-                    item.PriceSeq,
-                    item.CashPoint,
-                    itemType)).ConfigureAwait(false);
+
+            // Fase 10: a aba de presentes entrega cada linha pelo D2 0E (com remetente e
+            // mensagem); a aba de compras continua pelo D2 0D. Nenhuma entrada recebe os dois.
+            if (isGiftTab)
+            {
+                await player.InvokeViewPlugInAsync<ICashShopViewPlugIn>(
+                    p => p.ShowGiftStorageItemAsync(
+                        item.StorageIndex,
+                        item.ItemSeq,
+                        item.StorageGroup,
+                        item.ProductSeq,
+                        item.PriceSeq,
+                        item.CashPoint,
+                        itemType,
+                        item.GiftSender,
+                        item.GiftMessage)).ConfigureAwait(false);
+            }
+            else
+            {
+                await player.InvokeViewPlugInAsync<ICashShopViewPlugIn>(
+                    p => p.ShowStorageItemAsync(
+                        item.StorageIndex,
+                        item.ItemSeq,
+                        item.StorageGroup,
+                        item.ProductSeq,
+                        item.PriceSeq,
+                        item.CashPoint,
+                        itemType)).ConfigureAwait(false);
+            }
         }
     }
 }
