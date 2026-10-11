@@ -75,7 +75,7 @@ public class CashShopStorageClaimTests
         this._configuration.RecoveryInterval = int.MaxValue;
 
         this._gameContext = CreateGameContext(this._contextProvider, this._configuration);
-        this._service = new CashShopStorageClaimService(NullLogger<CashShopStorageClaimService>.Instance, new UnsafeContextRetirement(NullLogger<UnsafeContextRetirement>.Instance));
+        this._service = new CashShopStorageClaimService(NullLogger<CashShopStorageClaimService>.Instance, new UnsafeContextRetirement(NullLogger<UnsafeContextRetirement>.Instance), () => this._contextProvider.CreateNewContext());
     }
 
     private static IGameContext CreateGameContext(IPersistenceContextProvider contextProvider, GameConfiguration configuration)

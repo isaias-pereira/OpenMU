@@ -556,8 +556,11 @@ public class UnsafeContextRetirementTests
         services.AddSingleton<ICashShopSelectionResolver, CashShopSelectionResolver>();
         services.AddSingleton<ICashShopBuyService, CashShopBuyService>();
         services.AddSingleton<ICashShopGiftService, CashShopGiftService>();
-        services.AddSingleton<ICashShopStorageClaimService, CashShopStorageClaimService>();
-        services.AddSingleton<CashShopStorageClaimService>();
+        services.AddSingleton<ICashShopStorageClaimService>(provider => new CashShopStorageClaimService(
+            NullLogger<CashShopStorageClaimService>.Instance,
+            provider.GetRequiredService<UnsafeContextRetirement>(),
+            () => provider.GetRequiredService<IPersistenceContextProvider>().CreateNewContext()));
+        services.AddSingleton(sp => (CashShopStorageClaimService)sp.GetRequiredService<ICashShopStorageClaimService>());
         services.AddSingleton<CashShopBuyAction>();
         services.AddSingleton<CashShopGiftAction>();
         services.AddSingleton<CashShopStorageListAction>();

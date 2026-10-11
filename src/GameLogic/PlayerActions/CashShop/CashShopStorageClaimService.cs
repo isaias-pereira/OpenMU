@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using MUnique.OpenMU.DataModel.Entities;
 using MUnique.OpenMU.GameLogic.Views.Inventory;
+using MUnique.OpenMU.Persistence;
 using Nito.AsyncEx;
 
 /// <summary>
@@ -42,12 +43,26 @@ using Nito.AsyncEx;
 /// nothing — the row is never removed before the delivery is certain.
 /// </para>
 /// <para>
+/// <b>Item resolution.</b> A row committed by another session (a gift received while this
+/// character was already logged in, a purchase from another process) is not visible to the
+/// player's context as an item: the persistence layer resolves the row's <c>Item</c> navigation
+/// through the configuration cache, which only holds configuration items (merchant store stock),
+/// never account items. The claim therefore falls back to a short-lived full context to load the
+/// row's item (with its definition) from the database, and takes ownership of the item in the
+/// player's context before staging — the account context ignores configuration types, so the
+/// ownership transfer drags no configuration graph along, and the delivered item keeps its
+/// persistent identity.
+/// </para>
+/// <para>
 /// <b>Atomicity.</b> The item move and the row removal are staged on the player's context and
 /// written by a single <c>SaveChangesAsync</c>, which the EF Core unit of work wraps in one
 /// database transaction. Either the item stays in the storage (failed claim) or it is delivered
 /// to the inventory (successful claim) — never both, never neither. The referenced item survives
-/// the row removal: the database cascade is Item → row (deleting the <i>item</i> removes the
-/// row), verified against the homologation database; the reverse never happens.
+/// the row removal: the row's item reference is cleared before the removal (the provider's
+/// <c>DeleteAsync</c> would otherwise remove the row's <c>[MemberOfAggregate]</c> members — the
+/// delivered item itself), and the database cascade is Item → row (deleting the <i>item</i>
+/// removes the row; deleting the row never touches the item), verified against the homologation
+/// database.
 /// </para>
 /// <para>
 /// <b>Concurrency.</b> Claims of one account are serialised by the per-account
@@ -66,6 +81,7 @@ public sealed class CashShopStorageClaimService : ICashShopStorageClaimService
 {
     private readonly ILogger<CashShopStorageClaimService> _logger;
     private readonly UnsafeContextRetirement _retirement;
+    private readonly Func<IContext> _itemContextFactory;
     private readonly ConcurrentDictionary<Guid, AsyncLock> _claimLocks = new();
 
     /// <summary>
@@ -73,10 +89,15 @@ public sealed class CashShopStorageClaimService : ICashShopStorageClaimService
     /// </summary>
     /// <param name="logger">The logger.</param>
     /// <param name="retirement">Retires sessions whose context could not be fully rolled back.</param>
-    public CashShopStorageClaimService(ILogger<CashShopStorageClaimService> logger, UnsafeContextRetirement retirement)
+    /// <param name="itemContextFactory">
+    /// Creates the short-lived context which resolves a storage row's item when the player's
+    /// context cannot (rows committed by other sessions — see the item resolution remarks).
+    /// </param>
+    public CashShopStorageClaimService(ILogger<CashShopStorageClaimService> logger, UnsafeContextRetirement retirement, Func<IContext> itemContextFactory)
     {
         this._logger = logger ?? throw new ArgumentNullException(nameof(logger));
         this._retirement = retirement ?? throw new ArgumentNullException(nameof(retirement));
+        this._itemContextFactory = itemContextFactory ?? throw new ArgumentNullException(nameof(itemContextFactory));
     }
 
     /// <inheritdoc />
@@ -108,12 +129,14 @@ public sealed class CashShopStorageClaimService : ICashShopStorageClaimService
                 itemSeq,
                 storageItemType);
 
-            var rows = await player.PersistenceContext.GetAsync<CashShopStorageItem>(cancellationToken).ConfigureAwait(false);
-            var storageItem = rows.FirstOrDefault(row =>
+            bool MatchesRow(CashShopStorageItem row) =>
                 row.AccountId == account.Id
                 && row.ItemSeq == itemSeq
                 && row.StorageIndex == storageIndex
-                && IsSupportedItemType(row.ItemType));
+                && IsSupportedItemType(row.ItemType);
+
+            var rows = await player.PersistenceContext.GetAsync<CashShopStorageItem>(cancellationToken).ConfigureAwait(false);
+            var storageItem = rows.FirstOrDefault(MatchesRow);
             if (storageItem is null)
             {
                 // The row does not exist for this account (or belongs to another account, which
@@ -127,16 +150,44 @@ public sealed class CashShopStorageClaimService : ICashShopStorageClaimService
                 return StorageClaimResult.Failed(StorageClaimErrorCode.StorageNotFound, "The storage entry does not exist.");
             }
 
-            if (storageItem.Item is not { } item)
+            Item item;
+            IContext? itemContext = null;
+            try
             {
-                // A row without a delivered item (an old row, or a currency row) has nothing to
-                // deliver: the row is preserved and nothing is staged.
-                this._logger.LogWarning(
-                    "Cash shop claim: the storage row (StorageIndex {StorageIndex}, ItemSeq {ItemSeq}) of account {AccountId} has no delivered item.",
-                    storageIndex,
-                    itemSeq,
-                    account.Id);
-                return StorageClaimResult.Failed(StorageClaimErrorCode.CannotUse, "The storage entry has no item to claim.");
+                if (storageItem.Item is { } trackedItem)
+                {
+                    // The row was created within this player's context (the purchase of this
+                    // session): the item navigation is resolved and the item is already tracked.
+                    item = trackedItem;
+                }
+                else
+                {
+                    // The row was committed by another session or process. The player's context
+                    // cannot resolve the item navigation of such rows (the persistence layer
+                    // routes item loads through the configuration cache, which holds no account
+                    // items), so the row would look item-less here. Load the row through a
+                    // short-lived full context instead, where the item and its definition are
+                    // read from the database; the item's ownership is taken below, before staging.
+                    itemContext = this._itemContextFactory();
+                    var deliveredItem = (await itemContext.GetAsync<CashShopStorageItem>(cancellationToken).ConfigureAwait(false))
+                        .FirstOrDefault(MatchesRow)
+                        ?.Item;
+                    if (deliveredItem is null)
+                    {
+                        this._logger.LogWarning(
+                            "Cash shop claim: the storage row (StorageIndex {StorageIndex}, ItemSeq {ItemSeq}) of account {AccountId} has no delivered item.",
+                            storageIndex,
+                            itemSeq,
+                            account.Id);
+                        return StorageClaimResult.Failed(StorageClaimErrorCode.CannotUse, "The storage entry has no item to claim.");
+                    }
+
+                    item = deliveredItem;
+                }
+            }
+            finally
+            {
+                itemContext?.Dispose();
             }
 
             if (item.Definition is null)
@@ -169,6 +220,13 @@ public sealed class CashShopStorageClaimService : ICashShopStorageClaimService
             var previousSlot = item.ItemSlot;
             try
             {
+                // Take ownership of the item in the player's context. For a row of this session
+                // the item is already tracked (no-op); for a row loaded through the fallback
+                // context the item is detached, and the account context ignores configuration
+                // types, so attaching it drags no configuration graph along. From here the item
+                // participates in the single committing SaveChangesAsync below.
+                player.PersistenceContext.Attach(item);
+
                 // The item moves to the inventory: the slot and the inventory storage of the
                 // character. AddItemAsync updates the in-memory inventory and the character's
                 // item storage (the EF navigation sets the item's ItemStorageId on the save).
@@ -179,8 +237,13 @@ public sealed class CashShopStorageClaimService : ICashShopStorageClaimService
                     return StorageClaimResult.Failed(StorageClaimErrorCode.InventoryFull, "The character inventory is full.");
                 }
 
-                // The row is removed in the same context; the referenced item survives it (the
-                // database cascade is Item → row, verified against the homologation database).
+                // The row is removed in the same context, the referenced item survives it. The
+                // EF provider's DeleteAsync also removes the row's [MemberOfAggregate] members —
+                // which is the delivered item itself! — so the item reference is cleared first:
+                // only the row is removed, and the item (now owned by the character inventory)
+                // is written by the same commit. The database cascade is Item → row; deleting
+                // the row never touches the item on the database level.
+                storageItem.Item = null;
                 await player.PersistenceContext.DeleteAsync(storageItem).ConfigureAwait(false);
 
                 // One SaveChangesAsync commits the item move and the row removal in a single

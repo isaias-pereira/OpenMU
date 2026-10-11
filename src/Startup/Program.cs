@@ -292,8 +292,13 @@ internal sealed class Program : IDisposable
             .AddSingleton<ICashShopSelectionResolver, CashShopSelectionResolver>()
             .AddSingleton<ICashShopBuyService, CashShopBuyService>()
             .AddSingleton<ICashShopGiftService, CashShopGiftService>()
-            .AddSingleton<ICashShopStorageClaimService, CashShopStorageClaimService>()
-            .AddSingleton<CashShopStorageClaimService>()
+            .AddSingleton<ICashShopStorageClaimService>(serviceProvider => new CashShopStorageClaimService(
+                serviceProvider.GetRequiredService<ILogger<CashShopStorageClaimService>>(),
+                serviceProvider.GetRequiredService<UnsafeContextRetirement>(),
+                // The claim resolves a row's item through a short-lived context when the player's
+                // context cannot see items of rows committed by other sessions.
+                () => serviceProvider.GetRequiredService<IPersistenceContextProvider>().CreateNewContext()))
+            .AddSingleton(sp => (CashShopStorageClaimService)sp.GetRequiredService<ICashShopStorageClaimService>())
             .AddSingleton<CashShopBuyAction>()
             .AddSingleton<CashShopGiftAction>()
             .AddSingleton<CashShopStorageListAction>()
