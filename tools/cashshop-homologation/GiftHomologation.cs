@@ -460,49 +460,7 @@ public static class GiftHomologation
 
     private static async Task<Player?> CreateSenderPlayerAsync(IGameContext gameContext, IPersistenceContextProvider provider)
     {
-        var player = new HomologationPlayer(gameContext);
-        await player.PlayerState.TryAdvanceToAsync(PlayerState.LoginScreen).ConfigureAwait(false);
-        await player.PlayerState.TryAdvanceToAsync(PlayerState.Authenticated).ConfigureAwait(false);
-        await player.PlayerState.TryAdvanceToAsync(PlayerState.CharacterSelection).ConfigureAwait(false);
-
-        var account = (await player.PersistenceContext.GetAsync<Account>().ConfigureAwait(false))
-            .FirstOrDefault(candidate => candidate.LoginName == Program.HomologationLoginName);
-        var character = account?.Characters.FirstOrDefault(candidate => candidate.Name == Program.HomologationCharacterName);
-        if (account is null || character is null)
-        {
-            return null;
-        }
-
-        player.Account = account;
-        await player.SetSelectedCharacterAsync(character).ConfigureAwait(false);
-        return player;
-    }
-
-    /// <summary>
-    /// A player without any view plug-ins: the homologation runs without a connected client, so
-    /// every view invocation is a no-op.
-    /// </summary>
-    private sealed class HomologationPlayer : Player
-    {
-        /// <summary>
-        /// Initializes a new instance of the <see cref="HomologationPlayer"/> class.
-        /// </summary>
-        /// <param name="gameContext">The game context.</param>
-        public HomologationPlayer(IGameContext gameContext)
-            : base(gameContext)
-        {
-        }
-
-        /// <inheritdoc />
-        protected override ICustomPlugInContainer<IViewPlugIn> CreateViewPlugInContainer() => new EmptyViewPlugInContainer();
-    }
-
-    /// <summary>The empty view plug-in container of the homologation player.</summary>
-    private sealed class EmptyViewPlugInContainer : ICustomPlugInContainer<IViewPlugIn>
-    {
-        /// <inheritdoc />
-        public T? GetPlugIn<T>()
-            where T : class, IViewPlugIn => null;
+        return await HomologationPlayer.CreateAsync(gameContext, Program.HomologationLoginName, Program.HomologationCharacterName).ConfigureAwait(false);
     }
 
     /// <summary>The captured state of one scenario.</summary>
