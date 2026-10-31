@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -57,5 +57,6 @@
     <ProjectReference Include="..\..\src\Persistence\Initialization\MUnique.OpenMU.Persistence.Initialization.csproj" />
     <ProjectReference Include="..\..\src\Persistence\InMemory\MUnique.OpenMU.Persistence.InMemory.csproj" />
     <ProjectReference Include="..\..\src\Persistence\MUnique.OpenMU.Persistence.csproj" />
+    <ProjectReference Include="..\..\src\Web\Shared\MUnique.OpenMU.Web.Shared.csproj" />
   </ItemGroup>
 </Project>

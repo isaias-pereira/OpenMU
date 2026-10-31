@@ -5,8 +5,10 @@
 namespace MUnique.OpenMU.Tests.CustomMove;
 
 using MUnique.OpenMU.DataModel.Configuration;
+using MUnique.OpenMU.DataModel.Configuration.Items;
 using MUnique.OpenMU.DataModel.Entities;
 using MUnique.OpenMU.GameLogic;
+using MUnique.OpenMU.GameLogic.Attributes;
 using MUnique.OpenMU.GameLogic.PlugIns.ChatCommands;
 using MUnique.OpenMU.GameLogic.Properties;
 using MUnique.OpenMU.Interfaces;
@@ -43,7 +45,7 @@ public class CustomMoveChatCommandPlugInTests
     {
         this.plugIn.Configuration = null;
 
-        await this.plugIn.HandleCommandAsync(this.player, "/move " + MoveName).ConfigureAwait(false);
+        await this.plugIn.HandleCommandAsync(this.player, "/custommove " + MoveName).ConfigureAwait(false);
 
         this.AssertSingleMessage(nameof(PlayerMessage.CustomMoveSystemDisabled));
     }
@@ -57,7 +59,7 @@ public class CustomMoveChatCommandPlugInTests
         this.ConfigureMoves(this.CreateMove());
         this.plugIn.Configuration!.Enabled = false;
 
-        await this.plugIn.HandleCommandAsync(this.player, "/move " + MoveName).ConfigureAwait(false);
+        await this.plugIn.HandleCommandAsync(this.player, "/custommove " + MoveName).ConfigureAwait(false);
 
         this.AssertSingleMessage(nameof(PlayerMessage.CustomMoveSystemDisabled));
     }
@@ -70,7 +72,7 @@ public class CustomMoveChatCommandPlugInTests
     {
         this.ConfigureMoves(this.CreateMove());
 
-        await this.plugIn.HandleCommandAsync(this.player, "/move unknown").ConfigureAwait(false);
+        await this.plugIn.HandleCommandAsync(this.player, "/custommove unknown").ConfigureAwait(false);
 
         this.AssertSingleMessage(nameof(PlayerMessage.CustomMoveNotFound), "unknown");
     }
@@ -83,7 +85,7 @@ public class CustomMoveChatCommandPlugInTests
     {
         this.ConfigureMoves(this.CreateMove());
 
-        await this.plugIn.HandleCommandAsync(this.player, "/move " + MoveName).ConfigureAwait(false);
+        await this.plugIn.HandleCommandAsync(this.player, "/custommove " + MoveName).ConfigureAwait(false);
 
         this.AssertSingleMessage(nameof(PlayerMessage.CustomMoveMapNotConfigured));
     }
@@ -99,7 +101,7 @@ public class CustomMoveChatCommandPlugInTests
         move.MinLevel = 1000;
         this.ConfigureMoves(move);
 
-        await this.plugIn.HandleCommandAsync(this.player, "/move " + MoveName).ConfigureAwait(false);
+        await this.plugIn.HandleCommandAsync(this.player, "/custommove " + MoveName).ConfigureAwait(false);
 
         this.AssertSingleMessage(nameof(PlayerMessage.CustomMoveLevelTooLow), move.MinLevel);
     }
@@ -117,7 +119,7 @@ public class CustomMoveChatCommandPlugInTests
         this.ConfigureMoves(move);
         this.player.Money = 100;
 
-        await this.plugIn.HandleCommandAsync(this.player, "/move " + MoveName).ConfigureAwait(false);
+        await this.plugIn.HandleCommandAsync(this.player, "/custommove " + MoveName).ConfigureAwait(false);
 
         this.AssertSingleMessage(nameof(PlayerMessage.CustomMoveNotEnoughMoney), move.Cost);
         Assert.That(this.player.Money, Is.EqualTo(100));
@@ -138,7 +140,7 @@ public class CustomMoveChatCommandPlugInTests
         this.ConfigureMoves(move);
         this.player.Money = 200;
 
-        await this.plugIn.HandleCommandAsync(this.player, "/move " + MoveName).ConfigureAwait(false);
+        await this.plugIn.HandleCommandAsync(this.player, "/custommove " + MoveName).ConfigureAwait(false);
 
         this.AssertSingleMessage(nameof(PlayerMessage.CustomMoveSuccess), move.Name, move.Map.Name);
         Assert.That(this.player.Money, Is.EqualTo(100));
@@ -157,7 +159,7 @@ public class CustomMoveChatCommandPlugInTests
         move.Map = CreateMap();
         this.ConfigureMoves(move);
 
-        await this.plugIn.HandleCommandAsync(this.player, "/move BAR").ConfigureAwait(false);
+        await this.plugIn.HandleCommandAsync(this.player, "/custommove BAR").ConfigureAwait(false);
 
         this.AssertSingleMessage(nameof(PlayerMessage.CustomMoveSuccess), move.Name, move.Map.Name);
     }
@@ -173,7 +175,88 @@ public class CustomMoveChatCommandPlugInTests
         this.ConfigureMoves(move);
         this.player.Money = 0;
 
-        await this.plugIn.HandleCommandAsync(this.player, "/move " + MoveName).ConfigureAwait(false);
+        await this.plugIn.HandleCommandAsync(this.player, "/custommove " + MoveName).ConfigureAwait(false);
+
+        this.AssertSingleMessage(nameof(PlayerMessage.CustomMoveSuccess), move.Name, move.Map.Name);
+        Assert.That(this.player.Money, Is.EqualTo(0));
+    }
+
+    /// <summary>
+    /// Tests that a move whose map has unmet entry requirements is rejected with the
+    /// map requirement message and doesn't charge money, consistent with the native warp behavior.
+    /// </summary>
+    [Test]
+    public async Task MoveWithUnmetMapRequirementShowsRequirementMessageAndKeepsMoney()
+    {
+        var map = new RestrictedMap();
+        map.SetMapRequirements(new AttributeRequirement { Attribute = Stats.Level, MinimumValue = 1000 });
+        var move = this.CreateMove();
+        move.Map = map;
+        this.ConfigureMoves(move);
+        this.player.Money = 100;
+
+        await this.plugIn.HandleCommandAsync(this.player, "/custommove " + MoveName).ConfigureAwait(false);
+
+        this.AssertSingleMessage(
+            nameof(PlayerMessage.MissingMapRequirement),
+            map.MapRequirements.First().Attribute?.Description);
+        Assert.That(this.player.Money, Is.EqualTo(100));
+    }
+
+    /// <summary>
+    /// Tests that a move to an unwalkable coordinate (wall) is rejected before charging
+    /// money, so that failures don't cause wrongful charges.
+    /// </summary>
+    [Test]
+    public async Task MoveToUnwalkableCoordinateShowsInvalidCoordinatesAndKeepsMoney()
+    {
+        var move = this.CreateMove();
+        move.Map = CreateMapWithWallAt(100, 50);
+        move.X = 100;
+        move.Y = 50;
+        move.Cost = 100;
+        this.ConfigureMoves(move);
+        this.player.Money = 500;
+
+        await this.plugIn.HandleCommandAsync(this.player, "/custommove " + MoveName).ConfigureAwait(false);
+
+        this.AssertSingleMessage(nameof(PlayerMessage.CustomMoveInvalidCoordinates));
+        Assert.That(this.player.Money, Is.EqualTo(500));
+    }
+
+    /// <summary>
+    /// Tests that a move to a walkable coordinate with explicit terrain data succeeds.
+    /// </summary>
+    [Test]
+    public async Task MoveToWalkableCoordinateWithTerrainDataSucceeds()
+    {
+        var move = this.CreateMove();
+        move.Map = CreateMapWithWallAt(100, 50);
+        move.X = 101;
+        move.Y = 51;
+        this.ConfigureMoves(move);
+        this.player.Money = 0;
+
+        await this.plugIn.HandleCommandAsync(this.player, "/custommove " + MoveName).ConfigureAwait(false);
+
+        this.AssertSingleMessage(nameof(PlayerMessage.CustomMoveSuccess), move.Name, move.Map.Name);
+        Assert.That(this.player.SelectedCharacter!.PositionX, Is.EqualTo((byte)101));
+        Assert.That(this.player.SelectedCharacter!.PositionY, Is.EqualTo((byte)51));
+    }
+
+    /// <summary>
+    /// Tests that a negative cost is treated as a free move and never grants money.
+    /// </summary>
+    [Test]
+    public async Task NegativeCostIsTreatedAsFree()
+    {
+        var move = this.CreateMove();
+        move.Map = CreateMap();
+        move.Cost = -50;
+        this.ConfigureMoves(move);
+        this.player.Money = 0;
+
+        await this.plugIn.HandleCommandAsync(this.player, "/custommove " + MoveName).ConfigureAwait(false);
 
         this.AssertSingleMessage(nameof(PlayerMessage.CustomMoveSuccess), move.Name, move.Map.Name);
         Assert.That(this.player.Money, Is.EqualTo(0));
@@ -189,6 +272,18 @@ public class CustomMoveChatCommandPlugInTests
         return new GameMapDefinition { Name = "Lorencia" };
     }
 
+    /// <summary>
+    /// Creates a map whose terrain marks the specified coordinate as not walkable.
+    /// Terrain data format: 3 header bytes, followed by a 256x256 grid where
+    /// 0 = walkable, 1 = safezone (walkable) and everything else = not walkable.
+    /// </summary>
+    private static GameMapDefinition CreateMapWithWallAt(byte x, byte y)
+    {
+        var terrainData = new byte[3 + (256 * 256)];
+        terrainData[3 + (y * 256) + x] = 2;
+        return new GameMapDefinition { Name = "Lorencia", TerrainData = terrainData };
+    }
+
     private void ConfigureMoves(params CustomMoveEntry[] moves)
     {
         this.plugIn.Configuration = new CustomMoveConfiguration { Moves = moves.ToList() };
@@ -200,5 +295,21 @@ public class CustomMoveChatCommandPlugInTests
         var (message, messageType) = this.viewContainer.MessagePlugIn.Messages[0];
         Assert.That(messageType, Is.EqualTo(MessageType.BlueNormal));
         Assert.That(message, Is.EqualTo(this.player.GetLocalizedMessage(messageKey, arguments)));
+    }
+
+    /// <summary>
+    /// A map definition which allows setting the protected
+    /// <see cref="GameMapDefinition.MapRequirements"/> collection for tests.
+    /// </summary>
+    private sealed class RestrictedMap : GameMapDefinition
+    {
+        /// <summary>
+        /// Sets the map requirements.
+        /// </summary>
+        /// <param name="requirements">The requirements.</param>
+        public void SetMapRequirements(params AttributeRequirement[] requirements)
+        {
+            this.MapRequirements = requirements.ToList();
+        }
     }
 }

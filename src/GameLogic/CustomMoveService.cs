@@ -30,4 +30,35 @@ public static class CustomMoveService
         return configuration.Moves.FirstOrDefault(m =>
             string.Equals(m.EffectiveCommand, command, StringComparison.OrdinalIgnoreCase));
     }
+
+    /// <summary>
+    /// Gets warnings for duplicated move names or commands. The runtime uses the
+    /// first matching move, so duplicates would silently shadow the others.
+    /// </summary>
+    /// <param name="configuration">The custom move configuration.</param>
+    /// <returns>The list of warning messages; empty if there are no duplicates.</returns>
+    public static List<string> GetDuplicateCommandWarnings(CustomMoveConfiguration? configuration)
+    {
+        var warnings = new List<string>();
+        if (configuration?.Moves is null)
+        {
+            return warnings;
+        }
+
+        foreach (var duplicates in configuration.Moves
+                     .GroupBy(m => m.EffectiveCommand, StringComparer.OrdinalIgnoreCase)
+                     .Where(g => g.Count() > 1))
+        {
+            warnings.Add($"The command '{duplicates.Key}' is configured for multiple moves ({string.Join(", ", duplicates.Select(m => m.Name))}). Only the first one is used.");
+        }
+
+        foreach (var duplicates in configuration.Moves
+                     .GroupBy(m => m.Name, StringComparer.OrdinalIgnoreCase)
+                     .Where(g => g.Count() > 1))
+        {
+            warnings.Add($"The move name '{duplicates.Key}' is used multiple times. Only the first entry is used.");
+        }
+
+        return warnings;
+    }
 }

@@ -135,6 +135,65 @@ public class CustomMoveServiceTests
         Assert.That(result, Is.Null);
     }
 
+    /// <summary>
+    /// Tests that duplicate warnings are reported for moves which share the same
+    /// effective command, so that the admin panel can reject them on submit.
+    /// </summary>
+    [Test]
+    public void GetDuplicateCommandWarningsDetectsDuplicateEffectiveCommands()
+    {
+        var configuration = CreateConfiguration(
+            CreateMove("bar_move", "bar"),
+            CreateMove("lorencia_bar", "/BAR "));
+
+        var warnings = CustomMoveService.GetDuplicateCommandWarnings(configuration);
+
+        Assert.That(warnings, Has.Count.EqualTo(1));
+        Assert.That(warnings[0], Does.Contain("'/bar'"));
+    }
+
+    /// <summary>
+    /// Tests that duplicate warnings are reported for moves which share the same name.
+    /// </summary>
+    [Test]
+    public void GetDuplicateCommandWarningsDetectsDuplicateNames()
+    {
+        var configuration = CreateConfiguration(
+            CreateMove("bar", null),
+            CreateMove("bar", "bar"));
+
+        var warnings = CustomMoveService.GetDuplicateCommandWarnings(configuration);
+
+        Assert.That(warnings, Has.Count.EqualTo(2));
+        Assert.That(warnings, Has.Some.Contains("'/bar'"));
+        Assert.That(warnings, Has.Some.Contains("'bar'"));
+    }
+
+    /// <summary>
+    /// Tests that no duplicate warnings are reported for a unique configuration.
+    /// </summary>
+    [Test]
+    public void GetDuplicateCommandWarningsReturnsEmptyForUniqueMoves()
+    {
+        var configuration = CreateConfiguration(
+            CreateMove("bar", "bar"),
+            CreateMove("other", null));
+
+        var warnings = CustomMoveService.GetDuplicateCommandWarnings(configuration);
+
+        Assert.That(warnings, Is.Empty);
+    }
+
+    /// <summary>
+    /// Tests that duplicate warnings are not reported for a null configuration or moves list.
+    /// </summary>
+    [Test]
+    public void GetDuplicateCommandWarningsToleratesNullValues()
+    {
+        Assert.That(CustomMoveService.GetDuplicateCommandWarnings(null), Is.Empty);
+        Assert.That(CustomMoveService.GetDuplicateCommandWarnings(new CustomMoveConfiguration { Moves = null! }), Is.Empty);
+    }
+
     private static CustomMoveEntry CreateMove(string name, string? command = null)
     {
         return new CustomMoveEntry(Guid.NewGuid()) { Name = name, Command = command };

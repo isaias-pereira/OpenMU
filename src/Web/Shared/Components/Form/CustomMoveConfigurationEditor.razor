@@ -4,6 +4,7 @@
 
 @using MUnique.OpenMU.DataModel.Configuration
 @using MUnique.OpenMU.DataModel.Entities
+@using MUnique.OpenMU.GameLogic
 @using MUnique.OpenMU.GameLogic.PlugIns.ChatCommands
 @using MUnique.OpenMU.Persistence
 @using MUnique.OpenMU.Web.Shared.Services
@@ -11,6 +12,12 @@
 @inject ILookupController LookupController
 
 <div class="custom-move-editor">
+    @if (this.PluginActive == false)
+    {
+        <div class="alert alert-warning py-2" role="alert">
+            <strong>The custom move plugin is deactivated.</strong> The moves below have no effect until the plugin is activated again on the plugins page of the admin panel. This activation state is independent of the <code>Enabled</code> flag of this configuration.
+        </div>
+    }
     <div class="form-group form-check mb-3">
         <InputCheckbox id="customMoveEnabled" @bind-Value="this.Configuration.Enabled" class="form-check-input" />
         <label for="customMoveEnabled" class="form-check-label">Enabled</label>
@@ -62,10 +69,10 @@
                         </BlazoredTypeahead>
                     </td>
                     <td>
-                        <InputNumber class="form-control form-control-sm" @bind-Value="move.X" />
+                        <InputByte class="form-control form-control-sm" @bind-Value="move.X" />
                     </td>
                     <td>
-                        <InputNumber class="form-control form-control-sm" @bind-Value="move.Y" />
+                        <InputByte class="form-control form-control-sm" @bind-Value="move.Y" />
                     </td>
                     <td>
                         <InputNumber class="form-control form-control-sm" @bind-Value="move.Cost" title="Zen cost. 0 = free" />
@@ -91,6 +98,19 @@
             </tr>
         </tfoot>
     </table>
+
+    @if (this.GetDuplicateMoveWarnings() is { Count: > 0 } duplicateWarnings)
+    {
+        <div class="alert alert-warning py-2" role="alert">
+            <strong>Duplicate commands detected:</strong>
+            <ul class="mb-0">
+                @foreach (var warning in duplicateWarnings)
+                {
+                    <li>@warning</li>
+                }
+            </ul>
+        </div>
+    }
 </div>
 
 @code {
@@ -99,6 +119,16 @@
     /// </summary>
     [Parameter]
     public CustomMoveConfiguration Configuration { get; set; } = null!;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the plugin itself is activated
+    /// (<c>PlugInConfiguration.IsActive</c>, managed on the plugins page of the admin panel).
+    /// The moves only have an effect while the plugin is activated; this state is
+    /// independent of the <c>Enabled</c> flag of the <see cref="Configuration"/>.
+    /// When it is <c>null</c> (unknown), no activation warning is shown.
+    /// </summary>
+    [Parameter]
+    public bool? PluginActive { get; set; }
 
     /// <summary>
     /// Gets or sets the persistence context which is required for the map lookup.
@@ -127,4 +157,11 @@
     {
         move.Map = map;
     }
+
+    /// <summary>
+    /// Gets warnings for duplicated move names or commands (delegates to
+    /// <see cref="CustomMoveService.GetDuplicateCommandWarnings" />).
+    /// </summary>
+    /// <returns>The list of warning messages; empty if there are no duplicates.</returns>
+    private List<string> GetDuplicateMoveWarnings() => CustomMoveService.GetDuplicateCommandWarnings(this.Configuration);
 }

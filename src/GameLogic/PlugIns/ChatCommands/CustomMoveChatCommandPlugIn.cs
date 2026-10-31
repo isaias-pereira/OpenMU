@@ -9,22 +9,31 @@ using MUnique.OpenMU.DataModel.Configuration;
 using MUnique.OpenMU.DataModel.Entities;
 using MUnique.OpenMU.GameLogic.Attributes;
 using MUnique.OpenMU.GameLogic.PlugIns.ChatCommands.Arguments;
+using MUnique.OpenMU.GameLogic.PlayerActions;
 using MUnique.OpenMU.PlugIns;
 
 /// <summary>
 /// A chat command plugin which handles custom move commands registered via the admin panel.
-/// Usage: /move &lt;name&gt; (e.g. /move bar)
+/// Usage: /custommove &lt;name&gt; (e.g. /custommove bar). Aliases (e.g. "/bar") are resolved as fallback by the
+/// ChatMessageCommandProcessor; the plugin doesn't use "/move", so the native
+/// MoveChatCommandPlugIn keeps working independently.
 /// </summary>
 [Guid("B7A3C9D2-E5F1-4A8B-9C7D-3E6F2A1B4C5D")]
 [PlugIn]
 [Display(Name = nameof(PlugInResources.CustomMoveChatCommandPlugIn_Name), Description = nameof(PlugInResources.CustomMoveChatCommandPlugIn_Description), ResourceType = typeof(PlugInResources))]
-[ChatCommandHelp(Command, typeof(CustomMoveChatCommandArgs), CharacterStatus.Normal)]
+[ChatCommandHelp(CommandKey, typeof(CustomMoveChatCommandArgs), CharacterStatus.Normal)]
 public class CustomMoveChatCommandPlugIn : ChatCommandPlugInBase<CustomMoveChatCommandArgs>, ISupportCustomConfiguration<CustomMoveConfiguration>, ISupportDefaultCustomConfiguration
 {
-    private const string Command = "/move";
+    /// <summary>
+    /// The command key of this plugin. It must not collide with native command keys
+    /// (especially not "/move", which belongs to <see cref="MoveChatCommandPlugIn"/>):
+    /// the strategy provider keeps the plugin which registers first and rejects the
+    /// other one, and the registration order depends on the plugin discovery order.
+    /// </summary>
+    public const string CommandKey = "/custommove";
 
     /// <inheritdoc />
-    public override string Key => Command;
+    public override string Key => CommandKey;
 
     /// <inheritdoc />
     public override CharacterStatus MinCharacterStatusRequirement => CharacterStatus.Normal;
@@ -68,6 +77,22 @@ public class CustomMoveChatCommandPlugIn : ChatCommandPlugInBase<CustomMoveChatC
         if (move.Map is null)
         {
             await player.ShowLocalizedBlueMessageAsync(nameof(PlayerMessage.CustomMoveMapNotConfigured)).ConfigureAwait(false);
+            return;
+        }
+
+        // Check map entry requirements, consistent with the native warp behavior,
+        // so that configured moves cannot bypass map restrictions.
+        if (move.Map.TryGetRequirementError(player, out var requirementError))
+        {
+            await player.ShowBlueMessageAsync(requirementError).ConfigureAwait(false);
+            return;
+        }
+
+        // Check that the target coordinate is walkable, so that players don't
+        // get warped into walls and charged for it.
+        if (!new GameMapTerrain(move.Map).WalkMap[move.X, move.Y])
+        {
+            await player.ShowLocalizedBlueMessageAsync(nameof(PlayerMessage.CustomMoveInvalidCoordinates)).ConfigureAwait(false);
             return;
         }
 

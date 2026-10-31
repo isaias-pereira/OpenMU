@@ -444,6 +444,9 @@
   <data name="CustomMoveSuccess" xml:space="preserve">
     <value>You have been moved to {1} via '{0}'.</value>
   </data>
+  <data name="CustomMoveInvalidCoordinates" xml:space="preserve">
+    <value>The target coordinates for this move are not accessible.</value>
+  </data>
   <data name="BloodCastleCrystalStatusDestroyed" xml:space="preserve">
     <value>{0} has destroyed the Crystal Statue!</value>
   </data>

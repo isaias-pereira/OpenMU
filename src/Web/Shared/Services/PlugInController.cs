@@ -1,4 +1,4 @@
-﻿// <copyright file="PlugInController.cs" company="MUnique">
+// <copyright file="PlugInController.cs" company="MUnique">
 // Licensed under the MIT License. See LICENSE file in the project root for full license information.
 // </copyright>
 
@@ -188,6 +188,7 @@ public class PlugInController : IDataService<PlugInConfigurationViewItem>, ISupp
         var parameters = new ModalParameters();
         parameters.Add(nameof(ModalCreateNew<object>.Item), configuration!);
         parameters.Add(nameof(ModalCreateNew<object>.PersistenceContext), await this._dataSource.GetContextAsync());
+        parameters.Add(nameof(ModalCreateNew<object>.PluginActive), item.IsActive);
         var options = new ModalOptions
         {
             DisableBackgroundCancel = true,
