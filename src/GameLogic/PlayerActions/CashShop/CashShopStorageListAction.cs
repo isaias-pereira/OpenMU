@@ -81,8 +81,8 @@ public class CashShopStorageListAction
 
         var pageSize = this._storageService.Capacity;
         var totalCount = isGiftTab
-            ? await this._storageService.GetGiftCountAsync(account.Id).ConfigureAwait(false)
-            : await this._storageService.GetItemCountAsync(account.Id).ConfigureAwait(false);
+            ? await this._storageService.GetGiftCountAsync(player.PersistenceContext, account.Id).ConfigureAwait(false)
+            : await this._storageService.GetItemCountAsync(player.PersistenceContext, account.Id).ConfigureAwait(false);
         var totalPages = totalCount == 0 ? 0 : (int)Math.Ceiling(totalCount / (double)pageSize);
 
         // The client requests page 1 when the shop opens, and 0/1 for the first page when
@@ -93,8 +93,8 @@ public class CashShopStorageListAction
         // Out-of-range pages answer with the counts only, which leaves the list empty.
         var currentPageItems = requestedPage <= totalPages
             ? isGiftTab
-                ? await this._storageService.GetGiftPageAsync(account.Id, skip, pageSize).ConfigureAwait(false)
-                : await this._storageService.GetPageAsync(account.Id, skip, pageSize).ConfigureAwait(false)
+                ? await this._storageService.GetGiftPageAsync(player.PersistenceContext, account.Id, skip, pageSize).ConfigureAwait(false)
+                : await this._storageService.GetPageAsync(player.PersistenceContext, account.Id, skip, pageSize).ConfigureAwait(false)
             : Array.Empty<CashShopStorageItem>();
 
         var currentPageItemCount = (ushort)Math.Min(currentPageItems.Count, ushort.MaxValue);

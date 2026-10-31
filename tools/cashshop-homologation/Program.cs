@@ -127,6 +127,25 @@ public static class Program
             return await GiftStorageMetadataHomologation.RunAsync().ConfigureAwait(false);
         }
 
+        if (args.Any(argument => string.Equals(argument, "claim-repro", StringComparison.OrdinalIgnoreCase)))
+        {
+            var keepAfter = args.Any(argument => string.Equals(argument, "--keepafter", StringComparison.OrdinalIgnoreCase));
+            return await ClaimReproHomologation.RunAsync(keepAfter).ConfigureAwait(false);
+        }
+
+        if (args.Any(argument => string.Equals(argument, "claim-fallback-perf", StringComparison.OrdinalIgnoreCase)))
+        {
+            var cyclesArg = args.SkipWhile(a => a != "--cycles").Skip(1).FirstOrDefault();
+            var cycles = int.TryParse(cyclesArg, out var parsed) && parsed > 0 ? parsed : 3;
+            var legacy = args.Any(argument => string.Equals(argument, "--legacy", StringComparison.OrdinalIgnoreCase));
+            return await ClaimReproHomologation.RunFallbackPerfAsync(cycles, legacy).ConfigureAwait(false);
+        }
+
+        if (args.Any(argument => string.Equals(argument, "claim-repro-clean", StringComparison.OrdinalIgnoreCase)))
+        {
+            return await ClaimReproHomologation.RunCleanupOnlyAsync().ConfigureAwait(false);
+        }
+
         var database = Environment.GetEnvironmentVariable("DB_NAME");
         Console.WriteLine($"Target database: {database ?? "<from ConnectionSettings.xml>"}");
 

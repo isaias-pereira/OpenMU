@@ -45,6 +45,15 @@ internal sealed class HomologationPlayer : Player
     /// Creates a logged-in player bound to the account with the given login name, using the
     /// account's character of the given name.
     /// </summary>
+    /// <remarks>
+    /// The account MUST be loaded through <c>GetAccountByLoginNameAsync</c> — the same entry
+    /// point the real login flow uses (<c>GetAccountByLoginNameAsync</c> in the player context
+    /// routes through <c>AccountRepository</c> + <c>AccountJsonObjectLoader</c>, which loads
+    /// characters WITH their items). A plain <c>GetAsync&lt;Account&gt;()</c> does not attach
+    /// the character's stored items to the in-memory inventory (the Fase 10 Round 2F finding:
+    /// it leaves <c>Inventory.Items</c> empty, so the claim grid reports slots free that are
+    /// actually occupied, writing duplicates into the database).
+    /// </remarks>
     /// <param name="gameContext">The game context.</param>
     /// <param name="loginName">The account's login name.</param>
     /// <param name="characterName">The character's name.</param>
@@ -56,8 +65,9 @@ internal sealed class HomologationPlayer : Player
         await player.PlayerState.TryAdvanceToAsync(GameLogic.PlayerState.Authenticated).ConfigureAwait(false);
         await player.PlayerState.TryAdvanceToAsync(GameLogic.PlayerState.CharacterSelection).ConfigureAwait(false);
 
-        var account = (await player.PersistenceContext.GetAsync<Account>().ConfigureAwait(false))
-            .FirstOrDefault(candidate => candidate.LoginName == loginName);
+        var account = await player.PersistenceContext
+            .GetAccountByLoginNameAsync(loginName)
+            .ConfigureAwait(false);
         var character = account?.Characters.FirstOrDefault(candidate => candidate.Name == characterName);
         if (account is null || character is null)
         {

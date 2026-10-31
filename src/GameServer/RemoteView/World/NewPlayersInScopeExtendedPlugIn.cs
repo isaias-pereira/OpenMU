@@ -1,4 +1,4 @@
-﻿// <copyright file="NewPlayersInScopeExtendedPlugIn.cs" company="MUnique">
+// <copyright file="NewPlayersInScopeExtendedPlugIn.cs" company="MUnique">
 // Licensed under the MIT License. See LICENSE file in the project root for full license information.
 // </copyright>
 
@@ -98,6 +98,85 @@ public class NewPlayersInScopeExtendedPlugIn : NewPlayersInScopePlugIn, INewPlay
             }
 
             return span.Length;
+        }
+
+        await connection.SendAsync(Write).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    protected override async ValueTask SendTransformedCharacterAsync(Player newPlayer, bool isSpawned)
+    {
+        // RC2/GATE B: the base implementation sends the classic transformed packet whose
+        // appearance block is 18 bytes — too small for this serializer (27 bytes), which threw
+        // "Target span too small. Actual size: 18; Required: 27" on every transformed player in
+        // scope (production stacks of RC1, 25/26-10). The Season 6 Episode 3 client parses C2 0x45
+        // as PCREATE_TRANSFORM_EXTENDED (WSclient.cpp ReceiveCreateTransformViewport): the same
+        // field order as the classic packet, but with a 27-byte appearance block (its Class+Flags
+        // bytes plus Equipment[25]) — which is exactly what the extended serializer writes.
+        var connection = this.Player.Connection;
+        if (connection is null)
+        {
+            return;
+        }
+
+        var selectedCharacter = newPlayer.SelectedCharacter;
+        if (selectedCharacter is null)
+        {
+            return;
+        }
+
+        int Write()
+        {
+            var appearanceSerializer = this.Player.AppearanceSerializer;
+            var activeEffects = newPlayer.MagicEffectList.VisibleEffects;
+            const int estimatedEffectsPerPlayer = 5;
+            var estimatedSizePerCharacter = AddTransformedCharactersToScopeExtendedRef.CharacterDataRef.GetRequiredSize(Math.Max(estimatedEffectsPerPlayer, activeEffects.Count));
+            var estimatedSize = AddTransformedCharactersToScopeExtendedRef.GetRequiredSize(1, estimatedSizePerCharacter);
+            var span = connection.Output.GetSpan(estimatedSize)[..estimatedSize];
+            var packet = new AddTransformedCharactersToScopeExtendedRef(span)
+            {
+                CharacterCount = 1,
+            };
+
+            var playerBlock = packet[0];
+            playerBlock.Id = newPlayer.GetId(this.Player);
+            if (isSpawned)
+            {
+                playerBlock.Id |= 0x8000;
+            }
+
+            playerBlock.CurrentPositionX = newPlayer.Position.X;
+            playerBlock.CurrentPositionY = newPlayer.Position.Y;
+
+            appearanceSerializer.WriteAppearanceData(playerBlock.Appearance, newPlayer.AppearanceData, true);
+            playerBlock.Name = selectedCharacter.Name;
+            if (newPlayer.IsWalking)
+            {
+                playerBlock.TargetPositionX = newPlayer.WalkTarget.X;
+                playerBlock.TargetPositionY = newPlayer.WalkTarget.Y;
+            }
+            else
+            {
+                playerBlock.TargetPositionX = newPlayer.Position.X;
+                playerBlock.TargetPositionY = newPlayer.Position.Y;
+            }
+
+            playerBlock.Rotation = newPlayer.Rotation.ToPacketByte();
+            playerBlock.HeroState = selectedCharacter.State.Convert();
+
+            playerBlock.EffectCount = (byte)activeEffects.Count;
+            playerBlock.Skin = (ushort)newPlayer.Attributes![Stats.TransformationSkin];
+            for (int e = playerBlock.EffectCount - 1; e >= 0; e--)
+            {
+                var effectBlock = playerBlock[e];
+                effectBlock.Id = (byte)activeEffects[e].Id;
+            }
+
+            // The calculation of the final size is not a requirement, but we do it to save some traffic.
+            // The original server also doesn't send more bytes than necessary.
+            var finalSize = packet.FinalSize;
+            span.Slice(0, finalSize).SetPacketSize();
+            return finalSize;
         }
 
         await connection.SendAsync(Write).ConfigureAwait(false);

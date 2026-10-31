@@ -4,7 +4,9 @@
 
 namespace MUnique.OpenMU.GameServer.MessageHandler.CashShop;
 
+using System.Diagnostics;
 using System.Runtime.InteropServices;
+using Microsoft.Extensions.Logging;
 using MUnique.OpenMU.GameLogic;
 using MUnique.OpenMU.GameLogic.PlayerActions.CashShop;
 using MUnique.OpenMU.Network.Packets.ClientToServer;
@@ -26,14 +28,17 @@ using MUnique.OpenMU.PlugIns;
 internal class CashShopStorageListRequestHandlerPlugIn : ISubPacketHandlerPlugIn
 {
     private readonly CashShopStorageListAction _action;
+    private readonly ILogger<CashShopStorageListRequestHandlerPlugIn> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="CashShopStorageListRequestHandlerPlugIn"/> class.
     /// </summary>
     /// <param name="action">The cash shop storage list action.</param>
-    public CashShopStorageListRequestHandlerPlugIn(CashShopStorageListAction action)
+    /// <param name="logger">The logger (temporary trace instrumentation, Rodada 2S).</param>
+    public CashShopStorageListRequestHandlerPlugIn(CashShopStorageListAction action, ILogger<CashShopStorageListRequestHandlerPlugIn> logger)
     {
         this._action = action ?? throw new ArgumentNullException(nameof(action));
+        this._logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     /// <inheritdoc/>
@@ -45,12 +50,25 @@ internal class CashShopStorageListRequestHandlerPlugIn : ISubPacketHandlerPlugIn
     /// <inheritdoc/>
     public async ValueTask HandlePacketAsync(Player player, Memory<byte> packet)
     {
+        var stopwatch = Stopwatch.StartNew();
         if (packet.Length < CashShopStorageListRequest.Length)
         {
             return;
         }
 
         CashShopStorageListRequest request = packet;
+        this._logger.LogInformation(
+            "[storage-trace] D2 05 RECEIVED from {Player} at {Timestamp:O}: page={Page}, type={Type}.",
+            player.Name,
+            DateTimeOffset.UtcNow,
+            request.PageIndex,
+            request.InventoryType);
+
         await this._action.RequestListAsync(player, request.PageIndex, request.InventoryType).ConfigureAwait(false);
+
+        this._logger.LogInformation(
+            "[storage-trace] D2 05 ANSWERED (D2 06 + D2 0D sent) in {ElapsedMs} ms for {Player}.",
+            stopwatch.ElapsedMilliseconds,
+            player.Name);
     }
 }

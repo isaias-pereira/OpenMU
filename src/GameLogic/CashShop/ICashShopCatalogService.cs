@@ -109,4 +109,14 @@ public interface ICashShopCatalogService
     /// </summary>
     /// <param name="cancellationToken">Token de cancelamento.</param>
     Task InvalidateAndReloadCacheAsync(GameConfiguration gameConfiguration, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Pré-carrega o catálogo (categorias, pacotes e produtos) no cache ANTES da primeira
+    /// requisição do jogador — elimina o cold start do primeiro Buy pós-boot (GATE K1). É o
+    /// mesmo caminho do cache-miss (single-flight); a invalidação existente (expiração de 1 h,
+    /// invalidação por mudança e stale-while-revalidate) não muda.
+    /// </summary>
+    /// <param name="gameConfiguration">A configuração usada para o escopo do cache.</param>
+    /// <param name="cancellationToken">Token de cancelamento.</param>
+    Task WarmupAsync(GameConfiguration gameConfiguration, CancellationToken cancellationToken = default);
 }

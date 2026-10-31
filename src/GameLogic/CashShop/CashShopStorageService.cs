@@ -56,9 +56,23 @@ public class CashShopStorageService : ICashShopStorageService
     }
 
     /// <inheritdoc />
+    public async ValueTask<int> GetItemCountAsync(IContext context, Guid accountId, bool includeGifts = false, CancellationToken cancellationToken = default)
+    {
+        var items = await this.GetItemsForTabAsync(context, accountId, includeGifts, giftsOnly: false, cancellationToken).ConfigureAwait(false);
+        return items.Count;
+    }
+
+    /// <inheritdoc />
     public async ValueTask<int> GetGiftCountAsync(Guid accountId, CancellationToken cancellationToken = default)
     {
-        var items = await this.GetItemsForTabAsync(accountId, includeGifts: false, giftsOnly: true, cancellationToken).ConfigureAwait(false);
+        using var context = this._contextFactory();
+        return await this.GetGiftCountAsync(context, accountId, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<int> GetGiftCountAsync(IContext context, Guid accountId, CancellationToken cancellationToken = default)
+    {
+        var items = await this.GetItemsForTabAsync(context, accountId, includeGifts: false, giftsOnly: true, cancellationToken).ConfigureAwait(false);
         return items.Count;
     }
 
@@ -80,7 +94,37 @@ public class CashShopStorageService : ICashShopStorageService
     }
 
     /// <inheritdoc />
+    public async ValueTask<IReadOnlyList<CashShopStorageItem>> GetPageAsync(
+        IContext context,
+        Guid accountId,
+        int skip,
+        int take,
+        bool includeGifts = false,
+        CancellationToken cancellationToken = default)
+    {
+        if (skip < 0 || take <= 0)
+        {
+            return Array.Empty<CashShopStorageItem>();
+        }
+
+        var items = await this.GetItemsForTabAsync(context, accountId, includeGifts, giftsOnly: false, cancellationToken).ConfigureAwait(false);
+        return items.Skip(skip).Take(take).ToList();
+    }
+
+    /// <inheritdoc />
     public async ValueTask<IReadOnlyList<CashShopStorageItem>> GetGiftPageAsync(
+        Guid accountId,
+        int skip,
+        int take,
+        CancellationToken cancellationToken = default)
+    {
+        using var context = this._contextFactory();
+        return await this.GetGiftPageAsync(context, accountId, skip, take, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<IReadOnlyList<CashShopStorageItem>> GetGiftPageAsync(
+        IContext context,
         Guid accountId,
         int skip,
         int take,
@@ -91,7 +135,7 @@ public class CashShopStorageService : ICashShopStorageService
             return Array.Empty<CashShopStorageItem>();
         }
 
-        var items = await this.GetItemsForTabAsync(accountId, includeGifts: false, giftsOnly: true, cancellationToken).ConfigureAwait(false);
+        var items = await this.GetItemsForTabAsync(context, accountId, includeGifts: false, giftsOnly: true, cancellationToken).ConfigureAwait(false);
         return items.Skip(skip).Take(take).ToList();
     }
 
@@ -184,7 +228,8 @@ public class CashShopStorageService : ICashShopStorageService
 
     private async ValueTask<IReadOnlyList<CashShopStorageItem>> GetItemsAsync(Guid accountId, bool includeGifts, CancellationToken cancellationToken)
     {
-        return await this.GetItemsForTabAsync(accountId, includeGifts, giftsOnly: false, cancellationToken).ConfigureAwait(false);
+        using var context = this._contextFactory();
+        return await this.GetItemsForTabAsync(context, accountId, includeGifts, giftsOnly: false, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -200,6 +245,21 @@ public class CashShopStorageService : ICashShopStorageService
         // chamada (ver o registro em Startup/Program.cs), e sem o using cada leitura de storage
         // vazaria um contexto — e, no Entity Framework, a conexão do pool junto.
         using var context = this._contextFactory();
+        return await this.GetItemsForTabAsync(context, accountId, includeGifts, giftsOnly, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Lê as linhas de storage de uma conta no contexto informado, filtrando pela aba.
+    /// </summary>
+    /// <remarks>
+    /// Rodada 2V: a sobrecarga que recebe o <see cref="IContext"/> existe porque o contexto
+    /// "fresco" da factory materializa os agregados declarados (row → Item → Definition) a cada
+    /// leitura — medido em 89 s quando o storage contém um item entregue (Rodada 2U). O contexto
+    /// do jogador (caching) já tem essas entidades rastreadas e responde em milissegundos
+    /// (comprovado pelo ClaimService). O filtro por conta continua em memória, como antes.
+    /// </remarks>
+    private async ValueTask<IReadOnlyList<CashShopStorageItem>> GetItemsForTabAsync(IContext context, Guid accountId, bool includeGifts, bool giftsOnly, CancellationToken cancellationToken)
+    {
         var all = await context.GetAsync<CashShopStorageItem>(cancellationToken).ConfigureAwait(false);
         return all
             .Where(item => item.AccountId == accountId)

@@ -158,10 +158,10 @@ public class CashShopStorageListActionTests
 
         this._storageService = new Mock<ICashShopStorageService>();
         this._storageService.Setup(s => s.Capacity).Returns(30);
-        this._storageService.Setup(s => s.GetItemCountAsync(It.IsAny<Guid>(), false, It.IsAny<CancellationToken>())).ReturnsAsync(0);
-        this._storageService.Setup(s => s.GetGiftCountAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync(0);
-        this._storageService.Setup(s => s.GetPageAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<int>(), false, It.IsAny<CancellationToken>())).ReturnsAsync(Array.Empty<CashShopStorageItem>());
-        this._storageService.Setup(s => s.GetGiftPageAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(Array.Empty<CashShopStorageItem>());
+        this._storageService.Setup(s => s.GetItemCountAsync(It.IsAny<IContext>(), It.IsAny<Guid>(), false, It.IsAny<CancellationToken>())).ReturnsAsync(0);
+        this._storageService.Setup(s => s.GetGiftCountAsync(It.IsAny<IContext>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync(0);
+        this._storageService.Setup(s => s.GetPageAsync(It.IsAny<IContext>(), It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<int>(), false, It.IsAny<CancellationToken>())).ReturnsAsync(Array.Empty<CashShopStorageItem>());
+        this._storageService.Setup(s => s.GetGiftPageAsync(It.IsAny<IContext>(), It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(Array.Empty<CashShopStorageItem>());
 
         this._viewPlugIn = new RecordingCashShopViewPlugIn();
         this._action = new CashShopStorageListAction(this._storageService.Object);
@@ -192,8 +192,8 @@ public class CashShopStorageListActionTests
         var otherAccountId = Guid.NewGuid();
         var own = await this.CreateStorageRowAsync(accountId, storageIndex: 0, isGift: false).ConfigureAwait(false);
         await this.CreateStorageRowAsync(otherAccountId, storageIndex: 0, isGift: false).ConfigureAwait(false);
-        this._storageService.Setup(s => s.GetItemCountAsync(accountId, false, It.IsAny<CancellationToken>())).ReturnsAsync(1);
-        this._storageService.Setup(s => s.GetPageAsync(accountId, 0, 30, false, It.IsAny<CancellationToken>())).ReturnsAsync(new[] { own });
+        this._storageService.Setup(s => s.GetItemCountAsync(It.IsAny<IContext>(), accountId, false, It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        this._storageService.Setup(s => s.GetPageAsync(It.IsAny<IContext>(), accountId, 0, 30, false, It.IsAny<CancellationToken>())).ReturnsAsync(new[] { own });
         var player = await this.CreatePlayerWithAccountAsync(accountId).ConfigureAwait(false);
 
         await this._action.RequestListAsync(player, pageIndex: 1, CashShopStorageListAction.DefaultStorageType).ConfigureAwait(false);
@@ -227,8 +227,8 @@ public class CashShopStorageListActionTests
         var accountId = Guid.NewGuid();
         var gift = await this.CreateStorageRowAsync(accountId, storageIndex: 0, isGift: true).ConfigureAwait(false);
         await this.CreateStorageRowAsync(accountId, storageIndex: 0, isGift: false).ConfigureAwait(false);
-        this._storageService.Setup(s => s.GetGiftCountAsync(accountId, It.IsAny<CancellationToken>())).ReturnsAsync(1);
-        this._storageService.Setup(s => s.GetGiftPageAsync(accountId, 0, 30, It.IsAny<CancellationToken>())).ReturnsAsync(new[] { gift });
+        this._storageService.Setup(s => s.GetGiftCountAsync(It.IsAny<IContext>(), accountId, It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        this._storageService.Setup(s => s.GetGiftPageAsync(It.IsAny<IContext>(), accountId, 0, 30, It.IsAny<CancellationToken>())).ReturnsAsync(new[] { gift });
         var player = await this.CreatePlayerWithAccountAsync(accountId).ConfigureAwait(false);
 
         await this._action.RequestListAsync(player, pageIndex: 1, CashShopStorageListAction.GiftStorageType).ConfigureAwait(false);
@@ -255,8 +255,8 @@ public class CashShopStorageListActionTests
         var gift = await this.CreateStorageRowAsync(accountId, storageIndex: 0, isGift: true).ConfigureAwait(false);
         gift.GiftSender = "Sender";
         gift.GiftMessage = "Feliz Natal!";
-        this._storageService.Setup(s => s.GetGiftCountAsync(accountId, It.IsAny<CancellationToken>())).ReturnsAsync(1);
-        this._storageService.Setup(s => s.GetGiftPageAsync(accountId, 0, 30, It.IsAny<CancellationToken>())).ReturnsAsync(new[] { gift });
+        this._storageService.Setup(s => s.GetGiftCountAsync(It.IsAny<IContext>(), accountId, It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        this._storageService.Setup(s => s.GetGiftPageAsync(It.IsAny<IContext>(), accountId, 0, 30, It.IsAny<CancellationToken>())).ReturnsAsync(new[] { gift });
         var player = await this.CreatePlayerWithAccountAsync(accountId).ConfigureAwait(false);
 
         await this._action.RequestListAsync(player, pageIndex: 1, CashShopStorageListAction.GiftStorageType).ConfigureAwait(false);
@@ -287,8 +287,8 @@ public class CashShopStorageListActionTests
     {
         var accountId = Guid.NewGuid();
         var own = await this.CreateStorageRowAsync(accountId, storageIndex: 0, isGift: false).ConfigureAwait(false);
-        this._storageService.Setup(s => s.GetItemCountAsync(accountId, false, It.IsAny<CancellationToken>())).ReturnsAsync(1);
-        this._storageService.Setup(s => s.GetPageAsync(accountId, 0, 30, false, It.IsAny<CancellationToken>())).ReturnsAsync(new[] { own });
+        this._storageService.Setup(s => s.GetItemCountAsync(It.IsAny<IContext>(), accountId, false, It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        this._storageService.Setup(s => s.GetPageAsync(It.IsAny<IContext>(), accountId, 0, 30, false, It.IsAny<CancellationToken>())).ReturnsAsync(new[] { own });
         var player = await this.CreatePlayerWithAccountAsync(accountId).ConfigureAwait(false);
 
         await this._action.RequestListAsync(player, pageIndex: 1, CashShopStorageListAction.DefaultStorageType).ConfigureAwait(false);
@@ -309,9 +309,9 @@ public class CashShopStorageListActionTests
     {
         var accountId = Guid.NewGuid();
         var first = await this.CreateStorageRowAsync(accountId, storageIndex: 0, isGift: true).ConfigureAwait(false);
-        this._storageService.Setup(s => s.GetGiftCountAsync(accountId, It.IsAny<CancellationToken>())).ReturnsAsync(31);
-        this._storageService.Setup(s => s.GetGiftPageAsync(accountId, 0, 30, It.IsAny<CancellationToken>())).ReturnsAsync(new[] { first });
-        this._storageService.Setup(s => s.GetGiftPageAsync(accountId, 30, 30, It.IsAny<CancellationToken>())).ReturnsAsync(Array.Empty<CashShopStorageItem>());
+        this._storageService.Setup(s => s.GetGiftCountAsync(It.IsAny<IContext>(), accountId, It.IsAny<CancellationToken>())).ReturnsAsync(31);
+        this._storageService.Setup(s => s.GetGiftPageAsync(It.IsAny<IContext>(), accountId, 0, 30, It.IsAny<CancellationToken>())).ReturnsAsync(new[] { first });
+        this._storageService.Setup(s => s.GetGiftPageAsync(It.IsAny<IContext>(), accountId, 30, 30, It.IsAny<CancellationToken>())).ReturnsAsync(Array.Empty<CashShopStorageItem>());
         var player = await this.CreatePlayerWithAccountAsync(accountId).ConfigureAwait(false);
 
         await this._action.RequestListAsync(player, pageIndex: 1, CashShopStorageListAction.GiftStorageType).ConfigureAwait(false);
@@ -339,17 +339,17 @@ public class CashShopStorageListActionTests
         var otherAccountId = Guid.NewGuid();
         var own = await this.CreateStorageRowAsync(accountId, storageIndex: 0, isGift: true).ConfigureAwait(false);
         await this.CreateStorageRowAsync(otherAccountId, storageIndex: 0, isGift: true).ConfigureAwait(false);
-        this._storageService.Setup(s => s.GetGiftCountAsync(accountId, It.IsAny<CancellationToken>())).ReturnsAsync(1);
-        this._storageService.Setup(s => s.GetGiftPageAsync(accountId, 0, 30, It.IsAny<CancellationToken>())).ReturnsAsync(new[] { own });
+        this._storageService.Setup(s => s.GetGiftCountAsync(It.IsAny<IContext>(), accountId, It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        this._storageService.Setup(s => s.GetGiftPageAsync(It.IsAny<IContext>(), accountId, 0, 30, It.IsAny<CancellationToken>())).ReturnsAsync(new[] { own });
         var player = await this.CreatePlayerWithAccountAsync(accountId).ConfigureAwait(false);
 
         await this._action.RequestListAsync(player, pageIndex: 1, CashShopStorageListAction.GiftStorageType).ConfigureAwait(false);
 
         Assert.Multiple(() =>
         {
-            this._storageService.Verify(s => s.GetGiftCountAsync(accountId, It.IsAny<CancellationToken>()), Times.Once, "A contagem consulta a conta autenticada.");
-            this._storageService.Verify(s => s.GetGiftPageAsync(accountId, 0, 30, It.IsAny<CancellationToken>()), Times.Once, "A página consulta a conta autenticada.");
-            this._storageService.Verify(s => s.GetGiftPageAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
+            this._storageService.Verify(s => s.GetGiftCountAsync(It.IsAny<IContext>(), accountId, It.IsAny<CancellationToken>()), Times.Once, "A contagem consulta a conta autenticada.");
+            this._storageService.Verify(s => s.GetGiftPageAsync(It.IsAny<IContext>(), accountId, 0, 30, It.IsAny<CancellationToken>()), Times.Once, "A página consulta a conta autenticada.");
+            this._storageService.Verify(s => s.GetGiftPageAsync(It.IsAny<IContext>(), It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
             Assert.That(this._viewPlugIn.GiftStorageItems, Has.Count.EqualTo(1), "Apenas as linhas da própria conta são entregues.");
             Assert.That(this._viewPlugIn.GiftStorageItems[0].StorageIndex, Is.EqualTo(own.StorageIndex));
         });
@@ -366,8 +366,8 @@ public class CashShopStorageListActionTests
         var legacy = await this.CreateStorageRowAsync(accountId, storageIndex: 0, isGift: true).ConfigureAwait(false);
         Assert.That(legacy.GiftSender, Is.Null, "Linhas criadas antes da Fase 10 não têm remetente.");
         Assert.That(legacy.GiftMessage, Is.Null);
-        this._storageService.Setup(s => s.GetGiftCountAsync(accountId, It.IsAny<CancellationToken>())).ReturnsAsync(1);
-        this._storageService.Setup(s => s.GetGiftPageAsync(accountId, 0, 30, It.IsAny<CancellationToken>())).ReturnsAsync(new[] { legacy });
+        this._storageService.Setup(s => s.GetGiftCountAsync(It.IsAny<IContext>(), accountId, It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        this._storageService.Setup(s => s.GetGiftPageAsync(It.IsAny<IContext>(), accountId, 0, 30, It.IsAny<CancellationToken>())).ReturnsAsync(new[] { legacy });
         var player = await this.CreatePlayerWithAccountAsync(accountId).ConfigureAwait(false);
 
         await this._action.RequestListAsync(player, pageIndex: 1, CashShopStorageListAction.GiftStorageType).ConfigureAwait(false);
@@ -389,7 +389,7 @@ public class CashShopStorageListActionTests
     {
         var accountId = Guid.NewGuid();
         await this.CreateStorageRowAsync(accountId, storageIndex: 0, isGift: false).ConfigureAwait(false);
-        this._storageService.Setup(s => s.GetItemCountAsync(accountId, false, It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        this._storageService.Setup(s => s.GetItemCountAsync(It.IsAny<IContext>(), accountId, false, It.IsAny<CancellationToken>())).ReturnsAsync(1);
         var player = await this.CreatePlayerWithAccountAsync(accountId).ConfigureAwait(false);
 
         await this._action.RequestListAsync(player, pageIndex: 1, (byte)'X').ConfigureAwait(false);
@@ -412,7 +412,7 @@ public class CashShopStorageListActionTests
     {
         var accountId = Guid.NewGuid();
         await this.CreateStorageRowAsync(accountId, storageIndex: 0, isGift: false).ConfigureAwait(false);
-        this._storageService.Setup(s => s.GetItemCountAsync(accountId, false, It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        this._storageService.Setup(s => s.GetItemCountAsync(It.IsAny<IContext>(), accountId, false, It.IsAny<CancellationToken>())).ReturnsAsync(1);
         var player = await this.CreatePlayerWithAccountAsync(accountId).ConfigureAwait(false);
 
         await this._action.RequestListAsync(player, pageIndex: 5, CashShopStorageListAction.DefaultStorageType).ConfigureAwait(false);

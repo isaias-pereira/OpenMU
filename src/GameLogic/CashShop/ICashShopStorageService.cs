@@ -40,6 +40,21 @@ public interface ICashShopStorageService
     ValueTask<int> GetItemCountAsync(Guid accountId, bool includeGifts = false, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Conta os itens no storage lendo pelo contexto informado (Rodada 2V).
+    /// </summary>
+    /// <remarks>
+    /// O contexto do jogador (caching) já tem as entidades da sessão rastreadas, evitando a
+    /// materialização dos agregados row → Item → Definition que o contexto "fresco" da factory
+    /// refaz a cada leitura (89 s medidos na Rodada 2U).
+    /// </remarks>
+    /// <param name="context">O contexto de leitura (normalmente o do jogador).</param>
+    /// <param name="accountId">O id da conta.</param>
+    /// <param name="includeGifts">Quando <c>true</c>, inclui os presentes.</param>
+    /// <param name="cancellationToken">Token de cancelamento.</param>
+    /// <returns>A quantidade de itens no storage.</returns>
+    ValueTask<int> GetItemCountAsync(IContext context, Guid accountId, bool includeGifts = false, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Lê uma página de itens do storage, ordenados por <see cref="CashShopStorageItem.StorageIndex"/>.
     /// </summary>
     /// <param name="accountId">O id da conta.</param>
@@ -53,6 +68,24 @@ public interface ICashShopStorageService
     /// <param name="cancellationToken">Token de cancelamento.</param>
     /// <returns>Os itens da página, em ordem de índice.</returns>
     ValueTask<IReadOnlyList<CashShopStorageItem>> GetPageAsync(
+        Guid accountId,
+        int skip,
+        int take,
+        bool includeGifts = false,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lê uma página de itens do storage pelo contexto informado (Rodada 2V).
+    /// </summary>
+    /// <param name="context">O contexto de leitura (normalmente o do jogador).</param>
+    /// <param name="accountId">O id da conta.</param>
+    /// <param name="skip">Quantos itens pular.</param>
+    /// <param name="take">Quantos itens ler (o tamanho da página).</param>
+    /// <param name="includeGifts">Quando <c>true</c>, inclui os presentes.</param>
+    /// <param name="cancellationToken">Token de cancelamento.</param>
+    /// <returns>Os itens da página, em ordem de índice.</returns>
+    ValueTask<IReadOnlyList<CashShopStorageItem>> GetPageAsync(
+        IContext context,
         Guid accountId,
         int skip,
         int take,
@@ -74,12 +107,42 @@ public interface ICashShopStorageService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Lê uma página dos presentes recebidos lendo pelo contexto informado (Rodada 2AD).
+    /// </summary>
+    /// <remarks>
+    /// Mesma justificativa dos overloads da Rodada 2V: o contexto "fresco" da factory
+    /// materializa os agregados row → Item → Definition a cada leitura (60–71 s medidos
+    /// na aba G na Rodada 2AE).
+    /// </remarks>
+    /// <param name="context">O contexto de leitura (normalmente o do jogador).</param>
+    /// <param name="accountId">O id da conta.</param>
+    /// <param name="skip">Quantos itens pular.</param>
+    /// <param name="take">Quantos itens ler (o tamanho da página).</param>
+    /// <param name="cancellationToken">Token de cancelamento.</param>
+    /// <returns>Os presentes da conta, em ordem de índice.</returns>
+    ValueTask<IReadOnlyList<CashShopStorageItem>> GetGiftPageAsync(
+        IContext context,
+        Guid accountId,
+        int skip,
+        int take,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Conta os presentes recebidos pela conta.
     /// </summary>
     /// <param name="accountId">O id da conta.</param>
     /// <param name="cancellationToken">Token de cancelamento.</param>
     /// <returns>A quantidade de presentes recebidos.</returns>
     ValueTask<int> GetGiftCountAsync(Guid accountId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Conta os presentes recebidos lendo pelo contexto informado (Rodada 2AD).
+    /// </summary>
+    /// <param name="context">O contexto de leitura (normalmente o do jogador).</param>
+    /// <param name="accountId">O id da conta.</param>
+    /// <param name="cancellationToken">Token de cancelamento.</param>
+    /// <returns>A quantidade de presentes recebidos.</returns>
+    ValueTask<int> GetGiftCountAsync(IContext context, Guid accountId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Devolve o próximo <see cref="CashShopStorageItem.StorageIndex"/> livre da conta.

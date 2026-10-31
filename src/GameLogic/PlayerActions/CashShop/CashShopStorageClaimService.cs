@@ -82,6 +82,7 @@ public sealed class CashShopStorageClaimService : ICashShopStorageClaimService
     private readonly ILogger<CashShopStorageClaimService> _logger;
     private readonly UnsafeContextRetirement _retirement;
     private readonly Func<IContext> _itemContextFactory;
+    private readonly Func<DateTime> _utcNowProvider;
     private readonly ConcurrentDictionary<Guid, AsyncLock> _claimLocks = new();
 
     /// <summary>
@@ -93,11 +94,16 @@ public sealed class CashShopStorageClaimService : ICashShopStorageClaimService
     /// Creates the short-lived context which resolves a storage row's item when the player's
     /// context cannot (rows committed by other sessions — see the item resolution remarks).
     /// </param>
-    public CashShopStorageClaimService(ILogger<CashShopStorageClaimService> logger, UnsafeContextRetirement retirement, Func<IContext> itemContextFactory)
+    /// <param name="utcNowProvider">
+    /// The UTC clock used to activate a contracted duration at claim time. Injectable for tests;
+    /// production uses <see cref="DateTime.UtcNow"/>.
+    /// </param>
+    public CashShopStorageClaimService(ILogger<CashShopStorageClaimService> logger, UnsafeContextRetirement retirement, Func<IContext> itemContextFactory, Func<DateTime>? utcNowProvider = null)
     {
         this._logger = logger ?? throw new ArgumentNullException(nameof(logger));
         this._retirement = retirement ?? throw new ArgumentNullException(nameof(retirement));
         this._itemContextFactory = itemContextFactory ?? throw new ArgumentNullException(nameof(itemContextFactory));
+        this._utcNowProvider = utcNowProvider ?? (() => DateTime.UtcNow);
     }
 
     /// <inheritdoc />
@@ -116,7 +122,21 @@ public sealed class CashShopStorageClaimService : ICashShopStorageClaimService
 
         // Serialise per account so two concurrent claims of one account cannot both resolve the
         // same row. Same scope as the buy and gift flows: this process only.
+        var correlationId = Guid.NewGuid().ToString("N")[..8];
+        var overallStopwatch = System.Diagnostics.Stopwatch.StartNew();
+        this._logger.LogInformation(
+            "[claim-trace {CorrelationId}] claim STARTED for {Player}: storage={StorageIndex}, itemSeq={ItemSeq}.",
+            correlationId,
+            player.Name,
+            storageIndex,
+            itemSeq);
+        var lockStopwatch = System.Diagnostics.Stopwatch.StartNew();
         using var claimLock = await this._claimLocks.GetOrAdd(account.Id, _ => new AsyncLock()).LockAsync(cancellationToken).ConfigureAwait(false);
+        lockStopwatch.Stop();
+        this._logger.LogInformation(
+            "[claim-trace {CorrelationId}] step lockWait in {ElapsedMs} ms.",
+            correlationId,
+            lockStopwatch.ElapsedMilliseconds);
         try
         {
             // The client's item code is never the authority: the row is resolved against the
@@ -135,7 +155,15 @@ public sealed class CashShopStorageClaimService : ICashShopStorageClaimService
                 && row.StorageIndex == storageIndex
                 && IsSupportedItemType(row.ItemType);
 
+            var rowsStopwatch = System.Diagnostics.Stopwatch.StartNew();
             var rows = await player.PersistenceContext.GetAsync<CashShopStorageItem>(cancellationToken).ConfigureAwait(false);
+            var rowCount = rows is ICollection<CashShopStorageItem> rc ? rc.Count : -1;
+            rowsStopwatch.Stop();
+            this._logger.LogInformation(
+                "[claim-trace {CorrelationId}] step playerContextRows in {ElapsedMs} ms (rows={RowCount}).",
+                correlationId,
+                rowsStopwatch.ElapsedMilliseconds,
+                rowCount);
             var storageItem = rows.FirstOrDefault(MatchesRow);
             if (storageItem is null)
             {
@@ -165,13 +193,25 @@ public sealed class CashShopStorageClaimService : ICashShopStorageClaimService
                     // The row was committed by another session or process. The player's context
                     // cannot resolve the item navigation of such rows (the persistence layer
                     // routes item loads through the configuration cache, which holds no account
-                    // items), so the row would look item-less here. Load the row through a
-                    // short-lived full context instead, where the item and its definition are
-                    // read from the database; the item's ownership is taken below, before staging.
+                    // items), so the row would look item-less here. Load exactly this row through
+                    // a short-lived full context instead, by its primary key (the Id was read by
+                    // the player's context above) — a point query which materializes only this
+                    // row and its declared item graph. The previous implementation called
+                    // GetAsync<CashShopStorageItem>, which loads the WHOLE table (measured ~30 s
+                    // per claim on the homologation database — rodadas 2AM/2AR/2AS).
+                    var fallbackStopwatch = System.Diagnostics.Stopwatch.StartNew();
                     itemContext = this._itemContextFactory();
-                    var deliveredItem = (await itemContext.GetAsync<CashShopStorageItem>(cancellationToken).ConfigureAwait(false))
-                        .FirstOrDefault(MatchesRow)
-                        ?.Item;
+                    var contextCreated = fallbackStopwatch.ElapsedMilliseconds;
+                    var deliveredRow = await itemContext.GetByIdAsync<CashShopStorageItem>(storageItem.Id, cancellationToken).ConfigureAwait(false);
+                    var fallbackStop = fallbackStopwatch.ElapsedMilliseconds;
+                    this._logger.LogInformation(
+                        "[claim-trace {CorrelationId}] step fallbackContext in {ContextMs} ms, fallbackGetById in {TotalMs} ms (point query by primary key).",
+                        correlationId,
+                        contextCreated,
+                        fallbackStop);
+                    var deliveredItem = deliveredRow is not null && MatchesRow(deliveredRow)
+                        ? deliveredRow.Item
+                        : null;
                     if (deliveredItem is null)
                     {
                         this._logger.LogWarning(
@@ -202,9 +242,31 @@ public sealed class CashShopStorageClaimService : ICashShopStorageClaimService
                 return StorageClaimResult.Failed(StorageClaimErrorCode.CannotUse, "The storage entry's item is not available.");
             }
 
+            if (storageItem.DurationSeconds < 0)
+            {
+                // Fase 10 (expiração real): a duração contratada nunca pode ser negativa. Uma linha
+                // assim é metadado corrompido — ativar um prazo dela produziria um item com
+                // expiração sem sentido, e entregá-la como permanente mascararia a corrupção.
+                // Fail-safe: o claim é recusado e a linha permanece no storage, nada é entregue.
+                this._logger.LogError(
+                    "Cash shop claim: the storage row (StorageIndex {StorageIndex}, ItemSeq {ItemSeq}) of account {AccountId} has an invalid contracted duration ({DurationSeconds}); the claim was refused.",
+                    storageIndex,
+                    itemSeq,
+                    account.Id,
+                    storageItem.DurationSeconds);
+                return StorageClaimResult.Failed(StorageClaimErrorCode.CannotUse, "The storage entry's duration metadata is invalid.");
+            }
+
             // The inventory space is validated before anything is staged: a full inventory
             // leaves the row in the storage and delivers nothing (client code 21).
+            var spaceStopwatch = System.Diagnostics.Stopwatch.StartNew();
             var toSlot = player.Inventory.CheckInvSpace(item);
+            spaceStopwatch.Stop();
+            this._logger.LogInformation(
+                "[claim-trace {CorrelationId}] step inventorySpace in {ElapsedMs} ms (definition={DefinitionName}).",
+                correlationId,
+                spaceStopwatch.ElapsedMilliseconds,
+                item.Definition.Name);
             if (toSlot is null)
             {
                 this._logger.LogInformation(
@@ -237,6 +299,26 @@ public sealed class CashShopStorageClaimService : ICashShopStorageClaimService
                     return StorageClaimResult.Failed(StorageClaimErrorCode.InventoryFull, "The character inventory is full.");
                 }
 
+                // Fase 10 (expiração real): a contagem começa EXATAMENTE no commit que entrega o
+                // item ao inventário — nunca na compra, no recebimento do presente, na listagem,
+                // no login ou ao equipar. Ativação e prazo são gravados no MESMO SaveChangesAsync
+                // que move o item e consome a linha: ou o item é entregue com os timestamps, ou
+                // nada é gravado. O relógio é UTC absoluto e persistido: a expiração continua
+                // valendo através de logout, restart e recriação do container. A ativação é
+                // exatamente única: um item já ativado (por exemplo por um caminho alternativo)
+                // mantém a ativação original — nada renova nem prorroga o prazo; o prazo é
+                // recalculado a partir da ativação preservada e da duração contratada da linha.
+                if (storageItem.DurationSeconds > 0)
+                {
+                    item.ActivatedAtUtc ??= this._utcNowProvider();
+                    item.ExpiresAtUtc = item.ActivatedAtUtc!.Value + TimeSpan.FromSeconds(storageItem.DurationSeconds.Value);
+                }
+                else
+                {
+                    // Permanente (0 = explícito, NULL = legado): nenhum timestamp é gravado,
+                    // e nenhum timestamp pré-existente é inventado retroativamente.
+                }
+
                 // The row is removed in the same context, the referenced item survives it. The
                 // EF provider's DeleteAsync also removes the row's [MemberOfAggregate] members —
                 // which is the delivered item itself! — so the item reference is cleared first:
@@ -248,12 +330,26 @@ public sealed class CashShopStorageClaimService : ICashShopStorageClaimService
 
                 // One SaveChangesAsync commits the item move and the row removal in a single
                 // database transaction, so the item is never lost or duplicated.
+                var saveStopwatch = System.Diagnostics.Stopwatch.StartNew();
                 if (!await player.PersistenceContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false))
                 {
+                    saveStopwatch.Stop();
+                    this._logger.LogError(
+                        "[claim-trace {CorrelationId}] SaveChangesAsync FAILED after {ElapsedMs} ms for {Player}.",
+                        correlationId,
+                        saveStopwatch.ElapsedMilliseconds,
+                        player.Name);
                     this._logger.LogError("The cash shop claim was not committed for {Player}.", player.Name);
                     await this.RollbackClaimAsync(player, storageItem, item, previousSlot).ConfigureAwait(false);
                     return StorageClaimResult.Failed(StorageClaimErrorCode.DatabaseError, "The cash shop claim could not be completed.");
                 }
+
+                saveStopwatch.Stop();
+                this._logger.LogInformation(
+                    "[claim-trace {CorrelationId}] SaveChangesAsync FINISHED in {ElapsedMs} ms for {Player}.",
+                    correlationId,
+                    saveStopwatch.ElapsedMilliseconds,
+                    player.Name);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -279,6 +375,12 @@ public sealed class CashShopStorageClaimService : ICashShopStorageClaimService
                 return StorageClaimResult.Failed(StorageClaimErrorCode.Error, "The cash shop claim could not be completed.");
             }
 
+            overallStopwatch.Stop();
+            this._logger.LogInformation(
+                "[claim-trace {CorrelationId}] claim FINISHED in {ElapsedMs} ms for {Player}.",
+                correlationId,
+                overallStopwatch.ElapsedMilliseconds,
+                player.Name);
             this._logger.LogInformation(
                 "Cash shop claim: {Player} claimed the storage row (StorageIndex {StorageIndex}, ItemSeq {ItemSeq}), item {ItemName} to inventory slot {Slot}.",
                 player.Name,

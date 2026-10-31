@@ -1,4 +1,4 @@
-﻿// <copyright file="NewPlayersInScopePlugIn.cs" company="MUnique">
+// <copyright file="NewPlayersInScopePlugIn.cs" company="MUnique">
 // Licensed under the MIT License. See LICENSE file in the project root for full license information.
 // </copyright>
 
@@ -172,7 +172,16 @@ public class NewPlayersInScopePlugIn : INewPlayersInScopePlugIn
         return (shopPlayers, guildPlayers);
     }
 
-    private async ValueTask SendTransformedCharacterAsync(Player newPlayer, bool isSpawned)
+    /// <summary>
+    /// Sends information about a transformed (skin changed) player which has come into view.
+    /// Virtual so extended (newer) client versions can use their own packet layout — the classic
+    /// packet has an 18-byte appearance block which the extended appearance serializer (27 bytes)
+    /// cannot fit into (RC2/GATE B).
+    /// </summary>
+    /// <param name="newPlayer">The new player.</param>
+    /// <param name="isSpawned">If the player has spawned.</param>
+    /// <returns>A <see cref="ValueTask"/>.</returns>
+    protected virtual async ValueTask SendTransformedCharacterAsync(Player newPlayer, bool isSpawned)
     {
         var connection = this.Player.Connection;
         if (connection is null)

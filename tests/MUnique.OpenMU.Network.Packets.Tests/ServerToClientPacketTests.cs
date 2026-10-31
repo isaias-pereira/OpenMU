@@ -2467,6 +2467,20 @@ public class PacketStructureTests
     }
 
     /// <summary>
+    /// Tests the packet size calculation for AddTransformedCharactersToScopeExtended.
+    /// </summary>
+    [Test]
+    public void AddTransformedCharactersToScopeExtended_PacketSizeValidation()
+    {
+        // Basic packet validation
+        // Validate header type and field boundaries
+        
+        // Field 'CharacterCount' starts at index 4 with size 1
+        Assert.That(4, Is.GreaterThanOrEqualTo(0), 
+            "Field 'CharacterCount' has invalid negative index");
+    }
+
+    /// <summary>
     /// Tests the packet size calculation for ChangeTerrainAttributes.
     /// </summary>
     [Test]

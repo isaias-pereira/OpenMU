@@ -1,4 +1,4 @@
-﻿// <copyright file="NonCachingRepositoryProvider.cs" company="MUnique">
+// <copyright file="NonCachingRepositoryProvider.cs" company="MUnique">
 // Licensed under the MIT License. See LICENSE file in the project root for full license information.
 // </copyright>
 
@@ -36,6 +36,7 @@ internal class NonCachingRepositoryProvider : RepositoryProvider
 
         this.RegisterRepository(new AccountRepository(this._parent ?? this, this.LoggerFactory)); // never cache accounts, so we pass this
         this.RegisterRepository(new LetterBodyRepository(this._parent ?? this, this.LoggerFactory)); // never cache letters, so we pass this
+        this.RegisterRepository(new CashShopStorageItemRepository(this._parent ?? this, this.LoggerFactory)); // claim-targeted dependent data load (RC2/GATE A)
 
         this.RegisterMissingRepositoriesAsGeneric();
         base.Initialize();

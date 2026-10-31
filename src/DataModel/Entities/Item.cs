@@ -1,4 +1,4 @@
-﻿// <copyright file="Item.cs" company="MUnique">
+// <copyright file="Item.cs" company="MUnique">
 // Licensed under the MIT License. See LICENSE file in the project root for full license information.
 // </copyright>
 
@@ -67,6 +67,41 @@ public partial class Item
     /// Only applies, if this item is actually a trainable pet.
     /// </summary>
     public int PetExperience { get; set; }
+
+    /// <summary>
+    /// Gets or sets the UTC date and time when this item instance was activated, i.e. when its
+    /// contracted duration started counting.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Only items with a contracted duration (Cash Shop / XShop temporary items) carry these
+    /// timestamps. The duration starts counting <b>only</b> when the item is claimed from the
+    /// Cash Shop storage and delivered to the character inventory — never on purchase, gift
+    /// receipt, storage listing, login or equip.
+    /// </para>
+    /// <para>
+    /// <c>null</c> means "no expiration information": legacy items which were created before this
+    /// feature existed, and permanent items, are both represented this way and must never be
+    /// considered expired. The persisted timestamps are the source of truth, so the expiration
+    /// keeps counting across logout, server restart and container recreation.
+    /// </para>
+    /// <para>
+    /// <see cref="ExpiresAtUtc"/> is always <see cref="ActivatedAtUtc"/> plus the contracted
+    /// duration in seconds. The two values are written together, in the same save, and are never
+    /// renewed by trades, storage transfers or stack merges.
+    /// </para>
+    /// </remarks>
+    public DateTime? ActivatedAtUtc { get; set; }
+
+    /// <summary>
+    /// Gets or sets the UTC date and time when this item instance expires.
+    /// </summary>
+    /// <remarks>
+    /// A value less than or equal to the current UTC time means the item is expired and must not be
+    /// usable, equippable, tradable or able to grant attributes or effects. <c>null</c> means the
+    /// item never expires (legacy or permanent item) — see <see cref="ActivatedAtUtc"/>.
+    /// </remarks>
+    public DateTime? ExpiresAtUtc { get; set; }
 
     /// <summary>
     /// Assigns the values of another item to this item.

@@ -4,7 +4,9 @@
 
 namespace MUnique.OpenMU.GameServer.MessageHandler.CashShop;
 
+using System.Diagnostics;
 using System.Runtime.InteropServices;
+using Microsoft.Extensions.Logging;
 using MUnique.OpenMU.GameLogic;
 using MUnique.OpenMU.GameLogic.PlayerActions.CashShop;
 using MUnique.OpenMU.PlugIns;
@@ -21,6 +23,16 @@ using MUnique.OpenMU.PlugIns;
 internal class CashShopPointInfoRequestHandlerPlugIn : ISubPacketHandlerPlugIn
 {
     private readonly CashShopPointInfoAction _action = new();
+    private readonly ILogger<CashShopPointInfoRequestHandlerPlugIn> _logger;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="CashShopPointInfoRequestHandlerPlugIn"/> class.
+    /// </summary>
+    /// <param name="logger">The logger (temporary trace instrumentation, Rodada 2S).</param>
+    public CashShopPointInfoRequestHandlerPlugIn(ILogger<CashShopPointInfoRequestHandlerPlugIn> logger)
+    {
+        this._logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    }
 
     /// <inheritdoc/>
     public bool IsEncryptionExpected => false;
@@ -31,6 +43,9 @@ internal class CashShopPointInfoRequestHandlerPlugIn : ISubPacketHandlerPlugIn
     /// <inheritdoc/>
     public async ValueTask HandlePacketAsync(Player player, Memory<byte> packet)
     {
+        var stopwatch = Stopwatch.StartNew();
+        this._logger.LogInformation("[wcoin-trace] D2 01 RECEIVED from {Player} at {Timestamp:O}.", player.Name, DateTimeOffset.UtcNow);
         await this._action.SetPointInfoAsync(player).ConfigureAwait(false);
+        this._logger.LogInformation("[wcoin-trace] D2 01 ANSWERED in {ElapsedMs} ms for {Player}.", stopwatch.ElapsedMilliseconds, player.Name);
     }
 }

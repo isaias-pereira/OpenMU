@@ -34,6 +34,12 @@ public class CashShopCatalogService : ICashShopCatalogService, IDisposable
     private readonly SemaphoreSlim _reloadLock = new(1, 1);
     private bool _disposed;
 
+    // Stale-while-revalidate (Rodada 2V): último snapshot válido, servido enquanto o reload
+    // roda em segundo plano após a expiração do IMemoryCache.
+    private IReadOnlyList<CashShopCategory>? _lastSnapshotCategories;
+    private IReadOnlyList<CashShopPackage>? _lastSnapshotPackages;
+    private IReadOnlyList<CashShopProduct>? _lastSnapshotProducts;
+
     /// <summary>
     /// Initializes a new instance of the <see cref="CashShopCatalogService"/> class.
     /// </summary>
@@ -137,6 +143,22 @@ public class CashShopCatalogService : ICashShopCatalogService, IDisposable
     }
 
     /// <inheritdoc />
+    public async Task WarmupAsync(GameConfiguration gameConfiguration, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(gameConfiguration);
+
+        // GATE K1 (cold start): carrega o catálogo ANTES da primeira requisição do jogador.
+        // É o MESMO caminho do cache-miss (single-flight), executado antecipadamente no boot;
+        // custo = uma leitura das três tabelas no startup, zero custo por tick. A invalidação
+        // continua a existente (expiração absoluta de 1 h + InvalidateAndReloadCacheAsync +
+        // stale-while-revalidate), sem mudança de semântica.
+        await this.GetAllCategoriesCachedAsync(gameConfiguration, cancellationToken).ConfigureAwait(false);
+        await this.GetAllPackagesCachedAsync(gameConfiguration, cancellationToken).ConfigureAwait(false);
+        await this.GetAllProductsCachedAsync(gameConfiguration, cancellationToken).ConfigureAwait(false);
+        this._logger.LogInformation("Cash shop catalog warmup completed: catalog ready before the first player request.");
+    }
+
+    /// <inheritdoc />
     public async Task InvalidateAndReloadCacheAsync(GameConfiguration gameConfiguration, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(gameConfiguration);
@@ -192,7 +214,7 @@ public class CashShopCatalogService : ICashShopCatalogService, IDisposable
         }
 
         await this.EnsureCacheLoadedAsync(gameConfiguration, cancellationToken).ConfigureAwait(false);
-        return this._memoryCache.Get<IReadOnlyList<CashShopCategory>>(cacheKey) ?? Array.Empty<CashShopCategory>();
+        return this._memoryCache.Get<IReadOnlyList<CashShopCategory>>(cacheKey) ?? this._lastSnapshotCategories ?? Array.Empty<CashShopCategory>();
     }
 
     private async ValueTask<IReadOnlyList<CashShopPackage>> GetAllPackagesCachedAsync(GameConfiguration gameConfiguration, CancellationToken cancellationToken)
@@ -204,7 +226,7 @@ public class CashShopCatalogService : ICashShopCatalogService, IDisposable
         }
 
         await this.EnsureCacheLoadedAsync(gameConfiguration, cancellationToken).ConfigureAwait(false);
-        return this._memoryCache.Get<IReadOnlyList<CashShopPackage>>(cacheKey) ?? Array.Empty<CashShopPackage>();
+        return this._memoryCache.Get<IReadOnlyList<CashShopPackage>>(cacheKey) ?? this._lastSnapshotPackages ?? Array.Empty<CashShopPackage>();
     }
 
     private async ValueTask<IReadOnlyList<CashShopProduct>> GetAllProductsCachedAsync(GameConfiguration gameConfiguration, CancellationToken cancellationToken)
@@ -216,12 +238,59 @@ public class CashShopCatalogService : ICashShopCatalogService, IDisposable
         }
 
         await this.EnsureCacheLoadedAsync(gameConfiguration, cancellationToken).ConfigureAwait(false);
-        return this._memoryCache.Get<IReadOnlyList<CashShopProduct>>(cacheKey) ?? Array.Empty<CashShopProduct>();
+        return this._memoryCache.Get<IReadOnlyList<CashShopProduct>>(cacheKey) ?? this._lastSnapshotProducts ?? Array.Empty<CashShopProduct>();
     }
 
     private async Task EnsureCacheLoadedAsync(GameConfiguration gameConfiguration, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(gameConfiguration);
+        var categoryCacheKey = GetCacheKey(CacheKeyAllCategories, gameConfiguration);
+        var packageCacheKey = GetCacheKey(CacheKeyAllPackages, gameConfiguration);
+        var productCacheKey = GetCacheKey(CacheKeyAllProducts, gameConfiguration);
+
+        if (this._memoryCache.TryGetValue(categoryCacheKey, out _) &&
+            this._memoryCache.TryGetValue(packageCacheKey, out _) &&
+            this._memoryCache.TryGetValue(productCacheKey, out _))
+        {
+            return;
+        }
+
+        // Stale-while-revalidate (Rodada 2V): quando um snapshot anterior existe, a compra não
+        // deve pagar a reconstrução do catálogo (11 s medidos na Rodada 2U). O snapshot anterior
+        // é servido e a reconstrução roda em segundo plano COM tratamento de erro garantido —
+        // nunca fire-and-forget silencioso. Sem snapshot anterior (primeira carga), a carga
+        // síncrona original é mantida: comprar sem catálogo não é aceitável.
+        if (this._lastSnapshotCategories is not null && this._lastSnapshotPackages is not null && this._lastSnapshotProducts is not null)
+        {
+            this._logger.LogWarning(
+                "CashShop catalog cache expired; serving the previous snapshot while the reload runs (categories {Categories}, packages {Packages}, products {Products}).",
+                this._lastSnapshotCategories.Count,
+                this._lastSnapshotPackages.Count,
+                this._lastSnapshotProducts.Count);
+            _ = this.ReloadSnapshotControlledAsync(gameConfiguration);
+            return;
+        }
+
+        await this.EnsureCacheLoadedLockedAsync(gameConfiguration, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Reconstrói o snapshot em segundo plano com tratamento de erro garantido.
+    /// </summary>
+    private async Task ReloadSnapshotControlledAsync(GameConfiguration gameConfiguration)
+    {
+        try
+        {
+            await this.EnsureCacheLoadedLockedAsync(gameConfiguration, CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            this._logger.LogError(exception, "The background CashShop catalog reload failed; the previous snapshot remains in use.");
+        }
+    }
+
+    private async Task EnsureCacheLoadedLockedAsync(GameConfiguration gameConfiguration, CancellationToken cancellationToken)
+    {
         var categoryCacheKey = GetCacheKey(CacheKeyAllCategories, gameConfiguration);
         var packageCacheKey = GetCacheKey(CacheKeyAllPackages, gameConfiguration);
         var productCacheKey = GetCacheKey(CacheKeyAllProducts, gameConfiguration);
@@ -260,6 +329,9 @@ public class CashShopCatalogService : ICashShopCatalogService, IDisposable
         this._memoryCache.Set(GetCacheKey(CacheKeyAllCategories, gameConfiguration), (IReadOnlyList<CashShopCategory>)categories, cacheEntryOptions);
         this._memoryCache.Set(GetCacheKey(CacheKeyAllPackages, gameConfiguration), (IReadOnlyList<CashShopPackage>)packages, cacheEntryOptions);
         this._memoryCache.Set(GetCacheKey(CacheKeyAllProducts, gameConfiguration), (IReadOnlyList<CashShopProduct>)products, cacheEntryOptions);
+        this._lastSnapshotCategories = categories;
+        this._lastSnapshotPackages = packages;
+        this._lastSnapshotProducts = products;
 
         this._logger.LogInformation(
             "CashShop catalog snapshot loaded for configuration {ConfigurationId}: {CategoriesCount} categories, {PackagesCount} packages, {ProductsCount} products.",

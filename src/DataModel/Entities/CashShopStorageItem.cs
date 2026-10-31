@@ -143,6 +143,31 @@ public class CashShopStorageItem
     public DateTime PurchasedAt { get; set; } = DateTime.UtcNow;
 
     /// <summary>
+    /// Gets or sets a duração contratada do item, em segundos, resolvida do catálogo no momento
+    /// da compra (ou do presente) e congelada nesta linha.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Este é o único ponto em que a duração entra no servidor: ela vem do
+    /// <c>CashShopSelectionResolver</c> (PropertySeq 10 / UnitType 386 = segundos), nunca de um
+    /// campo enviado pelo cliente e nunca de uma nova leitura do catálogo no claim — se o catálogo
+    /// mudar depois da compra, o item já pago mantém a duração contratada.
+    /// </para>
+    /// <para>
+    /// A duração <b>não</b> começa a contar aqui: ela é congelada na compra/presente e só passa a
+    /// contar quando o item é retirado do storage (claim), momento em que o
+    /// <see cref="Item.ActivatedAtUtc"/> e <see cref="Item.ExpiresAtUtc"/> são gravados junto com
+    /// a entrega, no mesmo save.
+    /// </para>
+    /// <para>
+    /// <c>null</c> = item permanente ou linha antiga (anterior à Fase 10): nunca expira e nunca
+    /// recebe valor retroativo. <c>0</c> = permanente contratado explicitamente pelo catálogo.
+    /// Positivo = duração contratada em segundos.
+    /// </para>
+    /// </remarks>
+    public int? DurationSeconds { get; set; }
+
+    /// <summary>
     /// Gets or sets o nome do <b>personagem</b> remetente de um presente
     /// (aba de presentes do cliente, campo <c>chSendUserName</c> do D2 0E).
     /// </summary>

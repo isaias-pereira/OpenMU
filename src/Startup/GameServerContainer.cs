@@ -1,14 +1,16 @@
-﻿// <copyright file="GameServerContainer.cs" company="MUnique">
+// <copyright file="GameServerContainer.cs" company="MUnique">
 // Licensed under the MIT License. See LICENSE file in the project root for full license information.
 // </copyright>
 
 namespace MUnique.OpenMU.Startup;
 
 using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using MUnique.OpenMU.DataModel.Configuration;
 using MUnique.OpenMU.GameLogic;
+using MUnique.OpenMU.GameLogic.CashShop;
 using MUnique.OpenMU.GameServer;
 using MUnique.OpenMU.Interfaces;
 using MUnique.OpenMU.Network;
@@ -35,6 +37,7 @@ public sealed class GameServerContainer : ServerContainerBase, IGameServerInstan
     private readonly IConfigurationChangeMediator _changeMediator;
     private readonly IDictionary<int, IGameServer> _gameServers;
     private readonly IEventPublisher _eventPublisher;
+    private readonly ICashShopCatalogService _cashShopCatalogService;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="GameServerContainer" /> class.
@@ -63,7 +66,8 @@ public sealed class GameServerContainer : ServerContainerBase, IGameServerInstan
         IIpAddressResolver ipResolver,
         PlugInManager plugInManager,
         SetupService setupService,
-        IConfigurationChangeMediator changeMediator)
+        IConfigurationChangeMediator changeMediator,
+        ICashShopCatalogService cashShopCatalogService)
         : base(setupService, loggerFactory.CreateLogger<GameServerContainer>())
     {
         this._loggerFactory = loggerFactory;
@@ -77,6 +81,7 @@ public sealed class GameServerContainer : ServerContainerBase, IGameServerInstan
         this._ipResolver = ipResolver;
         this._plugInManager = plugInManager;
         this._changeMediator = changeMediator;
+        this._cashShopCatalogService = cashShopCatalogService;
 
         this._logger = this._loggerFactory.CreateLogger<GameServerContainer>();
         this._eventPublisher = new InMemoryEventPublisher(this._gameServers, this._friendServer, this._guildServer);
@@ -175,6 +180,23 @@ public sealed class GameServerContainer : ServerContainerBase, IGameServerInstan
         this._servers.Add(gameServer);
         this._gameServers.Add(gameServer.Id, gameServer);
         this._logger.LogInformation($"Game Server {gameServer.Id} - [{gameServer.Description}] initialized");
+
+        // GATE K1 (cold start): pré-carrega o catálogo da Cash Shop em segundo plano, ANTES da
+        // primeira requisição de um jogador — o mesmo caminho do cache-miss, antecipado para o
+        // boot. Falha do warmup é logada e não impede o servidor de subir (o cache-miss normal
+        // continua funcionando como antes).
+        _ = Task.Run(
+            async () =>
+            {
+                try
+                {
+                    await this._cashShopCatalogService.WarmupAsync(gameServer.Context.Configuration).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    this._logger.LogWarning(ex, "Cash shop catalog warmup failed; the first request will load it on demand.");
+                }
+            });
     }
 
     private async ValueTask LoadGameClientDefinitionsAsync(IContext persistenceContext)

@@ -217,6 +217,12 @@ public sealed class CashShopGiftService : ICashShopGiftService
                 storageItem.GiftSender = player.SelectedCharacter!.Name;
                 storageItem.GiftMessage = NormalizeGiftMessage(giftText);
 
+                // Fase 10 (expiração real): a duração contratada segue com o presente para a linha
+                // do destinatário, congelada do catálogo no momento do envio — o destinatário
+                // recebe exatamente o que foi comprado, mesmo que o catálogo mude depois. A
+                // duração não ativa aqui; a contagem começa no claim do destinatário.
+                storageItem.DurationSeconds = selection.DurationSeconds;
+
                 debit = await WCoinService.TryDebit(
                         player.PersistenceContext,
                         account.Id,

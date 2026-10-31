@@ -7,6 +7,7 @@ namespace MUnique.OpenMU.GameLogic.PlayerActions.CashShop;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -103,12 +104,26 @@ public sealed class CashShopBuyService : ICashShopBuyService
             return PurchaseResult.Failed(PurchaseErrorCode.CannotBeBought, "Mileage purchases are not supported.");
         }
 
+        // Temporary trace instrumentation (Rodada 2S): UTC timestamps + monotonic durations.
+        var correlationId = Guid.NewGuid().ToString("N")[..8];
+        var overallStopwatch = Stopwatch.StartNew();
+        this._logger.LogInformation(
+            "[buy-trace {CorrelationId}] purchase STARTED for {Player}: package={Package}, display={Display}, price={Price}, item={Item}, coin={Coin}.",
+            correlationId,
+            player.Name,
+            packageProductSeq,
+            productDisplaySeq,
+            priceSeq,
+            itemCode,
+            coinType);
+
         // Serialise per account so two concurrent requests cannot both pass the balance check.
         using var purchaseLock = await this._purchaseLocks.GetOrAdd(account.Id, _ => new AsyncLock()).LockAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             // The catalog rules live in the resolver, shared with the gift flow (D2 04), so both
             // flows accept and reject exactly the same selections.
+            var resolverStopwatch = Stopwatch.StartNew();
             var selection = await this._selectionResolver.ResolveAsync(
                     player,
                     packageProductSeq,
@@ -119,8 +134,19 @@ public sealed class CashShopBuyService : ICashShopBuyService
                     mileageFlag,
                     requireGiftable: false,
                     cancellationToken).ConfigureAwait(false);
+            resolverStopwatch.Stop();
+            this._logger.LogInformation(
+                "[buy-trace {CorrelationId}] resolver FINISHED in {ElapsedMs} ms: success={Success}.",
+                correlationId,
+                resolverStopwatch.ElapsedMilliseconds,
+                selection.Success);
             if (!selection.Success)
             {
+                this._logger.LogWarning(
+                    "[buy-trace {CorrelationId}] purchase REFUSED by resolver: {ErrorCode} {ErrorMessage}.",
+                    correlationId,
+                    selection.ErrorCode,
+                    selection.ErrorMessage);
                 return PurchaseResult.Failed(selection.ErrorCode, selection.ErrorMessage ?? "The selection could not be resolved.");
             }
 
@@ -183,6 +209,13 @@ public sealed class CashShopBuyService : ICashShopBuyService
                     storageItem.CashPoint = price;
                     storageItem.ItemType = CashShopStorageItemType.Product;
                     storageItem.Item = item;
+
+                    // Fase 10 (expiração real): a duração contratada é congelada na compra, vinda
+                    // do catálogo via resolver (PropertySeq 10 / UnitType 386) — nunca de um campo
+                    // do cliente e nunca de uma nova leitura do catálogo no claim. 0 = permanente
+                    // explícito; NULL fica para linhas legadas anteriores à Fase 10. A duração
+                    // NÃO ativa aqui: a contagem só começa no claim.
+                    storageItem.DurationSeconds = selection.DurationSeconds;
                     staged.Add((storageItem, item));
                 }
 
@@ -192,6 +225,10 @@ public sealed class CashShopBuyService : ICashShopBuyService
                         price,
                         WCoinTransactionType.Purchase,
                         $"CashShop Purchase: Package {packageProductSeq}, Price {selectedPriceSequence} ({selection.ProductName})").ConfigureAwait(false);
+                this._logger.LogInformation(
+                    "[buy-trace {CorrelationId}] debit ATTEMPTED: {Outcome}.",
+                    correlationId,
+                    debit is null ? "REFUSED (insufficient balance)" : $"debited {price}");
                 if (debit is null)
                 {
                     // Undo the staged rows so nothing dirty is left behind for a later save.
@@ -202,7 +239,15 @@ public sealed class CashShopBuyService : ICashShopBuyService
                 // One SaveChangesAsync commits the deliveries, the reservations and the debit in a
                 // single database transaction, so the player is never charged for an item that
                 // was not persisted.
-                if (!await player.PersistenceContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false))
+                var saveStopwatch = Stopwatch.StartNew();
+                var saveResult = await player.PersistenceContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+                saveStopwatch.Stop();
+                this._logger.LogInformation(
+                    "[buy-trace {CorrelationId}] SaveChangesAsync FINISHED in {ElapsedMs} ms: committed={Committed}.",
+                    correlationId,
+                    saveStopwatch.ElapsedMilliseconds,
+                    saveResult);
+                if (!saveResult)
                 {
                     this._logger.LogError("The cash shop purchase was not committed for {Player}.", player.Name);
                     return await this.DiscardAndReportAsync(player, staged, debit, "The cash shop purchase could not be completed.").ConfigureAwait(false);
@@ -240,6 +285,12 @@ public sealed class CashShopBuyService : ICashShopBuyService
                 return await this.DiscardAndReportAsync(player, staged, debit, "The cash shop purchase could not be completed.").ConfigureAwait(false);
             }
 
+            overallStopwatch.Stop();
+            this._logger.LogInformation(
+                "[buy-trace {CorrelationId}] purchase SUCCEEDED in {ElapsedMs} ms total ({Product}).",
+                correlationId,
+                overallStopwatch.ElapsedMilliseconds,
+                selection.ProductName);
             return PurchaseResult.Successful(selection.ProductName ?? string.Empty);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

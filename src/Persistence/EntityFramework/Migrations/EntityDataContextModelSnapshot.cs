@@ -680,6 +680,9 @@ namespace MUnique.OpenMU.Persistence.EntityFramework.Migrations
                     b.Property<double>("CashPoint")
                         .HasColumnType("double precision");
 
+                    b.Property<int?>("DurationSeconds")
+                        .HasColumnType("integer");
+
                     b.Property<string>("GiftMessage")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
@@ -1824,11 +1827,17 @@ namespace MUnique.OpenMU.Persistence.EntityFramework.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime?>("ActivatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<Guid?>("DefinitionId")
                         .HasColumnType("uuid");
 
                     b.Property<double>("Durability")
                         .HasColumnType("double precision");
+
+                    b.Property<DateTime?>("ExpiresAtUtc")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<bool>("HasSkill")
                         .HasColumnType("boolean");
