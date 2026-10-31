@@ -1,4 +1,4 @@
-﻿// <copyright file="BaseItemCraftingHandler.cs" company="MUnique">
+// <copyright file="BaseItemCraftingHandler.cs" company="MUnique">
 // Licensed under the MIT License. See LICENSE file in the project root for full license information.
 // </copyright>
 
@@ -6,6 +6,7 @@ namespace MUnique.OpenMU.GameLogic.PlayerActions.Items;
 
 using MUnique.OpenMU.DataModel.Configuration.ItemCrafting;
 using MUnique.OpenMU.DataModel.Configuration.Items;
+using MUnique.OpenMU.GameLogic.CashShop;
 using MUnique.OpenMU.GameLogic.PlugIns;
 using MUnique.OpenMU.GameLogic.Views.Inventory;
 using MUnique.OpenMU.GameLogic.Views.NPC;
@@ -27,6 +28,18 @@ public abstract class BaseItemCraftingHandler : IItemCraftingHandler
         if (this.TryGetRequiredItems(player, out var items, out var successRate) is { } error)
         {
             return (error, null);
+        }
+
+        // Fase 10 (GATE F): um item temporário expirado não pode ser usado como material de
+        // craft — a mistura é recusada ANTES de qualquer consumo ou cobrança, e o material
+        // permanece onde está. Sem isso, o prazo do material seria destruído junto com ele no
+        // mix (MixResult.Disappear) ou transferido disfarçado no resultado.
+        if (items.SelectMany(link => link.Items).Any(ItemExpiryPolicy.IsExpired))
+        {
+            player.Logger.LogWarning(
+                "Crafting refused for {Player}: an expired temporary item was used as material.",
+                player.Name);
+            return (CraftingResult.Failed, null);
         }
 
         player.Logger.LogInformation("Crafting success chance: {successRate} %", successRate);

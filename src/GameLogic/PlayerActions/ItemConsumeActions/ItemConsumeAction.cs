@@ -1,10 +1,11 @@
-﻿// <copyright file="ItemConsumeAction.cs" company="MUnique">
+// <copyright file="ItemConsumeAction.cs" company="MUnique">
 // Licensed under the MIT License. See LICENSE file in the project root for full license information.
 // </copyright>
 
 namespace MUnique.OpenMU.GameLogic.PlayerActions.ItemConsumeActions;
 
 using System.ComponentModel;
+using MUnique.OpenMU.GameLogic.CashShop;
 using MUnique.OpenMU.GameLogic.PlugIns;
 using MUnique.OpenMU.GameLogic.Views.Inventory;
 
@@ -26,6 +27,15 @@ public class ItemConsumeAction
     {
         var item = player.Inventory?.GetItem(inventorySlot);
         if (item?.Definition is null)
+        {
+            await player.InvokeViewPlugInAsync<IRequestedItemConsumptionFailedPlugIn>(p => p.RequestedItemConsumptionFailedAsync()).ConfigureAwait(false);
+            return;
+        }
+
+        // Fase 10 (GATE F): um item temporário expirado não pode ser usado — o consumo é
+        // recusado e o item permanece no inventário até a limpeza (GATE G) o remover. Nada do
+        // que o item faria (efeito, melhoria de alvo, consumo de durabilidade) acontece.
+        if (item.IsExpired())
         {
             await player.InvokeViewPlugInAsync<IRequestedItemConsumptionFailedPlugIn>(p => p.RequestedItemConsumptionFailedAsync()).ConfigureAwait(false);
             return;

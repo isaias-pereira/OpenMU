@@ -1,4 +1,4 @@
-﻿// <copyright file="MoveItemAction.cs" company="MUnique">
+// <copyright file="MoveItemAction.cs" company="MUnique">
 // Licensed under the MIT License. See LICENSE file in the project root for full license information.
 // </copyright>
 
@@ -8,6 +8,7 @@ using System.ComponentModel;
 using MUnique.OpenMU.DataModel.Configuration;
 using Microsoft.Extensions.Logging;
 using MUnique.OpenMU.DataModel.Configuration.Items;
+using MUnique.OpenMU.GameLogic.CashShop;
 using MUnique.OpenMU.GameLogic.PlugIns;
 using MUnique.OpenMU.GameLogic.Views.Inventory;
 using MUnique.OpenMU.GameLogic.Views.Trade;
@@ -53,6 +54,17 @@ public class MoveItemAction
         {
             // Item not found
             await player.InvokeViewPlugInAsync<IItemMoveFailedPlugIn>(p => p.ItemMoveFailedAsync(null)).ConfigureAwait(false);
+            return;
+        }
+
+        // Fase 10 (GATE F — expiração real): um item temporário expirado fica CONGELADO onde
+        // está — não é equipado, não entra na janela de trade, não vai ao baú, não circula pelo
+        // inventário. É o caminho central que cobre todos os movimentos de uma vez (o trade e o
+        // baú passam por esta action). O item só sai daqui pela limpeza de expiração (GATE G),
+        // que o remove/desativa sem passar por este movimento do jogador.
+        if (item.IsExpired())
+        {
+            await player.InvokeViewPlugInAsync<IItemMoveFailedPlugIn>(p => p.ItemMoveFailedAsync(item)).ConfigureAwait(false);
             return;
         }
 
@@ -305,6 +317,16 @@ public class MoveItemAction
         {
             var insidePlayerInventory = toStorage.Storage == player.Inventory && fromStorage.Storage == player.Inventory;
             if (!insidePlayerInventory)
+            {
+                return Movement.None;
+            }
+
+            // Fase 10 (GATE H): mesclar stacks destruiria o prazo contratado de um dos lados —
+            // a durabilidade é absorvida e a instância some (CompleteStack) ou é parcialmente
+            // alterada (PartiallyStack). Um item com prazo não pode nem absorver nem ser
+            // absorvido: as instâncias precisam permanecer separadas para o prazo de cada uma
+            // continuar valendo. Itens permanentes entre si seguem se mesclando.
+            if (item.IsTemporary() || targetItem.IsTemporary())
             {
                 return Movement.None;
             }

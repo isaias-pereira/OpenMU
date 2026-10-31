@@ -1,9 +1,10 @@
-﻿// <copyright file="TalkNpcAction.cs" company="MUnique">
+// <copyright file="TalkNpcAction.cs" company="MUnique">
 // Licensed under the MIT License. See LICENSE file in the project root for full license information.
 // </copyright>
 
 namespace MUnique.OpenMU.GameLogic.PlayerActions;
 
+using MUnique.OpenMU.GameLogic.CashShop;
 using MUnique.OpenMU.GameLogic.MiniGames;
 using MUnique.OpenMU.GameLogic.NPC;
 using MUnique.OpenMU.GameLogic.PlayerActions.Quests;
@@ -101,6 +102,11 @@ public class TalkNpcAction
                 // lazily creating it and clamping the number to the VIP-tier access (anti-bypass).
                 var vaultStorage = await VaultAccess.GetOrCreateVaultStorageAsync(player).ConfigureAwait(false);
                 player.Vault = VaultAccess.CreateRuntimeStorage(player, vaultStorage);
+
+                // Fase 10 (GATE G — reconciliação offline do warehouse): o baú acabou de ser
+                // carregado da persistência; itens temporários que expiraram fora do jogo são
+                // removidos agora, antes de o cliente ver o conteúdo. Idempotente.
+                await ExpiredTemporaryItemService.SweepExpiredItemsAsync(player).ConfigureAwait(false);
                 await player.InvokeViewPlugInAsync<IShowVaultPlugIn>(p => p.ShowVaultAsync()).ConfigureAwait(false);
                 break;
             case NpcWindow.GuildMaster:

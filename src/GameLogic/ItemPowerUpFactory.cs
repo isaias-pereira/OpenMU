@@ -1,4 +1,4 @@
-﻿// <copyright file="ItemPowerUpFactory.cs" company="MUnique">
+// <copyright file="ItemPowerUpFactory.cs" company="MUnique">
 // Licensed under the MIT License. See LICENSE file in the project root for full license information.
 // </copyright>
 
@@ -8,6 +8,7 @@ using MUnique.OpenMU.AttributeSystem;
 using MUnique.OpenMU.DataModel.Attributes;
 using MUnique.OpenMU.DataModel.Configuration.Items;
 using MUnique.OpenMU.GameLogic.Attributes;
+using MUnique.OpenMU.GameLogic.CashShop;
 using MUnique.OpenMU.Persistence;
 
 /// <summary>
@@ -36,6 +37,15 @@ public class ItemPowerUpFactory : IItemPowerUpFactory
         }
 
         if (item.Durability <= 0)
+        {
+            yield break;
+        }
+
+        // Fase 10 (GATE F): um item temporário expirado não concede NENHUM atributo — nem os
+        // básicos, nem opções, nem bônus de conjunto. Mesmo que ele esteja equipado (carregado
+        // do banco por um caminho alternativo ou equipado antes de expirar), o poder do item
+        // cessa no prazo contratado. Itens legados/permanentes (sem prazo) não são afetados.
+        if (item.IsExpired())
         {
             yield break;
         }
@@ -95,7 +105,7 @@ public class ItemPowerUpFactory : IItemPowerUpFactory
         GameConfiguration gameConfiguration)
     {
         var activeItems = equippedItems
-            .Where(i => i.Durability > 0)
+            .Where(i => i.Durability > 0 && !i.IsExpired())
             .ToList();
         var itemGroups = activeItems
             .SelectMany(i => i.ItemSetGroups)

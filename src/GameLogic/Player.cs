@@ -11,6 +11,7 @@ using System.Threading;
 using MUnique.OpenMU.AttributeSystem;
 using MUnique.OpenMU.DataModel.Attributes;
 using MUnique.OpenMU.GameLogic.Attributes;
+using MUnique.OpenMU.GameLogic.CashShop;
 using MUnique.OpenMU.GameLogic.GuildWar;
 using MUnique.OpenMU.GameLogic.MiniGames;
 using MUnique.OpenMU.GameLogic.MuHelper;
@@ -2707,6 +2708,13 @@ public class Player : AsyncDisposable, IBucketMapObserver, IAttackable, IAttacke
         this.ShopStorage = new ShopStorage(selectedCharacter);
         this.TemporaryStorage = new Storage(InventoryConstants.TemporaryStorageSize, new TemporaryItemStorage());
         this.Vault = null; // vault storage is getting set when vault npc is opened.
+
+        // Fase 10 (GATE G — reconciliação offline): itens temporários que expiraram enquanto o
+        // personagem estava fora são removidos AGORA, antes de o cliente receber a lista de
+        // inventário — o jogador nunca chega a ver o item expirado. Idempotente e sem custo
+        // quando nada expirou.
+        await ExpiredTemporaryItemService.SweepExpiredItemsAsync(this).ConfigureAwait(false);
+
         this.SkillList = new SkillList(this);
         this.SetReclaimableAttributesBeforeEnterGame();
         if (this.DetermineComboDefinition() is { } comboDefinition)

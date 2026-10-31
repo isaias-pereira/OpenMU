@@ -9,6 +9,7 @@ using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Globalization;
 using System.Threading;
+using MUnique.OpenMU.GameLogic.CashShop;
 using MUnique.OpenMU.GameLogic.MiniGames;
 using MUnique.OpenMU.GameLogic.PlugIns;
 using MUnique.OpenMU.GameLogic.Views;
@@ -510,7 +511,7 @@ public class GameContext : AsyncDisposable, IGameContext
             {
                 if (player.SelectedCharacter != null && !player.PlayerState.CurrentState.IsDisconnectedOrFinished())
                 {
-                    return player.RegenerateAsync();
+                    return this.RecoverPlayerAsync(player);
                 }
 
                 return Task.CompletedTask;
@@ -521,6 +522,19 @@ public class GameContext : AsyncDisposable, IGameContext
             // This should never happen as we already handle Exceptions in player.RegenerateAsync.
             // However, if the player disconnects in the meantime, it could happen :-).
         }
+    }
+
+    /// <summary>
+    /// Runs the periodic per-player work: the attribute regeneration and, since Fase 10, the
+    /// expiration cleanup of temporary Cash Shop items (GATE G). The cleanup is an in-memory
+    /// check per item — the database is only touched when an item actually expired.
+    /// </summary>
+    /// <param name="player">The player to recover.</param>
+    /// <returns>The async task.</returns>
+    private async Task RecoverPlayerAsync(Player player)
+    {
+        await player.RegenerateAsync().ConfigureAwait(false);
+        await ExpiredTemporaryItemService.SweepExpiredItemsAsync(player).ConfigureAwait(false);
     }
 
     private ValueTask PlayerEnteredWorldAsync(Player player)

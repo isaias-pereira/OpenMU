@@ -1,9 +1,10 @@
-﻿// <copyright file="ItemStackAction.cs" company="MUnique">
+// <copyright file="ItemStackAction.cs" company="MUnique">
 // Licensed under the MIT License. See LICENSE file in the project root for full license information.
 // </copyright>
 
 namespace MUnique.OpenMU.GameLogic.PlayerActions.Items;
 
+using MUnique.OpenMU.GameLogic.CashShop;
 using MUnique.OpenMU.GameLogic.Views.Inventory;
 
 /// <summary>
@@ -39,6 +40,16 @@ public class ItemStackAction
         var jewels = player.Inventory.Items.Where(item => item.Definition == mix.SingleJewel).Take(stackSize).ToList();
         if (jewels.Count == stackSize)
         {
+            // Fase 10 (GATE H): empilhar destruiria o prazo contratado das joias individuais (a
+            // instância some e nasce outra). Joia com prazo contratado não participa da pilha.
+            if (jewels.Any(j => j.IsTemporary()))
+            {
+                player.Logger.LogWarning(
+                    "Stacking refused for {Player}: a temporary item with a contracted duration cannot be stacked.",
+                    player.Name);
+                return;
+            }
+
             foreach (var jewel in jewels)
             {
                 await player.Inventory.RemoveItemAsync(jewel).ConfigureAwait(false);
@@ -88,6 +99,16 @@ public class ItemStackAction
         if (stacked.Definition != mix.MixedJewel)
         {
             await player.ShowLocalizedBlueMessageAsync(nameof(PlayerMessage.SelectedItemIsNotStackedJewel)).ConfigureAwait(false);
+            return;
+        }
+
+        // Fase 10 (GATE H): desempilhar cria joias NOVAS sem o metadado de prazo da pilha —
+        // duplicaria o item sem expiração. Pilha com prazo contratado não se desempilha.
+        if (stacked.IsTemporary())
+        {
+            player.Logger.LogWarning(
+                "Unstacking refused for {Player}: a stacked item with a contracted duration cannot be unstacked.",
+                player.Name);
             return;
         }
 
